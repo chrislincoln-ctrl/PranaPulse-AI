@@ -51,10 +51,11 @@ function RosterMemberList({
   const advisoryMap = new Map(advisories.map((a) => [a.id, a]));
   return (
     <ul className="divide-y divide-rule">
-      {members.map((member) => (
+      {members.map((member, index) => (
         <FamilyMemberRow
           key={member.id}
           member={member}
+          memberNumber={index + 1}
           advisory={advisoryMap.get(member.id)}
           language={language}
           canRemove={members.length > VALIDATION_BOUNDS.MIN_FAMILY_MEMBERS}

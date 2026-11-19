@@ -1,4 +1,4 @@
-import { Trash2 } from 'lucide-react';
+import { Trash2, UserRound } from 'lucide-react';
 import { memo, type ReactElement } from 'react';
 import { VALIDATION_BOUNDS } from '../config/constants.js';
 import { SLIDER_LIMITS } from '../config/uiConstants.js';
@@ -15,6 +15,7 @@ import { SelectField } from './FormFields.js';
 
 export interface FamilyMemberRowProps {
   readonly member: FamilyMemberInput;
+  readonly memberNumber: number;
   readonly advisory: FamilyMemberAdvisory | undefined;
   readonly language: SupportedLanguage;
   readonly canRemove: boolean;
@@ -169,6 +170,28 @@ function MemberExposureRow(props: FamilyMemberRowProps): ReactElement {
   );
 }
 
+function MemberBadgeHeader({
+  memberNumber,
+  prefix,
+}: {
+  readonly memberNumber: number;
+  readonly prefix: string;
+}): ReactElement {
+  return (
+    <div className="mb-2.5 flex items-center gap-2">
+      <span
+        aria-hidden="true"
+        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-rule-2 bg-paper-3 text-accent"
+      >
+        <UserRound className="h-3.5 w-3.5" />
+      </span>
+      <span className="measured text-xs font-semibold text-ink">
+        {prefix} {String(memberNumber)}
+      </span>
+    </div>
+  );
+}
+
 /**
  * Editable 2-row household member card displaying personalized pulmonary dose and protective status
  * with "Other (Add your own)" AI vulnerability profile verification.
@@ -178,6 +201,7 @@ export const FamilyMemberRow = memo(function FamilyMemberRow(
 ): ReactElement {
   return (
     <li className="py-4">
+      <MemberBadgeHeader memberNumber={props.memberNumber} prefix={props.t.newMemberPrefix} />
       <MemberIdentityRow {...props} />
       <MemberExposureRow {...props} />
     </li>

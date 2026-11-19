@@ -193,9 +193,13 @@ describe('Phase 4 full Console UI, hooks & accessibility verification', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: /Next: Family Routine/i }));
 
-    // 1. Routine tab interactions: add member & switch fuel
+    // 1. Routine tab interactions: verify Member 1..3 labels, add Member 4 & switch fuel
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/Family Routine/i);
+    expect(screen.getByText('Member 1')).toBeInTheDocument();
+    expect(screen.getByText('Member 2')).toBeInTheDocument();
+    expect(screen.getByText('Member 3')).toBeInTheDocument();
     fireEvent.click(await screen.findByRole('button', { name: /Add member/i }));
+    expect(screen.getByText('Member 4')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Member 4')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/Cooking fuel/i), { target: { value: 'induction' } });
 
