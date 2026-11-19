@@ -177,7 +177,7 @@ function RwaImpactActions({
   return (
     <>
       <RwaMetricsStrip rwa={rwa} transitShiftShare={transitShiftShare} t={t} />
-      <pre className="surface-recessed measured mt-4 overflow-x-auto p-3 text-xs whitespace-pre-wrap text-ink-2">
+      <pre className="surface-recessed measured mt-4 overflow-x-auto p-3 text-xs break-words whitespace-pre-wrap text-ink-2">
         {bulletinPreview}
       </pre>
       <div className="mt-4 flex flex-wrap gap-2">
@@ -224,8 +224,11 @@ export const CommunityAdvisorView = memo(function CommunityAdvisorView({
   const bulletinText = formatBulletinText(input, telemetry, rwa, t);
 
   return (
-    <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-      <section aria-labelledby="rwa-heading" className="surface-hairline p-6 lg:col-span-5">
+    <div className="grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-12">
+      <section
+        aria-labelledby="rwa-heading"
+        className="surface-hairline min-w-0 p-4 sm:p-6 lg:col-span-5"
+      >
         <h2 id="rwa-heading" className="text-ink">
           {t.rwaSectionHeading}
         </h2>

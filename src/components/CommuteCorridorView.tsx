@@ -169,8 +169,8 @@ function ParetoMatrixTable({
   const maxDoseUg = Math.max(1, ...commuteOptions.map((item) => item.personalInhaledUg));
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-left text-sm">
+    <div className="-mx-1 overflow-x-auto px-1 pb-1">
+      <table className="w-full min-w-[460px] border-collapse text-left text-xs sm:text-sm">
         <caption className="mb-2 text-left text-xs text-ink-2">{t.paretoHeading}</caption>
         <thead>
           <tr className="border-b border-rule text-xs text-muted">
@@ -218,8 +218,11 @@ export const CommuteCorridorView = memo(function CommuteCorridorView({
   t,
 }: CommuteCorridorViewProps): ReactElement {
   return (
-    <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-      <section aria-labelledby="commute-heading" className="surface-hairline p-6 lg:col-span-6">
+    <div className="grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-12">
+      <section
+        aria-labelledby="commute-heading"
+        className="surface-hairline min-w-0 p-4 sm:p-6 lg:col-span-6"
+      >
         <h2 id="commute-heading" className="text-ink">
           {t.commuteSectionHeading}
         </h2>

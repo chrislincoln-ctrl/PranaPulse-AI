@@ -95,7 +95,7 @@ function ChatTranscript({
   return (
     <div
       aria-live="polite"
-      className="surface-recessed mt-4 max-h-64 space-y-3 overflow-y-auto p-4 text-sm"
+      className="surface-recessed mt-4 max-h-64 space-y-3 overflow-y-auto p-3.5 text-sm break-words sm:p-4"
     >
       {turns.map((turn) => (
         <div
@@ -136,7 +136,7 @@ function AdvisorChipsBar({
           onClick={() => {
             onSelectChip(chip);
           }}
-          className="btn-secondary touch-target text-left text-xs"
+          className="btn-secondary touch-target w-full px-3 py-2 text-left text-xs leading-snug whitespace-normal sm:w-auto"
         >
           {chip}
         </button>
@@ -186,6 +186,33 @@ function AdvisorQueryForm({
   );
 }
 
+function useAdvisorSubmission(
+  stream: ReturnType<typeof useAssistantStream>,
+  context: StreamContext,
+) {
+  const [question, setQuestion] = useState('');
+  const submitQuery = (event: SyntheticEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    const trimmed = question.trim();
+    if (!trimmed) {
+      return;
+    }
+    setQuestion('');
+    void stream.sendQuestion(trimmed, context);
+  };
+  return {
+    question,
+    setQuestion,
+    submitQuery,
+    sendChip: (chip: string): void => {
+      void stream.sendQuestion(chip, context);
+    },
+    sendGroq: (promptText: string): void => {
+      void stream.sendQuestion(promptText, context, 'groq');
+    },
+  };
+}
+
 /**
  * Streaming conversational air quality Q&A panel grounded in current city telemetry.
  */
@@ -195,37 +222,28 @@ export const AdvisorPanel = memo(function AdvisorPanel({
   groqConfigured = false,
   t,
 }: AdvisorPanelProps): ReactElement {
-  const [question, setQuestion] = useState('');
   const stream = useAssistantStream();
-  const context = buildStreamContext(input, telemetry);
-
-  const submitQuery = (event: SyntheticEvent<HTMLFormElement>): void => {
-    event.preventDefault();
-    const trimmed = question.trim();
-    if (trimmed) {
-      setQuestion('');
-      void stream.sendQuestion(trimmed, context);
-    }
-  };
+  const actions = useAdvisorSubmission(stream, buildStreamContext(input, telemetry));
 
   return (
-    <section aria-labelledby="advisor-heading" className="surface-hairline p-6 lg:col-span-7">
+    <section
+      aria-labelledby="advisor-heading"
+      className="surface-hairline min-w-0 p-4 sm:p-6 lg:col-span-7"
+    >
       <h3 id="advisor-heading" className="flex items-center gap-2 text-ink">
-        <MessageSquare className="h-5 w-5 text-cool" aria-hidden="true" />
+        <MessageSquare className="h-5 w-5 shrink-0 text-cool" aria-hidden="true" />
         <span>{t.advisorHeading}</span>
       </h3>
       <AdvisorChipsBar
         chips={t.advisorChips}
         disabled={stream.isStreaming}
-        onSelectChip={(chip) => {
-          void stream.sendQuestion(chip, context);
-        }}
+        onSelectChip={actions.sendChip}
       />
       <AdvisorQueryForm
-        question={question}
+        question={actions.question}
         isStreaming={stream.isStreaming}
-        onChangeQuestion={setQuestion}
-        onSubmit={submitQuery}
+        onChangeQuestion={actions.setQuestion}
+        onSubmit={actions.submitQuery}
         t={t}
       />
       <ChatTranscript
@@ -233,9 +251,7 @@ export const AdvisorPanel = memo(function AdvisorPanel({
         isStreaming={stream.isStreaming}
         streamError={stream.streamError}
         groqConfigured={groqConfigured}
-        onSecondOpinion={(promptText) => {
-          void stream.sendQuestion(promptText, context, 'groq');
-        }}
+        onSecondOpinion={actions.sendGroq}
         t={t}
       />
     </section>

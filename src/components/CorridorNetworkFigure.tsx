@@ -64,7 +64,7 @@ export const CorridorNetworkFigure = memo(function CorridorNetworkFigure(
   const p = useCityCorridorPlanner(props);
 
   return (
-    <figure className="surface-hairline p-6">
+    <figure className="surface-hairline min-w-0 p-4 sm:p-6">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <figcaption className="flex items-center gap-2 font-semibold text-ink">
           <Route className="h-4 w-4 text-accent" aria-hidden="true" />

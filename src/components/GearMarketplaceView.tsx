@@ -109,7 +109,7 @@ function PurifierCatalogSection(p: {
   return (
     <section
       aria-labelledby="gear-purifiers-heading"
-      className="surface-hairline p-6 lg:col-span-6"
+      className="surface-hairline min-w-0 p-4 sm:p-6 lg:col-span-6"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 id="gear-purifiers-heading" className="text-ink">
@@ -157,8 +157,11 @@ export const GearMarketplaceView = memo(function GearMarketplaceView({
   const defaultMaskQuery = filteredMasks[0]?.searchQuery ?? '3M N95 Respirator Mask';
 
   return (
-    <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-      <section aria-labelledby="gear-masks-heading" className="surface-hairline p-6 lg:col-span-6">
+    <div className="grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-12">
+      <section
+        aria-labelledby="gear-masks-heading"
+        className="surface-hairline min-w-0 p-4 sm:p-6 lg:col-span-6"
+      >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <ShoppingBag className="h-5 w-5 text-accent" aria-hidden="true" />

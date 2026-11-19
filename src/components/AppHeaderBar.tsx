@@ -89,12 +89,14 @@ function LanguageSelectControl({
 export const AppHeaderBar = memo(function AppHeaderBar(props: AppHeaderBarProps): ReactElement {
   return (
     <header className="border-b border-rule bg-paper-3">
-      <div className="container flex flex-wrap items-center justify-between gap-4 py-3">
-        <div className="flex items-center gap-3">
-          <Wind className="h-6 w-6 text-cool" aria-hidden="true" />
-          <span className="text-lg font-semibold text-ink">{APP_META.DISPLAY_NAME}</span>
+      <div className="container flex flex-wrap items-center justify-between gap-2.5 py-2.5 sm:gap-4 sm:py-3">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <Wind className="h-6 w-6 shrink-0 text-cool" aria-hidden="true" />
+          <span className="text-base font-semibold text-ink sm:text-lg">
+            {APP_META.DISPLAY_NAME}
+          </span>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <span className="status-pill text-ink-2">
             <ShieldCheck className="h-4 w-4 text-ok" aria-hidden="true" />
             <span>
@@ -123,4 +125,3 @@ export const AppHeaderBar = memo(function AppHeaderBar(props: AppHeaderBarProps)
     </header>
   );
 });
-

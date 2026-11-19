@@ -80,14 +80,16 @@ function IndoorMetricsGrid({
       {cells.map((cell) => (
         <div key={cell.label} className="panel">
           <div className="text-xs text-ink-2">{cell.label}</div>
-          <div className={`measured mt-1 text-xl font-semibold ${cell.tone}`}>{cell.value}</div>
+          <div className={`measured mt-1 text-lg font-semibold sm:text-xl ${cell.tone}`}>
+            {cell.value}
+          </div>
           <div className="measured mt-0.5 text-[11px] text-muted">{cell.sub}</div>
         </div>
       ))}
-      <div className="panel flex items-center justify-between gap-2">
-        <div>
+      <div className="panel flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
           <div className="text-xs text-ink-2">{t.dailyReductionLabel}</div>
-          <div className="measured mt-1 text-xl font-semibold text-ok">
+          <div className="measured mt-1 text-lg font-semibold text-ok sm:text-xl">
             -{indoor.exposureReductionPct}%
           </div>
           <div className="measured mt-0.5 text-[11px] text-muted">
@@ -238,8 +240,11 @@ export const IndoorCadrView = memo(function IndoorCadrView({
   const guidance = resolveDynamicIndoorGuidance(input, indoor, t);
 
   return (
-    <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-      <section aria-labelledby="indoor-calc-heading" className="surface-hairline p-6 lg:col-span-5">
+    <div className="grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-12">
+      <section
+        aria-labelledby="indoor-calc-heading"
+        className="surface-hairline min-w-0 p-4 sm:p-6 lg:col-span-5"
+      >
         <h2 id="indoor-calc-heading" className="text-ink">
           {t.indoorSectionHeading}
         </h2>

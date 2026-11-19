@@ -62,16 +62,16 @@ function RouteActionBar(props: {
         disabled={!props.canPlan}
         className="btn-primary touch-target inline-flex items-center gap-2 text-xs"
       >
-        <Navigation className="h-3.5 w-3.5" aria-hidden="true" />
+        <Navigation className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         <span>{props.loading ? props.t.planningRouteButton : props.t.planRouteButton}</span>
       </button>
       <a
         href={props.googleMapsUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="btn-secondary touch-target inline-flex items-center gap-1.5 text-xs no-underline"
+        className="btn-secondary touch-target inline-flex items-center gap-1.5 text-left text-xs no-underline sm:text-center"
       >
-        <ExternalLink className="h-3.5 w-3.5 text-cool" aria-hidden="true" />
+        <ExternalLink className="h-3.5 w-3.5 shrink-0 text-cool" aria-hidden="true" />
         <span>{props.t.openGoogleMapsButton}</span>
       </a>
     </div>

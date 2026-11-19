@@ -101,6 +101,16 @@ test.describe('PranaPulse AI live E2E, WCAG 2.2 AA & Hallmark viewport verificat
     await page.getByRole('button', { name: /Next: Indoor & CADR/i }).click();
     await expect(page.getByRole('heading', { level: 1, name: /Indoor & CADR/i })).toBeVisible();
 
+    await page.getByRole('tab', { name: /RWA & Advisor/i }).click();
+    await expect(page.getByRole('heading', { level: 1, name: /RWA & Advisor/i })).toBeVisible();
+
+    const buttonOverflows = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('.btn-primary, .btn-secondary'))
+        .filter((el) => el.scrollWidth > el.clientWidth + 2)
+        .map((el) => el.textContent.trim().slice(0, 40)),
+    );
+    expect(buttonOverflows).toEqual([]);
+
     const offenders = await page.evaluate(() => {
       if (document.documentElement.scrollWidth <= window.innerWidth) {
         return [];
