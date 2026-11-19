@@ -1,6 +1,5 @@
-import { Activity, AlertTriangle, Flame, Wind } from 'lucide-react';
+import { Activity, Flame, Wind } from 'lucide-react';
 import { memo, type ReactElement } from 'react';
-import { A11Y_CONSTANTS } from '../config/constants.js';
 import { PRECISION_DISPLAY, RADIAL_GAUGE_GEOMETRY } from '../config/uiConstants.js';
 import type { TelemetrySnapshot } from '../domain/localBaseline.js';
 import type { GpsStatus } from '../hooks/useAirQualityWorkspace.js';
@@ -20,7 +19,7 @@ export interface TelemetryHeroProps {
   readonly t: LocaleDictionary;
 }
 
-function getAqiToneClass(aqi: number): string {
+export function getAqiToneClass(aqi: number): string {
   if (aqi >= PRECISION_DISPLAY.AQI_POOR_THRESHOLD) {
     return 'text-bad';
   }
@@ -48,40 +47,6 @@ function resolvePlumeNote(telemetry: TelemetrySnapshot, t: LocaleDictionary): st
     return `${baseNote} · ${t.stationCrossCheckLabel} ${telemetry.stationName}`;
   }
   return baseNote;
-}
-
-function SevereAlertBanner({
-  telemetry,
-  t,
-}: {
-  readonly telemetry: TelemetrySnapshot;
-  readonly t: LocaleDictionary;
-}): ReactElement | null {
-  const safeAqi = telemetry.stationCrossCheck.effectiveSafetyAqi;
-  const isSevere = safeAqi >= A11Y_CONSTANTS.SEVERE_AQI_ALERT_THRESHOLD;
-  const hasDisagreement = telemetry.stationCrossCheck.disagreementDetected;
-  if (!isSevere && !hasDisagreement) {
-    return null;
-  }
-  const cityLabel = t.cityNames[telemetry.city] ?? telemetry.city;
-
-  return (
-    <div
-      role="alert"
-      aria-live="assertive"
-      className="mb-4 flex items-start gap-3 rounded border border-bad bg-bad-soft px-4 py-2.5 text-sm text-ink"
-    >
-      <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-bad" aria-hidden="true" />
-      <div>
-        {isSevere && (
-          <p className="font-semibold text-bad">
-            {t.severeBannerPrefix} CPCB NAQI {safeAqi} ({cityLabel})
-          </p>
-        )}
-        {hasDisagreement && <p className="text-ink-2">{t.disagreementBannerText}</p>}
-      </div>
-    </div>
-  );
 }
 
 function PrimaryAqiPanels({
@@ -188,7 +153,6 @@ export const TelemetryHero = memo(function TelemetryHero({
 }: TelemetryHeroProps): ReactElement {
   return (
     <section aria-labelledby="hero-heading" className="hero-corridor">
-      <SevereAlertBanner telemetry={telemetry} t={t} />
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
         <div className="min-w-0 lg:col-span-5">
           <HeroMasthead telemetry={telemetry} gpsCity={gpsCity} t={t} />

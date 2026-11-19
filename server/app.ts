@@ -40,7 +40,7 @@ function buildHelmetMiddleware(env: ServerEnv): ReturnType<typeof helmet> {
         scriptSrc: ["'self'"],
         styleSrc: ["'self'"],
         imgSrc: ["'self'", 'data:'],
-        fontSrc: ["'self'"],
+        fontSrc: ["'self'", 'data:'],
         connectSrc,
         frameAncestors: ["'none'"],
         baseUri: ["'self'"],

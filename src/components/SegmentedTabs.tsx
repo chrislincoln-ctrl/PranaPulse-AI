@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef, type KeyboardEvent, type ReactElement } from 'react';
+import { memo, useCallback, useEffect, useRef, type KeyboardEvent, type ReactElement } from 'react';
 import { WORKBENCH_TABS, type WorkbenchTabId } from '../config/uiConstants.js';
 import type { LocaleDictionary } from '../i18n/translations.js';
 
@@ -12,15 +12,20 @@ const TAB_LABEL_KEYS: Record<
   WorkbenchTabId,
   keyof Pick<
     LocaleDictionary,
-    'tabRoutine' | 'tabIndoor' | 'tabCommute' | 'tabGear' | 'tabCommunity'
+    'tabDashboard' | 'tabRoutine' | 'tabIndoor' | 'tabCommute' | 'tabGear' | 'tabCommunity'
   >
 > = {
+  dashboard: 'tabDashboard',
   routine: 'tabRoutine',
   indoor: 'tabIndoor',
   commute: 'tabCommute',
   gear: 'tabGear',
   community: 'tabCommunity',
 };
+
+export function getWorkbenchTabLabel(tabId: WorkbenchTabId, t: LocaleDictionary): string {
+  return t[TAB_LABEL_KEYS[tabId]];
+}
 
 function nextTabIndex(currentIndex: number, key: string, total: number): number | null {
   if (key === 'ArrowRight' || key === 'ArrowDown') {
@@ -82,6 +87,14 @@ export const SegmentedTabs = memo(function SegmentedTabs({
 }: SegmentedTabsProps): ReactElement {
   const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
+  useEffect(() => {
+    const activeIndex = WORKBENCH_TABS.indexOf(activeTab);
+    const activeBtn = activeIndex >= 0 ? buttonRefs.current[activeIndex] : null;
+    if (activeBtn && typeof activeBtn.scrollIntoView === 'function') {
+      activeBtn.scrollIntoView({ inline: 'center', block: 'nearest' });
+    }
+  }, [activeTab]);
+
   const handleKeyDown = useCallback(
     (index: number, event: KeyboardEvent<HTMLButtonElement>): void => {
       const targetIndex = nextTabIndex(index, event.key, WORKBENCH_TABS.length);
@@ -102,7 +115,7 @@ export const SegmentedTabs = memo(function SegmentedTabs({
         <TabButton
           key={tabId}
           tabId={tabId}
-          label={t[TAB_LABEL_KEYS[tabId]]}
+          label={getWorkbenchTabLabel(tabId, t)}
           selected={activeTab === tabId}
           assignRef={(el) => {
             buttonRefs.current[index] = el;

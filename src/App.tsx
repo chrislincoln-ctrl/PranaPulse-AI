@@ -1,13 +1,11 @@
 import { memo, useCallback, useEffect, useState, type ReactElement } from 'react';
+import { ActiveSectionStrip } from './components/ActiveSectionStrip.js';
 import { AppHeaderBar, type ThemeMode } from './components/AppHeaderBar.js';
 import { AuthModal } from './components/AuthModal.js';
-import { CommunityAdvisorView } from './components/CommunityAdvisorView.js';
-import { CommuteCorridorView } from './components/CommuteCorridorView.js';
-import { FamilyRoutineView } from './components/FamilyRoutineView.js';
-import { GearMarketplaceView } from './components/GearMarketplaceView.js';
-import { IndoorCadrView } from './components/IndoorCadrView.js';
+import { SectionStepperFooter } from './components/SectionStepperFooter.js';
 import { SegmentedTabs } from './components/SegmentedTabs.js';
-import { TelemetryHero } from './components/TelemetryHero.js';
+import { SevereAlertBanner } from './components/SevereAlertBanner.js';
+import { WorkbenchTabPanel } from './components/WorkbenchTabPanel.js';
 import { APP_META } from './config/constants.js';
 import type { WorkbenchTabId } from './config/uiConstants.js';
 import { useAirQualityWorkspace } from './hooks/useAirQualityWorkspace.js';
@@ -17,86 +15,39 @@ import type { SavedWorkspacePreferences } from './services/supabaseClient.js';
 
 export type { ThemeMode };
 
-interface TabPanelProps {
-  readonly activeTab: WorkbenchTabId;
-  readonly workspace: ReturnType<typeof useAirQualityWorkspace>;
-  readonly t: LocaleDictionary;
-}
-
-function TabPanelBody({ activeTab, workspace, t }: TabPanelProps): ReactElement {
-  const { input, bundle, updateInput } = workspace;
-  if (activeTab === 'indoor') {
-    return (
-      <IndoorCadrView input={input} indoor={bundle.indoor} onUpdateInput={updateInput} t={t} />
-    );
-  }
-  if (activeTab === 'commute') {
-    return (
-      <CommuteCorridorView
-        input={input}
-        commuteOptions={bundle.commuteOptions}
-        corridor={bundle.corridor}
-        onUpdateInput={updateInput}
-        t={t}
-      />
-    );
-  }
-  if (activeTab === 'gear') {
-    return <GearMarketplaceView input={input} indoor={bundle.indoor} t={t} />;
-  }
-  if (activeTab === 'community') {
-    return (
-      <CommunityAdvisorView
-        input={input}
-        telemetry={bundle.telemetry}
-        rwa={bundle.rwa}
-        groqConfigured={workspace.groqConfigured}
-        onUpdateInput={updateInput}
-        t={t}
-      />
-    );
-  }
-  return (
-    <FamilyRoutineView
-      input={input}
-      advisories={bundle.memberAdvisories}
-      aiPlan={bundle.aiPlan}
-      aiIsFallback={bundle.aiMeta.isFallback}
-      isLoadingPlan={workspace.isLoadingPlan}
-      onUpdateInput={updateInput}
-      onRefreshPlan={workspace.refreshPlanNow}
-      t={t}
-    />
-  );
-}
-
 function AppMainContent({
   activeTab,
   workspace,
   onSelectTab,
+  onStepTab,
   t,
 }: {
   readonly activeTab: WorkbenchTabId;
   readonly workspace: ReturnType<typeof useAirQualityWorkspace>;
   readonly onSelectTab: (tab: WorkbenchTabId) => void;
+  readonly onStepTab: (tab: WorkbenchTabId) => void;
   readonly t: LocaleDictionary;
 }): ReactElement {
   return (
     <main id="main-content" className="container flex-1 pb-12">
-      <TelemetryHero
-        telemetry={workspace.bundle.telemetry}
-        gpsStatus={workspace.gpsStatus}
-        gpsCity={workspace.gpsCity}
-        onSelectCity={workspace.selectCity}
-        onRequestGps={workspace.requestGeolocation}
-        t={t}
-      />
-      <div className="mb-6 border-t border-rule pt-6">
+      <div className="pt-3 pb-3 sm:pt-4 sm:pb-4">
         <SegmentedTabs activeTab={activeTab} onSelectTab={onSelectTab} t={t} />
       </div>
+      <SevereAlertBanner telemetry={workspace.bundle.telemetry} t={t} />
+      {activeTab !== 'dashboard' && (
+        <ActiveSectionStrip
+          activeTab={activeTab}
+          telemetry={workspace.bundle.telemetry}
+          onOpenDashboard={() => {
+            onStepTab('dashboard');
+          }}
+          t={t}
+        />
+      )}
       <div role="tabpanel" id={`panel-${activeTab}`} aria-labelledby={`tab-${activeTab}`}>
-        <TabPanelBody activeTab={activeTab} workspace={workspace} t={t} />
+        <WorkbenchTabPanel activeTab={activeTab} workspace={workspace} t={t} />
       </div>
+      <SectionStepperFooter activeTab={activeTab} onSelectTab={onStepTab} t={t} />
     </main>
   );
 }
@@ -156,17 +107,29 @@ function useDocumentThemeMode(): readonly [ThemeMode, () => void] {
   return [themeMode, toggleTheme] as const;
 }
 
+function scrollToMainTop(): void {
+  const mainEl = document.getElementById('main-content');
+  if (mainEl && typeof mainEl.scrollIntoView === 'function') {
+    mainEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
 /**
  * Accessible Workbench application root uniting real-time atmospheric telemetry,
  * deterministic domain physics, and localized Gemini guidance in Light and Dark modes.
  */
 export const App = memo(function App(): ReactElement {
-  const [activeTab, setActiveTab] = useState<WorkbenchTabId>('routine');
+  const [activeTab, setActiveTab] = useState<WorkbenchTabId>('dashboard');
   const [themeMode, toggleTheme] = useDocumentThemeMode();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const workspace = useAirQualityWorkspace();
   const auth = useCloudWorkspaceRestore(workspace.selectCity, workspace.updateInput);
   const t = TRANSLATIONS[workspace.input.language];
+
+  const handleStepTab = useCallback((nextTab: WorkbenchTabId): void => {
+    setActiveTab(nextTab);
+    scrollToMainTop();
+  }, []);
 
   return (
     <div className="flex min-h-dvh flex-col bg-paper text-ink">
@@ -191,6 +154,7 @@ export const App = memo(function App(): ReactElement {
         activeTab={activeTab}
         workspace={workspace}
         onSelectTab={setActiveTab}
+        onStepTab={handleStepTab}
         t={t}
       />
       <AppFooter notice={t.footerNotice} />

@@ -6,9 +6,10 @@
 import type { CorridorNodeId, FamilyMemberInput } from '../domain/types.js';
 import type { PlanRequestPayload, SupportedLanguage } from '../validators/schemas.js';
 
-export type WorkbenchTabId = 'routine' | 'indoor' | 'commute' | 'gear' | 'community';
+export type WorkbenchTabId = 'dashboard' | 'routine' | 'indoor' | 'commute' | 'gear' | 'community';
 
 export const WORKBENCH_TABS: readonly WorkbenchTabId[] = [
+  'dashboard',
   'routine',
   'indoor',
   'commute',

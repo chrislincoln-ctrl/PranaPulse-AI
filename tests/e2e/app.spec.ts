@@ -57,9 +57,9 @@ test.describe('PranaPulse AI live E2E, WCAG 2.2 AA & Hallmark viewport verificat
     await page.getByRole('button', { name: /Light mode/i }).click();
     await expect(page.locator('html')).toHaveAttribute('data-mode', 'light');
 
-    // Navigate all 4 workbench tabs and verify streaming Q&A + Hindi switch
+    // Navigate workbench tabs and verify streaming Q&A + Hindi switch
     await page.getByRole('tab', { name: /Indoor & CADR/i }).click();
-    await expect(page.getByText(/Corsi-Rosenthal/i)).toBeVisible();
+    await expect(page.getByText(/Corsi-Rosenthal DIY box specs/i)).toBeVisible();
 
     await page.getByRole('tab', { name: /Commute & Route/i }).click();
     await expect(page.getByRole('img', { name: /Dijkstra clean-corridor network/i })).toBeVisible();
@@ -81,11 +81,26 @@ test.describe('PranaPulse AI live E2E, WCAG 2.2 AA & Hallmark viewport verificat
     expect(consoleErrors).toEqual([]);
   });
 
-  test('renders mobile 375x812 cleanly without horizontal overflow', async ({ page }) => {
+  test('renders mobile 375x812 cleanly without horizontal overflow and switches sections without hero scrolling', async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/');
 
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await page.getByRole('tab', { name: /Family Routine/i }).click();
+    const routineHeading = page.getByRole('heading', { level: 1, name: /Family Routine/i });
+    await expect(routineHeading).toBeVisible();
+
+    const routineBox = await routineHeading.boundingBox();
+    expect(routineBox).not.toBeNull();
+    if (routineBox) {
+      expect(routineBox.y).toBeLessThan(460);
+    }
+
+    await page.getByRole('button', { name: /Next: Indoor & CADR/i }).click();
+    await expect(page.getByRole('heading', { level: 1, name: /Indoor & CADR/i })).toBeVisible();
+
     const offenders = await page.evaluate(() => {
       if (document.documentElement.scrollWidth <= window.innerWidth) {
         return [];

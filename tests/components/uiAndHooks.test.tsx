@@ -168,14 +168,17 @@ describe('Phase 4 full Console UI, hooks & accessibility verification', () => {
     fireEvent.change(langSelect, { target: { value: 'hi' } });
     expect(document.documentElement.lang).toBe('hi');
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/सर्दियों की धुंध टेलीमेट्री/);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'पारिवारिक दिनचर्या' }));
     expect(screen.getByDisplayValue('आरव (स्कूल)')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/CPCB NAQI \d+ \(पटना\)/i);
 
     fireEvent.change(langSelect, { target: { value: 'ta' } });
     expect(document.documentElement.lang).toBe('ta');
     expect(screen.getByDisplayValue('ஆரவ் (பள்ளி)')).toBeInTheDocument();
   });
 
-  it('supports keyboard-navigable SegmentedTabs and renders all 4 workbench modules with zero axe violations', async () => {
+  it('supports keyboard-navigable SegmentedTabs, sequential stepper, and renders all 6 sections with zero axe violations', async () => {
     vi.stubGlobal('fetch', setupMockFetch({ geminiConfigured: false }));
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
@@ -183,10 +186,21 @@ describe('Phase 4 full Console UI, hooks & accessibility verification', () => {
 
     const { container } = render(<App />);
 
+    // 0. Starts on dedicated Dashboard tab; step forward via bottom Next button
+    expect(screen.getByRole('tab', { name: /Dashboard/i })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Next: Family Routine/i }));
+
     // 1. Routine tab interactions: add member & switch fuel
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/Family Routine/i);
     fireEvent.click(await screen.findByRole('button', { name: /Add member/i }));
     expect(screen.getByDisplayValue('Member 4')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/Cooking fuel/i), { target: { value: 'induction' } });
+
+    let axeRes = await axe.run(container, { rules: { 'color-contrast': { enabled: false } } });
+    expect(axeRes.violations).toHaveLength(0);
 
     // Keyboard navigate tabs: ArrowRight -> Indoor & CADR
     const routineTab = screen.getByRole('tab', { name: /Family Routine/i });
@@ -205,7 +219,7 @@ describe('Phase 4 full Console UI, hooks & accessibility verification', () => {
     fireEvent.change(screen.getByLabelText(/Room area/i), { target: { value: '40' } });
     expect(screen.getByText('40 m2')).toBeInTheDocument();
 
-    let axeRes = await axe.run(container, { rules: { 'color-contrast': { enabled: false } } });
+    axeRes = await axe.run(container, { rules: { 'color-contrast': { enabled: false } } });
     expect(axeRes.violations).toHaveLength(0);
 
     // ArrowRight -> Commute & Route
@@ -222,10 +236,21 @@ describe('Phase 4 full Console UI, hooks & accessibility verification', () => {
     axeRes = await axe.run(container, { rules: { 'color-contrast': { enabled: false } } });
     expect(axeRes.violations).toHaveLength(0);
 
-    // End key -> RWA & Advisor
+    // ArrowRight -> Masks & Purifiers
     const commuteTab = screen.getByRole('tab', { name: /Commute & Route/i });
     commuteTab.focus();
-    fireEvent.keyDown(commuteTab, { key: 'End' });
+    fireEvent.keyDown(commuteTab, { key: 'ArrowRight' });
+
+    expect(
+      await screen.findByRole('heading', { name: /Verified N95 & respirator buying guide/i }),
+    ).toBeInTheDocument();
+    axeRes = await axe.run(container, { rules: { 'color-contrast': { enabled: false } } });
+    expect(axeRes.violations).toHaveLength(0);
+
+    // End key -> RWA & Advisor
+    const gearTab = screen.getByRole('tab', { name: /Masks & Purifiers/i });
+    gearTab.focus();
+    fireEvent.keyDown(gearTab, { key: 'End' });
 
     expect(
       await screen.findByRole('heading', { name: /RWA neighborhood collective simulator/i }),
@@ -250,6 +275,13 @@ describe('Phase 4 full Console UI, hooks & accessibility verification', () => {
 
     axeRes = await axe.run(container, { rules: { 'color-contrast': { enabled: false } } });
     expect(axeRes.violations).toHaveLength(0);
+
+    // Change city button returns directly to Dashboard
+    fireEvent.click(screen.getByRole('button', { name: /Change city/i }));
+    expect(screen.getByRole('tab', { name: /Dashboard/i })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
   });
 
   it('handles GPS location denials gracefully and recovers cleanly when granted', async () => {

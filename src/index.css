@@ -10,7 +10,7 @@
   }
 
   .hero-corridor {
-    padding-block: var(--space-lg) var(--space-xl);
+    padding-block: var(--space-xs) var(--space-lg);
   }
 
   .hero-headline {
@@ -379,6 +379,25 @@
     transform: translateY(1px);
   }
 
+  @media (max-width: 40rem) {
+    .segmented-rail {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      scroll-snap-type: x proximity;
+    }
+
+    .segmented-rail::-webkit-scrollbar {
+      display: none;
+    }
+
+    .segmented-tab {
+      flex: 0 0 auto;
+      scroll-snap-align: start;
+    }
+  }
+
   .auth-backdrop {
     position: fixed;
     inset: 0;
@@ -499,7 +518,9 @@
 
   .hero-masthead::before,
   .hero-masthead::after,
-  .hud-pulse-ring {
+  .hud-pulse-ring,
+  .segmented-rail,
+  .section-stepper {
     display: none !important;
   }
 

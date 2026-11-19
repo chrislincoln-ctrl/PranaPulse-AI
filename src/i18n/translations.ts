@@ -51,11 +51,15 @@ export interface LocaleDictionary {
   readonly chartLegendPm25: string;
   readonly chartLegendPbl: string;
   readonly chartTableCaption: string;
+  readonly tabDashboard: string;
   readonly tabRoutine: string;
   readonly tabIndoor: string;
   readonly tabCommute: string;
   readonly tabGear: string;
   readonly tabCommunity: string;
+  readonly switchCityButton: string;
+  readonly previousSectionLabel: string;
+  readonly nextSectionLabel: string;
   readonly gearMasksHeading: string;
   readonly gearPurifiersHeading: string;
   readonly gearMaskCustomLabel: string;
@@ -200,11 +204,15 @@ const en: LocaleDictionary = {
   chartLegendPm25: 'PM2.5 ug/m3 (person load)',
   chartLegendPbl: 'Mixing height m (sensor)',
   chartTableCaption: 'Hourly PM2.5, planetary boundary layer height, and wind ventilation data',
+  tabDashboard: 'Dashboard',
   tabRoutine: 'Family Routine',
   tabIndoor: 'Indoor & CADR',
   tabCommute: 'Commute & Route',
   tabGear: 'Masks & Purifiers',
   tabCommunity: 'RWA & Advisor',
+  switchCityButton: 'Change city',
+  previousSectionLabel: 'Previous',
+  nextSectionLabel: 'Next',
   gearMasksHeading: 'Verified N95 & respirator buying guide',
   gearPurifiersHeading: 'CADR-sized True HEPA air purifier shop',
   gearMaskCustomLabel: 'Search any specific mask brand or model to buy',
@@ -426,11 +434,15 @@ const hi: LocaleDictionary = {
   chartLegendPm25: 'PM2.5 ug/m3 (संपर्क)',
   chartLegendPbl: 'मिश्रण ऊंचाई मी (सेंसर)',
   chartTableCaption: 'प्रति घंटा PM2.5, मिश्रण ऊंचाई और हवा डेटा तालिका',
+  tabDashboard: 'डैशबोर्ड',
   tabRoutine: 'पारिवारिक दिनचर्या',
   tabIndoor: 'इनडोर व CADR',
   tabCommute: 'यात्रा व कॉरिडोर',
   tabGear: 'मास्क व प्यूरिफायर',
   tabCommunity: 'RWA व सलाहकार',
+  switchCityButton: 'शहर बदलें',
+  previousSectionLabel: 'पिछला',
+  nextSectionLabel: 'अगला',
   gearMasksHeading: 'सत्यापित N95 व मास्क खरीदारी गाइड',
   gearPurifiersHeading: 'CADR-आधारित True HEPA प्यूरिफायर दुकान',
   gearMaskCustomLabel: 'खरीदने के लिए कोई भी मास्क ब्रांड या मॉडल खोजें',
@@ -652,11 +664,15 @@ const ta: LocaleDictionary = {
   chartLegendPm25: 'PM2.5 ug/m3 (தாக்கம்)',
   chartLegendPbl: 'கலப்பு உயரம் மீ (உணரி)',
   chartTableCaption: 'மணிநேர PM2.5, எல்லை அடுக்கு உயரம் மற்றும் காற்றோட்ட தரவு',
+  tabDashboard: 'டாஷ்போர்டு',
   tabRoutine: 'குடும்ப அட்டவணை',
   tabIndoor: 'உள் காற்று & CADR',
   tabCommute: 'பயணம் & வழித்தடம்',
   tabGear: 'முகக்கவசம் & வடிகட்டி',
   tabCommunity: 'RWA & ஆலோசகர்',
+  switchCityButton: 'நகரம் மாற்று',
+  previousSectionLabel: 'முந்தைய',
+  nextSectionLabel: 'அடுத்த',
   gearMasksHeading: 'சரிபார்க்கப்பட்ட N95 முகக்கவச வழிகாட்டி',
   gearPurifiersHeading: 'CADR அடிப்படையிலான HEPA காற்று வடிகட்டி',
   gearMaskCustomLabel: 'வாங்க விரும்பும் முகக்கவச மாதிரியைத் தேடுங்கள்',
