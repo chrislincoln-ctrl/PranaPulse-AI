@@ -141,8 +141,9 @@ describe('Supabase Auth UI, Cloud Preferences & Server CSP', () => {
     });
     expect(a11yResults.violations).toHaveLength(0);
 
-    fireEvent.click(screen.getByRole('button', { name: /saved to supabase cloud/i }));
-    expect(auth.savePreferences).toHaveBeenCalledWith(DEFAULT_WORKSPACE_INPUT);
+    expect(
+      screen.queryByRole('button', { name: /save workspace to cloud/i }),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /sign out/i }));
     expect(auth.signOut).toHaveBeenCalledTimes(1);

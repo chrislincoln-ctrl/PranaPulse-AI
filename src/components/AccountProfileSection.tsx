@@ -1,5 +1,5 @@
 import type { User } from '@supabase/supabase-js';
-import { CheckCircle2, CloudUpload, Loader2, LogOut, ShieldCheck } from 'lucide-react';
+import { LogOut, ShieldCheck } from 'lucide-react';
 import { memo, type ReactElement } from 'react';
 import type { SupabaseAuthController } from '../hooks/useSupabaseAuth.js';
 import { getUserDisplayName } from '../services/supabaseClient.js';
@@ -25,37 +25,6 @@ function formatSyncTimestamp(isoValue: string | null): string {
     hour: '2-digit',
     minute: '2-digit',
   });
-}
-
-function SyncButtonContent({
-  syncStatus,
-  busy,
-}: {
-  readonly syncStatus: SupabaseAuthController['syncStatus'];
-  readonly busy: boolean;
-}): ReactElement {
-  if (busy && syncStatus === 'saving') {
-    return (
-      <>
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        <span>Saving workspace…</span>
-      </>
-    );
-  }
-  if (syncStatus === 'saved') {
-    return (
-      <>
-        <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-        <span>Saved to Supabase cloud</span>
-      </>
-    );
-  }
-  return (
-    <>
-      <CloudUpload className="h-4 w-4" aria-hidden="true" />
-      <span>Save workspace to cloud</span>
-    </>
-  );
 }
 
 function WorkspaceSnapshotGrid({
@@ -126,7 +95,7 @@ function ProfileIdentityCard({
 
 /**
  * Signed-in Supabase account panel displaying active session identity, workspace sync preview,
- * one-click cloud save, and sign-out action.
+ * and sign-out action.
  */
 export const AccountProfileSection = memo(function AccountProfileSection({
   user,
@@ -137,24 +106,14 @@ export const AccountProfileSection = memo(function AccountProfileSection({
     <div className="space-y-4">
       <ProfileIdentityCard displayName={getUserDisplayName(user)} email={user.email} />
       <WorkspaceSnapshotGrid workspaceInput={workspaceInput} lastSavedAt={auth.lastSavedAt} />
-      <div className="flex flex-col gap-2.5 sm:flex-row">
-        <button
-          type="button"
-          disabled={auth.busy}
-          onClick={() => {
-            void auth.savePreferences(workspaceInput);
-          }}
-          className="btn-primary touch-target inline-flex flex-1 items-center justify-center gap-2 text-sm"
-        >
-          <SyncButtonContent syncStatus={auth.syncStatus} busy={auth.busy} />
-        </button>
+      <div className="pt-1">
         <button
           type="button"
           disabled={auth.busy}
           onClick={() => {
             void auth.signOut();
           }}
-          className="btn-secondary touch-target inline-flex items-center justify-center gap-2 text-sm"
+          className="btn-secondary touch-target inline-flex w-full items-center justify-center gap-2 text-sm"
         >
           <LogOut className="h-4 w-4 text-muted" aria-hidden="true" />
           <span>Sign out</span>
