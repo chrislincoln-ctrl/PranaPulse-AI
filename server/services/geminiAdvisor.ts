@@ -11,13 +11,16 @@ import {
   type ChatRequestPayload,
 } from '../../src/validators/schemas.js';
 import type { ServerEnv } from '../env.js';
-import { BoundedTtlCache, createSha256Key } from './cacheAndLimiter.js';
+import { BoundedTtlCache, createSha256Key, withTimeout } from './cacheAndLimiter.js';
 import {
   buildDeterministicChatChunks,
   buildDeterministicFallbackPlan,
   type DeterministicBriefContext,
 } from './fallbackPlan.js';
 import { buildStructuredPrompt, PLAN_RESPONSE_SCHEMA } from './geminiSchema.js';
+import { buildAdvisorUserPrompt, generateGroqPlan, streamGroqAdvice } from './groqAdvisor.js';
+
+export type AdvisorProvider = 'gemini' | 'groq' | 'deterministic';
 
 export interface PlanGenerationResult {
   readonly plan: AiPlanOutput;
@@ -56,24 +59,6 @@ export function verifyNumericGrounding(
   return true;
 }
 
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<never>((_resolve, reject) => {
-        timer = setTimeout(() => {
-          reject(new Error('Gemini request timeout'));
-        }, timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timer !== undefined) {
-      clearTimeout(timer);
-    }
-  }
-}
-
 async function invokeGeminiStructuredOnce(
   ai: GoogleGenAI,
   model: string,
@@ -93,21 +78,11 @@ async function invokeGeminiStructuredOnce(
     }),
     SECURITY_LIMITS.GEMINI_REQUEST_TIMEOUT_MS,
   );
-
   if (!response.text) {
     return null;
   }
-  const parsedJson: unknown = JSON.parse(response.text);
-  const validated = aiPlanOutputSchema.safeParse(parsedJson);
+  const validated = aiPlanOutputSchema.safeParse(JSON.parse(response.text));
   return validated.success ? validated.data : null;
-}
-
-function buildModelCascade(primaryModel: string): readonly string[] {
-  return [...new Set<string>([primaryModel, ...APP_META.GEMINI_FALLBACK_MODELS])];
-}
-
-function buildStreamModelCascade(primaryModel: string): readonly string[] {
-  return [...new Set<string>([...APP_META.GEMINI_FALLBACK_MODELS, primaryModel])];
 }
 
 function readErrorStatus(err: unknown): string {
@@ -120,28 +95,35 @@ function readErrorStatus(err: unknown): string {
   return 'error';
 }
 
-async function tryGenerateWithModel(
-  ai: GoogleGenAI,
-  model: string,
-  prompt: string,
+async function tryGeminiPlanCascade(
   ctx: DeterministicBriefContext,
-): Promise<AiPlanOutput | null> {
-  try {
-    const candidate = await invokeGeminiStructuredOnce(ai, model, prompt);
-    if (candidate && verifyNumericGrounding(candidate, ctx.aqi.cpcbNaqi, ctx.effectiveAqi)) {
-      return candidate;
-    }
-    console.warn(`[gemini-plan] ${model} failed schema or grounding verification.`);
-    return null;
-  } catch (err) {
-    console.warn(`[gemini-plan] ${model} unavailable (${readErrorStatus(err)}); trying next.`);
+  env: ServerEnv,
+  createClient: (apiKey: string) => GoogleGenAI,
+): Promise<{ readonly plan: AiPlanOutput; readonly modelUsed: string } | null> {
+  if (!env.GEMINI_API_KEY) {
     return null;
   }
+  const ai = createClient(env.GEMINI_API_KEY);
+  const prompt = buildStructuredPrompt(ctx);
+  const models = [...new Set<string>([env.GEMINI_MODEL, ...APP_META.GEMINI_FALLBACK_MODELS])];
+
+  for (const model of models) {
+    try {
+      const candidate = await invokeGeminiStructuredOnce(ai, model, prompt);
+      if (candidate && verifyNumericGrounding(candidate, ctx.aqi.cpcbNaqi, ctx.effectiveAqi)) {
+        return { plan: candidate, modelUsed: model };
+      }
+      console.warn(`[gemini-plan] ${model} failed schema or grounding verification.`);
+    } catch (err) {
+      console.warn(`[gemini-plan] ${model} unavailable (${readErrorStatus(err)}); trying next.`);
+    }
+  }
+  return null;
 }
 
 /**
- * Generates a grounded, schema-validated action plan via Gemini with automatic model cascade,
- * numeric grounding verification, SHA-256 caching, and deterministic multilingual fallback.
+ * Generates a grounded, schema-validated action plan using 3-tier failover:
+ * Gemini (primary) -> Groq (secondary live LLM fallback) -> deterministic multilingual physics.
  */
 export async function generateGroundedPlan(
   ctx: DeterministicBriefContext,
@@ -163,24 +145,18 @@ export async function generateGroundedPlan(
     return { plan: cached, isFallback: false, modelUsed: env.GEMINI_MODEL, cached: true };
   }
 
-  if (!env.GEMINI_API_KEY) {
-    return {
-      plan: buildDeterministicFallbackPlan(ctx),
-      isFallback: true,
-      modelUsed: 'deterministic-fallback',
-      cached: false,
-    };
+  const geminiResult = await tryGeminiPlanCascade(ctx, env, createClient);
+  if (geminiResult) {
+    planCache.set(cacheKey, geminiResult.plan);
+    return { ...geminiResult, isFallback: false, cached: false };
   }
 
-  const ai = createClient(env.GEMINI_API_KEY);
-  const prompt = buildStructuredPrompt(ctx);
-
-  for (const model of buildModelCascade(env.GEMINI_MODEL)) {
-    const candidate = await tryGenerateWithModel(ai, model, prompt, ctx);
-    if (candidate) {
-      planCache.set(cacheKey, candidate);
-      return { plan: candidate, isFallback: false, modelUsed: model, cached: false };
-    }
+  const groqResult = await generateGroqPlan(ctx, env, (plan) =>
+    verifyNumericGrounding(plan, ctx.aqi.cpcbNaqi, ctx.effectiveAqi),
+  );
+  if (groqResult) {
+    planCache.set(cacheKey, groqResult.plan);
+    return { ...groqResult, isFallback: false, cached: false };
   }
 
   return {
@@ -191,7 +167,7 @@ export async function generateGroundedPlan(
   };
 }
 
-async function tryStreamWithModel(params: {
+async function tryStreamGeminiModel(params: {
   ai: GoogleGenAI;
   model: string;
   prompt: string;
@@ -228,50 +204,55 @@ async function tryStreamWithModel(params: {
   }
 }
 
+async function tryStreamGeminiCascade(
+  payload: ChatRequestPayload,
+  env: ServerEnv,
+  onChunk: (text: string) => void,
+  createClient: (apiKey: string) => GoogleGenAI,
+): Promise<boolean> {
+  if (!env.GEMINI_API_KEY) {
+    return false;
+  }
+  const ai = createClient(env.GEMINI_API_KEY);
+  const prompt = buildAdvisorUserPrompt(payload);
+  const models = [...new Set<string>([...APP_META.GEMINI_FALLBACK_MODELS, env.GEMINI_MODEL])];
+
+  for (const model of models) {
+    if (await tryStreamGeminiModel({ ai, model, prompt, language: payload.language, onChunk })) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /**
- * Streams conversational air quality answers over Server-Sent Events using XML prompt isolation,
- * automatic model failover, and instant chunked deterministic fallback when unavailable.
+ * Streams conversational air quality answers over Server-Sent Events using 3-tier failover:
+ * Gemini (primary) -> Groq (automatic failover or opt-in second opinion) -> deterministic fallback.
  */
 export async function streamGroundedAdvice(
   payload: ChatRequestPayload,
   env: ServerEnv,
   onChunk: (text: string) => void,
   createClient: (apiKey: string) => GoogleGenAI = (apiKey) => new GoogleGenAI({ apiKey }),
-): Promise<{ readonly isFallback: boolean }> {
-  if (!env.GEMINI_API_KEY) {
-    for (const chunk of buildDeterministicChatChunks(payload)) {
-      onChunk(chunk);
+): Promise<{ readonly isFallback: boolean; readonly provider: AdvisorProvider }> {
+  if (payload.preferredProvider === 'groq') {
+    if (await streamGroqAdvice(payload, env, onChunk)) {
+      return { isFallback: false, provider: 'groq' };
     }
-    return { isFallback: true };
   }
 
-  const ai = createClient(env.GEMINI_API_KEY);
-  const prompt = [
-    '<verified_telemetry>',
-    `city=${payload.city}; cpcbNAQI=${String(payload.cpcbNaqi)}; pm25=${String(payload.pm25UgM3)}ug/m3; inversion=${payload.inversionSeverity}; openWindowsNow=${String(payload.openWindowsNow)}`,
-    '</verified_telemetry>',
-    '<user_query>',
-    payload.query,
-    '</user_query>',
-  ].join('\n');
+  if (await tryStreamGeminiCascade(payload, env, onChunk, createClient)) {
+    return { isFallback: false, provider: 'gemini' };
+  }
 
-  for (const model of buildStreamModelCascade(env.GEMINI_MODEL)) {
-    const succeeded = await tryStreamWithModel({
-      ai,
-      model,
-      prompt,
-      language: payload.language,
-      onChunk,
-    });
-    if (succeeded) {
-      return { isFallback: false };
-    }
+  if (payload.preferredProvider !== 'groq' && (await streamGroqAdvice(payload, env, onChunk))) {
+    return { isFallback: false, provider: 'groq' };
   }
 
   for (const chunk of buildDeterministicChatChunks(payload)) {
     onChunk(chunk);
   }
-  return { isFallback: true };
+  return { isFallback: true, provider: 'deterministic' };
 }
 
 /** Clears plan response cache for isolated automated tests. */

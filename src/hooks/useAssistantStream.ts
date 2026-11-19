@@ -3,19 +3,25 @@ import { HTTP_STATUS, SECURITY_LIMITS } from '../config/constants.js';
 import { PRECISION_DISPLAY } from '../config/uiConstants.js';
 import type { InversionSeverity } from '../domain/types.js';
 import { buildLocalizedChatReply } from '../i18n/fallbackTemplates.js';
+import { readStreamLines } from '../utils/sseStreamReader.js';
 import type { ChatRequestPayload, SupportedLanguage } from '../validators/schemas.js';
+
+export type AdvisorProviderTag = 'gemini' | 'groq' | 'deterministic';
 
 export interface AssistantTurn {
   readonly id: string;
   readonly role: 'user' | 'assistant';
   readonly text: string;
   readonly isFallback?: boolean;
+  readonly provider?: AdvisorProviderTag;
+  readonly queryPrompt?: string;
 }
 
 interface SseEventData {
   readonly chunk?: string;
   readonly done?: boolean;
   readonly isFallback?: boolean;
+  readonly provider?: AdvisorProviderTag;
 }
 
 export interface StreamContext {
@@ -54,50 +60,6 @@ function parseSseDataLine(line: string): SseEventData | null {
   }
 }
 
-function emitParsedLines(lines: readonly string[], onEvent: (evt: SseEventData) => void): void {
-  for (const line of lines) {
-    const evt = parseSseDataLine(line);
-    if (evt) {
-      onEvent(evt);
-    }
-  }
-}
-
-async function readStreamChunks(
-  res: Response,
-  onEvent: (evt: SseEventData) => void,
-): Promise<boolean> {
-  if (!res.body) {
-    return false;
-  }
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let receivedChunk = false;
-  const wrappedOnEvent = (evt: SseEventData): void => {
-    if (evt.chunk && evt.chunk.length > 0) {
-      receivedChunk = true;
-    }
-    onEvent(evt);
-  };
-
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
-    }
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() ?? '';
-    emitParsedLines(lines, wrappedOnEvent);
-  }
-  const trailing = `${buffer}${decoder.decode()}`;
-  if (trailing.trim().length > 0) {
-    emitParsedLines(trailing.split('\n'), wrappedOnEvent);
-  }
-  return receivedChunk;
-}
-
 async function dispatchStreamRequest(
   payload: ChatRequestPayload,
   signal: AbortSignal,
@@ -112,7 +74,21 @@ async function dispatchStreamRequest(
   if (!res.ok) {
     throw new StreamHttpError(res.status);
   }
-  return await readStreamChunks(res, onEvent);
+  if (!res.body) {
+    return false;
+  }
+  let receivedChunk = false;
+  await readStreamLines(res.body, (line) => {
+    const evt = parseSseDataLine(line);
+    if (!evt) {
+      return;
+    }
+    if (evt.chunk && evt.chunk.length > 0) {
+      receivedChunk = true;
+    }
+    onEvent(evt);
+  });
+  return receivedChunk;
 }
 
 function applyStreamEvent(
@@ -125,9 +101,17 @@ function applyStreamEvent(
       return turn;
     }
     const nextText = evt.chunk ? `${turn.text}${evt.chunk}` : turn.text;
-    return evt.done
-      ? { ...turn, text: nextText, isFallback: Boolean(evt.isFallback) }
-      : { ...turn, text: nextText };
+    if (!evt.done) {
+      return { ...turn, text: nextText };
+    }
+    const resolvedProvider: AdvisorProviderTag =
+      evt.provider ?? (evt.isFallback ? 'deterministic' : 'gemini');
+    return {
+      ...turn,
+      text: nextText,
+      isFallback: Boolean(evt.isFallback),
+      provider: resolvedProvider,
+    };
   });
 }
 
@@ -138,30 +122,48 @@ function applyFallbackAnswer(
 ): readonly AssistantTurn[] {
   const fallbackText = buildLocalizedChatReply(payload);
   return prev.map((turn) =>
-    turn.id === assistantId ? { ...turn, text: fallbackText, isFallback: true } : turn,
+    turn.id === assistantId
+      ? { ...turn, text: fallbackText, isFallback: true, provider: 'deterministic' }
+      : turn,
   );
 }
 
-function handleStreamFailure(params: {
-  readonly err: unknown;
-  readonly aborted: boolean;
+interface StreamExecutionArgs {
+  readonly controller: AbortController;
   readonly assistantId: string;
   readonly payload: ChatRequestPayload;
   readonly setTurns: React.Dispatch<React.SetStateAction<readonly AssistantTurn[]>>;
   readonly setStreamError: React.Dispatch<React.SetStateAction<string | null>>;
-}): void {
-  if (params.aborted) {
+  readonly setIsStreaming: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+function handleStreamFailure(err: unknown, args: StreamExecutionArgs): void {
+  if (args.controller.signal.aborted) {
     return;
   }
-  if (
-    params.err instanceof StreamHttpError &&
-    params.err.status === HTTP_STATUS.TOO_MANY_REQUESTS
-  ) {
-    params.setTurns((prev) => prev.filter((turn) => turn.id !== params.assistantId));
-    params.setStreamError('Too many advisor requests — wait a few seconds and retry.');
+  if (err instanceof StreamHttpError && err.status === HTTP_STATUS.TOO_MANY_REQUESTS) {
+    args.setTurns((prev) => prev.filter((turn) => turn.id !== args.assistantId));
+    args.setStreamError('Too many advisor requests — wait a few seconds and retry.');
     return;
   }
-  params.setTurns((prev) => applyFallbackAnswer(prev, params.assistantId, params.payload));
+  args.setTurns((prev) => applyFallbackAnswer(prev, args.assistantId, args.payload));
+}
+
+async function runStreamTurn(args: StreamExecutionArgs): Promise<void> {
+  try {
+    const received = await dispatchStreamRequest(args.payload, args.controller.signal, (evt) => {
+      args.setTurns((prev) => applyStreamEvent(prev, args.assistantId, evt));
+    });
+    if (!received && !args.controller.signal.aborted) {
+      args.setTurns((prev) => applyFallbackAnswer(prev, args.assistantId, args.payload));
+    }
+  } catch (err: unknown) {
+    handleStreamFailure(err, args);
+  } finally {
+    if (!args.controller.signal.aborted) {
+      args.setIsStreaming(false);
+    }
+  }
 }
 
 /**
@@ -175,7 +177,11 @@ export function useAssistantStream() {
   const abortRef = useRef<AbortController | null>(null);
 
   const sendQuestion = useCallback(
-    async (rawQuery: string, context: StreamContext): Promise<void> => {
+    async (
+      rawQuery: string,
+      context: StreamContext,
+      preferredProvider: 'auto' | 'groq' = 'auto',
+    ): Promise<void> => {
       const trimmed = rawQuery.trim().slice(0, SECURITY_LIMITS.MAX_CHAT_QUERY_CHARS);
       if (!trimmed || isStreaming) {
         return;
@@ -185,36 +191,24 @@ export function useAssistantStream() {
       abortRef.current = controller;
 
       const assistantId = makeTurnId();
-      const payload: ChatRequestPayload = { query: trimmed, ...context };
+      const payload: ChatRequestPayload = { query: trimmed, ...context, preferredProvider };
+      const userLabel =
+        preferredProvider === 'groq' ? `Second opinion (Groq): ${trimmed}` : trimmed;
       setStreamError(null);
       setIsStreaming(true);
       setTurns((prev) => [
         ...prev,
-        { id: makeTurnId(), role: 'user', text: trimmed },
-        { id: assistantId, role: 'assistant', text: '' },
+        { id: makeTurnId(), role: 'user', text: userLabel },
+        { id: assistantId, role: 'assistant', text: '', queryPrompt: trimmed },
       ]);
-
-      try {
-        const received = await dispatchStreamRequest(payload, controller.signal, (evt) => {
-          setTurns((prev) => applyStreamEvent(prev, assistantId, evt));
-        });
-        if (!received && !controller.signal.aborted) {
-          setTurns((prev) => applyFallbackAnswer(prev, assistantId, payload));
-        }
-      } catch (err: unknown) {
-        handleStreamFailure({
-          err,
-          aborted: controller.signal.aborted,
-          assistantId,
-          payload,
-          setTurns,
-          setStreamError,
-        });
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsStreaming(false);
-        }
-      }
+      await runStreamTurn({
+        controller,
+        assistantId,
+        payload,
+        setTurns,
+        setStreamError,
+        setIsStreaming,
+      });
     },
     [isStreaming],
   );

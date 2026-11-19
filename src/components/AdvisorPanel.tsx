@@ -2,27 +2,96 @@ import { MessageSquare, Send } from 'lucide-react';
 import { memo, useState, type ReactElement, type SyntheticEvent } from 'react';
 import { SECURITY_LIMITS, VALIDATION_BOUNDS } from '../config/constants.js';
 import type { TelemetrySnapshot } from '../domain/localBaseline.js';
-import { useAssistantStream, type AssistantTurn } from '../hooks/useAssistantStream.js';
+import {
+  useAssistantStream,
+  type AssistantTurn,
+  type StreamContext,
+} from '../hooks/useAssistantStream.js';
 import type { LocaleDictionary } from '../i18n/translations.js';
 import type { PlanRequestPayload } from '../validators/schemas.js';
 
 export interface AdvisorPanelProps {
   readonly input: PlanRequestPayload;
   readonly telemetry: TelemetrySnapshot;
+  readonly groqConfigured?: boolean | undefined;
   readonly t: LocaleDictionary;
+}
+
+function resolveTurnSourceLabel(turn: AssistantTurn, t: LocaleDictionary): string {
+  if (turn.provider === 'groq') {
+    return 'Groq AI (live failover · grounded telemetry)';
+  }
+  return turn.isFallback ? t.aiSourceFallback : t.aiSourceGemini;
+}
+
+function buildStreamContext(
+  input: PlanRequestPayload,
+  telemetry: TelemetrySnapshot,
+): StreamContext {
+  return {
+    city: telemetry.city.trim().slice(0, VALIDATION_BOUNDS.MAX_CITY_QUERY_LEN) || 'New Delhi',
+    language: input.language,
+    cpcbNaqi: Math.max(0, Math.round(telemetry.stationCrossCheck.effectiveSafetyAqi)),
+    pm25UgM3: Math.max(0, Math.round(telemetry.currentPollutants.pm25UgM3)),
+    inversionSeverity: telemetry.inversion.currentSeverity,
+    openWindowsNow: telemetry.inversion.openWindowsNow,
+  };
+}
+
+function TurnFooterRow({
+  turn,
+  isStreaming,
+  groqConfigured,
+  onSecondOpinion,
+  t,
+}: {
+  readonly turn: AssistantTurn;
+  readonly isStreaming: boolean;
+  readonly groqConfigured: boolean;
+  readonly onSecondOpinion: (query: string) => void;
+  readonly t: LocaleDictionary;
+}): ReactElement | null {
+  if (turn.role !== 'assistant' || turn.isFallback === undefined) {
+    return null;
+  }
+  const canCrossCheck = groqConfigured && !isStreaming && turn.provider === 'gemini';
+  const promptText = turn.queryPrompt;
+  return (
+    <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
+      <span>{resolveTurnSourceLabel(turn, t)}</span>
+      {canCrossCheck && promptText && (
+        <button
+          type="button"
+          onClick={() => {
+            onSecondOpinion(promptText);
+          }}
+          className="text-ink-2 underline decoration-rule-2 underline-offset-2 hover:text-accent hover:decoration-accent"
+        >
+          Second opinion (Groq)
+        </button>
+      )}
+    </div>
+  );
 }
 
 function ChatTranscript({
   turns,
   isStreaming,
   streamError,
+  groqConfigured,
+  onSecondOpinion,
   t,
 }: {
   readonly turns: readonly AssistantTurn[];
   readonly isStreaming: boolean;
   readonly streamError: string | null;
+  readonly groqConfigured: boolean;
+  readonly onSecondOpinion: (query: string) => void;
   readonly t: LocaleDictionary;
-}): ReactElement {
+}): ReactElement | null {
+  if (turns.length === 0 && !streamError) {
+    return null;
+  }
   return (
     <div
       aria-live="polite"
@@ -34,11 +103,13 @@ function ChatTranscript({
           className={turn.role === 'user' ? 'font-medium text-accent' : 'text-ink-2'}
         >
           <div>{turn.text || (isStreaming ? t.advisorStreamingLabel : '')}</div>
-          {turn.role === 'assistant' && turn.isFallback !== undefined && (
-            <div className="mt-1 text-xs text-muted">
-              {turn.isFallback ? t.aiSourceFallback : t.aiSourceGemini}
-            </div>
-          )}
+          <TurnFooterRow
+            turn={turn}
+            isStreaming={isStreaming}
+            groqConfigured={groqConfigured}
+            onSecondOpinion={onSecondOpinion}
+            t={t}
+          />
         </div>
       ))}
       {streamError && <p className="text-bad">{streamError}</p>}
@@ -121,17 +192,20 @@ function AdvisorQueryForm({
 export const AdvisorPanel = memo(function AdvisorPanel({
   input,
   telemetry,
+  groqConfigured = false,
   t,
 }: AdvisorPanelProps): ReactElement {
   const [question, setQuestion] = useState('');
-  const { turns, isStreaming, streamError, sendQuestion } = useAssistantStream();
-  const context = {
-    city: telemetry.city.trim().slice(0, VALIDATION_BOUNDS.MAX_CITY_QUERY_LEN) || 'New Delhi',
-    language: input.language,
-    cpcbNaqi: Math.max(0, Math.round(telemetry.stationCrossCheck.effectiveSafetyAqi)),
-    pm25UgM3: Math.max(0, Math.round(telemetry.currentPollutants.pm25UgM3)),
-    inversionSeverity: telemetry.inversion.currentSeverity,
-    openWindowsNow: telemetry.inversion.openWindowsNow,
+  const stream = useAssistantStream();
+  const context = buildStreamContext(input, telemetry);
+
+  const submitQuery = (event: SyntheticEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    const trimmed = question.trim();
+    if (trimmed) {
+      setQuestion('');
+      void stream.sendQuestion(trimmed, context);
+    }
   };
 
   return (
@@ -142,29 +216,28 @@ export const AdvisorPanel = memo(function AdvisorPanel({
       </h3>
       <AdvisorChipsBar
         chips={t.advisorChips}
-        disabled={isStreaming}
+        disabled={stream.isStreaming}
         onSelectChip={(chip) => {
-          void sendQuestion(chip, context);
+          void stream.sendQuestion(chip, context);
         }}
       />
       <AdvisorQueryForm
         question={question}
-        isStreaming={isStreaming}
+        isStreaming={stream.isStreaming}
         onChangeQuestion={setQuestion}
-        onSubmit={(event) => {
-          event.preventDefault();
-          const trimmed = question.trim();
-          if (!trimmed) {
-            return;
-          }
-          setQuestion('');
-          void sendQuestion(trimmed, context);
+        onSubmit={submitQuery}
+        t={t}
+      />
+      <ChatTranscript
+        turns={stream.turns}
+        isStreaming={stream.isStreaming}
+        streamError={stream.streamError}
+        groqConfigured={groqConfigured}
+        onSecondOpinion={(promptText) => {
+          void stream.sendQuestion(promptText, context, 'groq');
         }}
         t={t}
       />
-      {(turns.length > 0 || streamError) && (
-        <ChatTranscript turns={turns} isStreaming={isStreaming} streamError={streamError} t={t} />
-      )}
     </section>
   );
 });

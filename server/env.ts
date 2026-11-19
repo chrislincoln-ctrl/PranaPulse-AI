@@ -22,6 +22,8 @@ const envSchema = z.object({
   ),
   GEMINI_API_KEY: optionalTrimmedString,
   GEMINI_MODEL: optionalTrimmedString.transform((value) => value ?? APP_META.DEFAULT_GEMINI_MODEL),
+  GROQ_API_KEY: optionalTrimmedString,
+  GROQ_MODEL: optionalTrimmedString.transform((value) => value ?? APP_META.DEFAULT_GROQ_MODEL),
   WAQI_API_TOKEN: optionalTrimmedString,
   NASA_FIRMS_MAP_KEY: optionalTrimmedString,
   VITE_SUPABASE_URL: optionalTrimmedString,

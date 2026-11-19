@@ -227,15 +227,18 @@ function registerAssistantStreamRoute(
     res.flushHeaders();
 
     let isFallback = true;
+    let provider: 'gemini' | 'groq' | 'deterministic' = 'deterministic';
     try {
       const result = await streamGroundedAdvice(parsed.data, env, (chunk) => {
         writeSseEvent(res, { chunk });
       });
       isFallback = result.isFallback;
+      provider = result.provider;
     } catch {
       isFallback = true;
+      provider = 'deterministic';
     }
-    writeSseEvent(res, { done: true, isFallback });
+    writeSseEvent(res, { done: true, isFallback, provider });
     res.end();
   });
 }

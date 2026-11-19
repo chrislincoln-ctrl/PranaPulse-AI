@@ -14,7 +14,10 @@ import { useGeolocationAction, type GpsStatus } from './useGeolocationAction.js'
 export type { GpsStatus };
 
 interface HealthPayload {
-  readonly capabilities?: { readonly geminiConfigured?: boolean };
+  readonly capabilities?: {
+    readonly geminiConfigured?: boolean;
+    readonly groqConfigured?: boolean;
+  };
 }
 
 function localizeDefaultMembers(
@@ -53,21 +56,25 @@ async function fetchPlanBundle(
   return isPlanBundle(data) ? data : null;
 }
 
-function useHealthCapability(): boolean {
-  const [liveGeminiConfigured, setLiveGeminiConfigured] = useState(false);
+function useHealthCapability(): {
+  readonly liveGeminiConfigured: boolean;
+  readonly groqConfigured: boolean;
+} {
+  const [caps, setCaps] = useState({ liveGeminiConfigured: false, groqConfigured: false });
 
   useEffect(() => {
     void fetch('/api/health')
       .then((res) => (res.ok ? (res.json() as Promise<HealthPayload>) : null))
       .then((data) => {
-        if (data?.capabilities?.geminiConfigured) {
-          setLiveGeminiConfigured(true);
-        }
+        setCaps({
+          liveGeminiConfigured: Boolean(data?.capabilities?.geminiConfigured),
+          groqConfigured: Boolean(data?.capabilities?.groqConfigured),
+        });
       })
       .catch(() => undefined);
   }, []);
 
-  return liveGeminiConfigured;
+  return caps;
 }
 
 function usePlanSynchronizer(setBundle: React.Dispatch<React.SetStateAction<PlanBundleResponse>>) {
@@ -207,7 +214,7 @@ export function useAirQualityWorkspace() {
   const [bundle, setBundle] = useState<PlanBundleResponse>(() =>
     buildInitialWorkspaceBundle(DEFAULT_WORKSPACE_INPUT),
   );
-  const liveGeminiConfigured = useHealthCapability();
+  const { liveGeminiConfigured, groqConfigured } = useHealthCapability();
   const sync = usePlanSynchronizer(setBundle);
 
   useWorkspaceEffects(input.language, sync.executePlanSync, sync.cancelPending);
@@ -237,6 +244,7 @@ export function useAirQualityWorkspace() {
     input,
     bundle,
     liveGeminiConfigured,
+    groqConfigured,
     isLoadingPlan: sync.isLoadingPlan,
     gpsStatus,
     gpsCity,

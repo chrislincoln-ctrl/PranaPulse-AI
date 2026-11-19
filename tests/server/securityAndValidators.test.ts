@@ -243,6 +243,56 @@ describe('security barriers, caches, rate limiter, and grounded Gemini engine', 
       mockFactory,
     );
     expect(streamRes.isFallback).toBe(false);
+    expect(streamRes.provider).toBe('gemini');
     expect(streamed.join('')).toBe('Use an N95 on the Metro.');
+  });
+
+  it('automatically fails over to Groq for structured plans and SSE advisor streams when Gemini is unavailable', async () => {
+    const validPlan = buildDeterministicFallbackPlan(makeBriefContext('en'));
+    const sseBody = [
+      'data: {"choices":[{"delta":{"content":"Keep windows "}}]}\n\n',
+      'data: {"choices":[{"delta":{"content":"sealed until 13:00."}}]}\n\n',
+      'data: [DONE]\n\n',
+    ].join('');
+
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ choices: [{ message: { content: JSON.stringify(validPlan) } }] }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(sseBody, {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        }),
+      );
+
+    const env = loadServerEnv({ NODE_ENV: 'test', GROQ_API_KEY: 'gsk_mock_key_only' });
+    const planRes = await generateGroundedPlan(makeBriefContext('en'), env);
+    expect(planRes.isFallback).toBe(false);
+    expect(planRes.modelUsed).toContain('groq:');
+
+    const chunks: string[] = [];
+    const streamRes = await streamGroundedAdvice(
+      {
+        query: 'Open windows now?',
+        city: 'New Delhi',
+        language: 'en',
+        cpcbNaqi: 320,
+        pm25UgM3: 180,
+        inversionSeverity: 'severe-inversion',
+        openWindowsNow: false,
+      },
+      env,
+      (chunk) => chunks.push(chunk),
+    );
+    expect(streamRes.isFallback).toBe(false);
+    expect(streamRes.provider).toBe('groq');
+    expect(chunks.join('')).toBe('Keep windows sealed until 13:00.');
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    fetchSpy.mockRestore();
   });
 });

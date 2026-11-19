@@ -15,6 +15,8 @@ export const APP_META = {
     'gemini-3.8-flash',
     'gemini-3.5-flash',
   ],
+  DEFAULT_GROQ_MODEL: 'qwen/qwen3.8-27b',
+  GROQ_FALLBACK_MODELS: ['qwen/qwen3.8-27b', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b'],
 } as const;
 
 /** HTTP security, rate limiting, and upstream resiliency budgets. */
@@ -53,6 +55,7 @@ export const UPSTREAM_ENDPOINTS = {
   NOMINATIM_REVERSE: 'https://nominatim.openstreetmap.org/reverse',
   WAQI_BASE: 'https://api.waqi.info/feed',
   NASA_FIRMS_BASE: 'https://firms.modaps.eosdis.nasa.gov/api/area/csv',
+  GROQ_CHAT_COMPLETIONS: 'https://api.groq.com/openai/v1/chat/completions',
 } as const;
 
 /** Standard HTTP status codes used consistently across Express handlers. */

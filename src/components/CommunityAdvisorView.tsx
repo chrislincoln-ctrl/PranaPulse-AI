@@ -18,6 +18,7 @@ export interface CommunityAdvisorViewProps {
   readonly input: PlanRequestPayload;
   readonly telemetry: TelemetrySnapshot;
   readonly rwa: RwaCollectiveImpact;
+  readonly groqConfigured?: boolean | undefined;
   readonly onUpdateInput: (patch: Partial<PlanRequestPayload>) => void;
   readonly t: LocaleDictionary;
 }
@@ -215,6 +216,7 @@ export const CommunityAdvisorView = memo(function CommunityAdvisorView({
   input,
   telemetry,
   rwa,
+  groqConfigured = false,
   onUpdateInput,
   t,
 }: CommunityAdvisorViewProps): ReactElement {
@@ -244,7 +246,7 @@ export const CommunityAdvisorView = memo(function CommunityAdvisorView({
           t={t}
         />
       </section>
-      <AdvisorPanel input={input} telemetry={telemetry} t={t} />
+      <AdvisorPanel input={input} telemetry={telemetry} groqConfigured={groqConfigured} t={t} />
     </div>
   );
 });

@@ -50,6 +50,7 @@ function TabPanelBody({ activeTab, workspace, t }: TabPanelProps): ReactElement 
         input={input}
         telemetry={bundle.telemetry}
         rwa={bundle.rwa}
+        groqConfigured={workspace.groqConfigured}
         onUpdateInput={updateInput}
         t={t}
       />

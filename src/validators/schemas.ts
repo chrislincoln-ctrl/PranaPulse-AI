@@ -118,6 +118,7 @@ export const chatRequestSchema = z.object({
     .max(VALIDATION_BOUNDS.MAX_COMMUTE_KM * VALIDATION_BOUNDS.GEOCODE_RETURN_LIMIT),
   inversionSeverity: z.enum(['neutral', 'moderate-trapping', 'severe-inversion']),
   openWindowsNow: z.boolean(),
+  preferredProvider: z.enum(['auto', 'groq']).optional(),
 });
 
 export type ChatRequestPayload = z.infer<typeof chatRequestSchema>;

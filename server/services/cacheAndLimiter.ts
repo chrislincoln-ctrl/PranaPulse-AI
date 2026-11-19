@@ -150,3 +150,22 @@ export async function fetchJsonWithTimeout<T>(
     clearTimeout(timer);
   }
 }
+
+/** Races a promise against a strict wall-clock timeout and cleans up its timer reliably. */
+export async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => {
+          reject(new Error('Upstream request timeout'));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) {
+      clearTimeout(timer);
+    }
+  }
+}

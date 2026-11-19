@@ -63,6 +63,7 @@ function registerHealthRoute(app: Express, env: ServerEnv): void {
       capabilities: {
         openMeteoLive: true,
         geminiConfigured: Boolean(env.GEMINI_API_KEY),
+        groqConfigured: Boolean(env.GROQ_API_KEY),
         waqiConfigured: Boolean(env.WAQI_API_TOKEN),
         firmsConfigured: Boolean(env.NASA_FIRMS_MAP_KEY),
         supabaseConfigured: Boolean(resolveSupabaseOrigin(env.VITE_SUPABASE_URL)),
