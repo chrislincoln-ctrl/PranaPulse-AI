@@ -154,6 +154,7 @@ describe('security barriers, caches, rate limiter, and grounded Gemini engine', 
     } as unknown as Parameters<typeof limiter.middleware>[1];
 
     const fakeReq = {
+      ip: '203.0.113.9',
       headers: { 'x-forwarded-for': '203.0.113.9, 10.0.0.1' },
       socket: { remoteAddress: '127.0.0.1' },
     } as unknown as Parameters<typeof limiter.middleware>[0];
