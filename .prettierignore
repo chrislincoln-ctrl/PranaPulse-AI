@@ -1,0 +1,9 @@
+dist/
+dist-server/
+coverage/
+.stryker-tmp/
+reports/
+playwright-report/
+test-results/
+node_modules/
+

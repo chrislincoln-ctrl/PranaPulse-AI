@@ -1,0 +1,223 @@
+import { Activity, AlertTriangle, Flame, Wind } from 'lucide-react';
+import { memo, type ReactElement } from 'react';
+import { A11Y_CONSTANTS } from '../config/constants.js';
+import { PRECISION_DISPLAY, RADIAL_GAUGE_GEOMETRY } from '../config/uiConstants.js';
+import type { TelemetrySnapshot } from '../domain/localBaseline.js';
+import type { GpsStatus } from '../hooks/useAirQualityWorkspace.js';
+import type { LocaleDictionary } from '../i18n/translations.js';
+import { CitySearchControl } from './CitySearchControl.js';
+import { HeroMasthead } from './HeroMasthead.js';
+import { InversionChartSvg } from './InversionChartSvg.js';
+import { PollutantBreakdownCard } from './PollutantBreakdownCard.js';
+import { RadialGaugeSvg } from './RadialGaugeSvg.js';
+
+export interface TelemetryHeroProps {
+  readonly telemetry: TelemetrySnapshot;
+  readonly gpsStatus: GpsStatus;
+  readonly gpsCity: string | null;
+  readonly onSelectCity: (city: string, lat: number, lon: number) => void;
+  readonly onRequestGps: () => void;
+  readonly t: LocaleDictionary;
+}
+
+function getAqiToneClass(aqi: number): string {
+  if (aqi >= PRECISION_DISPLAY.AQI_POOR_THRESHOLD) {
+    return 'text-bad';
+  }
+  if (aqi >= PRECISION_DISPLAY.AQI_CAUTION_THRESHOLD) {
+    return 'text-accent';
+  }
+  return 'text-ok';
+}
+
+function getAqiStrokeVar(aqi: number): string {
+  if (aqi >= PRECISION_DISPLAY.AQI_POOR_THRESHOLD) {
+    return 'var(--color-bad)';
+  }
+  if (aqi >= PRECISION_DISPLAY.AQI_CAUTION_THRESHOLD) {
+    return 'var(--color-accent)';
+  }
+  return 'var(--color-ok)';
+}
+
+function resolvePlumeNote(telemetry: TelemetrySnapshot, t: LocaleDictionary): string {
+  const baseNote = telemetry.firePlume.isSeasonalBaseline
+    ? t.fireBaselineModelNote
+    : t.fireHotspotsUnit;
+  if (telemetry.stationName) {
+    return `${baseNote} · ${t.stationCrossCheckLabel} ${telemetry.stationName}`;
+  }
+  return baseNote;
+}
+
+function SevereAlertBanner({
+  telemetry,
+  t,
+}: {
+  readonly telemetry: TelemetrySnapshot;
+  readonly t: LocaleDictionary;
+}): ReactElement | null {
+  const safeAqi = telemetry.stationCrossCheck.effectiveSafetyAqi;
+  const isSevere = safeAqi >= A11Y_CONSTANTS.SEVERE_AQI_ALERT_THRESHOLD;
+  const hasDisagreement = telemetry.stationCrossCheck.disagreementDetected;
+  if (!isSevere && !hasDisagreement) {
+    return null;
+  }
+  const cityLabel = t.cityNames[telemetry.city] ?? telemetry.city;
+
+  return (
+    <div
+      role="alert"
+      aria-live="assertive"
+      className="mb-4 flex items-start gap-3 rounded border border-bad bg-bad-soft px-4 py-2.5 text-sm text-ink"
+    >
+      <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-bad" aria-hidden="true" />
+      <div>
+        {isSevere && (
+          <p className="font-semibold text-bad">
+            {t.severeBannerPrefix} CPCB NAQI {safeAqi} ({cityLabel})
+          </p>
+        )}
+        {hasDisagreement && <p className="text-ink-2">{t.disagreementBannerText}</p>}
+      </div>
+    </div>
+  );
+}
+
+function PrimaryAqiPanels({
+  telemetry,
+  t,
+}: {
+  readonly telemetry: TelemetrySnapshot;
+  readonly t: LocaleDictionary;
+}): ReactElement {
+  const { assessment, stationCrossCheck } = telemetry;
+  const safeAqi = stationCrossCheck.effectiveSafetyAqi;
+  const cpcbPct =
+    (safeAqi / RADIAL_GAUGE_GEOMETRY.MAX_AQI_SCALE) * PRECISION_DISPLAY.PERCENT_MULTIPLIER;
+  const epaPct =
+    (assessment.usEpaAqi / RADIAL_GAUGE_GEOMETRY.MAX_AQI_SCALE) *
+    PRECISION_DISPLAY.PERCENT_MULTIPLIER;
+
+  return (
+    <>
+      <div className="panel flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 text-xs text-ink-2">
+            <Activity className="h-3.5 w-3.5 text-cool" aria-hidden="true" />
+            <span>{t.metricCpcbLabel}</span>
+          </div>
+          <div className={`measured mt-1 text-2xl font-semibold ${getAqiToneClass(safeAqi)}`}>
+            {safeAqi}
+          </div>
+          <div className="mt-0.5 text-xs text-ink-2">
+            {t.cpcbCategories[assessment.cpcbCategory]} ({assessment.dominantCpcbPollutant})
+          </div>
+        </div>
+        <RadialGaugeSvg
+          outerPercent={cpcbPct}
+          outerColor={getAqiStrokeVar(safeAqi)}
+          innerPercent={epaPct}
+          innerColor="var(--color-cool)"
+          centerText={String(safeAqi)}
+          size={RADIAL_GAUGE_GEOMETRY.COMPACT_SIZE_PX}
+        />
+      </div>
+
+      <div className="panel">
+        <div className="text-xs text-ink-2">{t.metricUsEpaLabel}</div>
+        <div className="measured mt-1 text-2xl font-semibold text-ink">{assessment.usEpaAqi}</div>
+        <div className="mt-0.5 text-xs text-ink-2">
+          <span className="measured">{assessment.who24hMultiple}</span>
+          {t.whoMultipleUnit} / <span className="measured">{assessment.cigaretteEquivPerDay}</span>{' '}
+          {t.cigarettesUnit}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function AtmosphericStatusPanels({
+  telemetry,
+  t,
+}: {
+  readonly telemetry: TelemetrySnapshot;
+  readonly t: LocaleDictionary;
+}): ReactElement {
+  const { inversion, firePlume } = telemetry;
+  return (
+    <>
+      <div className="panel">
+        <div className="flex items-center gap-1.5 text-xs text-ink-2">
+          <Wind className="h-3.5 w-3.5 text-cool" aria-hidden="true" />
+          <span>{t.metricPblLabel}</span>
+        </div>
+        <div className="measured mt-1 text-2xl font-semibold text-cool">
+          {inversion.currentPblMeters} m
+        </div>
+        <div className="mt-0.5 text-xs text-ink-2">
+          {inversion.openWindowsNow ? t.openWindowsYes : t.openWindowsNo}
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="flex items-center gap-1.5 text-xs text-ink-2">
+          <Flame className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+          <span>{t.metricPlumeLabel}</span>
+        </div>
+        <div className="measured mt-1 text-2xl font-semibold text-ink">
+          {firePlume.hotspots500km}
+        </div>
+        <div className="mt-0.5 text-xs text-ink-2">{resolvePlumeNote(telemetry, t)}</div>
+      </div>
+    </>
+  );
+}
+
+/**
+ * Console atmospheric telemetry hero fitting cleanly above 1280x800 fold with severe-AQI
+ * assertive alerts, 21st.dev concentric multi-ring radial gauge, 6-band CPCB spectrum, and 24h chart.
+ */
+export const TelemetryHero = memo(function TelemetryHero({
+  telemetry,
+  gpsStatus,
+  gpsCity,
+  onSelectCity,
+  onRequestGps,
+  t,
+}: TelemetryHeroProps): ReactElement {
+  return (
+    <section aria-labelledby="hero-heading" className="hero-corridor">
+      <SevereAlertBanner telemetry={telemetry} t={t} />
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+        <div className="min-w-0 lg:col-span-5">
+          <HeroMasthead telemetry={telemetry} gpsCity={gpsCity} t={t} />
+          <CitySearchControl
+            activeCity={telemetry.city}
+            gpsStatus={gpsStatus}
+            gpsCity={gpsCity}
+            onSelectCity={onSelectCity}
+            onRequestGps={onRequestGps}
+            t={t}
+          />
+          <PollutantBreakdownCard
+            pollutants={telemetry.currentPollutants}
+            activeCategory={telemetry.assessment.cpcbCategory}
+            t={t}
+          />
+        </div>
+        <div className="min-w-0 lg:col-span-7">
+          <div className="panels mb-4">
+            <PrimaryAqiPanels telemetry={telemetry} t={t} />
+            <AtmosphericStatusPanels telemetry={telemetry} t={t} />
+          </div>
+          <InversionChartSvg
+            hourlySeries={telemetry.hourlySeries}
+            bestWindowHours={telemetry.inversion.bestWindowHours}
+            t={t}
+          />
+        </div>
+      </div>
+    </section>
+  );
+});
