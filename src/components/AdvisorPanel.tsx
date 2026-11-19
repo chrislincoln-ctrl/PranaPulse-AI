@@ -1,6 +1,6 @@
 import { MessageSquare, Send } from 'lucide-react';
 import { memo, useState, type ReactElement, type SyntheticEvent } from 'react';
-import { SECURITY_LIMITS } from '../config/constants.js';
+import { SECURITY_LIMITS, VALIDATION_BOUNDS } from '../config/constants.js';
 import type { TelemetrySnapshot } from '../domain/localBaseline.js';
 import { useAssistantStream, type AssistantTurn } from '../hooks/useAssistantStream.js';
 import type { LocaleDictionary } from '../i18n/translations.js';
@@ -126,10 +126,10 @@ export const AdvisorPanel = memo(function AdvisorPanel({
   const [question, setQuestion] = useState('');
   const { turns, isStreaming, streamError, sendQuestion } = useAssistantStream();
   const context = {
-    city: telemetry.city,
+    city: telemetry.city.trim().slice(0, VALIDATION_BOUNDS.MAX_CITY_QUERY_LEN) || 'New Delhi',
     language: input.language,
-    cpcbNaqi: telemetry.stationCrossCheck.effectiveSafetyAqi,
-    pm25UgM3: telemetry.currentPollutants.pm25UgM3,
+    cpcbNaqi: Math.max(0, Math.round(telemetry.stationCrossCheck.effectiveSafetyAqi)),
+    pm25UgM3: Math.max(0, Math.round(telemetry.currentPollutants.pm25UgM3)),
     inversionSeverity: telemetry.inversion.currentSeverity,
     openWindowsNow: telemetry.inversion.openWindowsNow,
   };

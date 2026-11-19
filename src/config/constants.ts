@@ -10,10 +10,10 @@ export const APP_META = {
   VERSION: '1.0.0',
   DEFAULT_GEMINI_MODEL: 'gemini-3.8-flash',
   GEMINI_FALLBACK_MODELS: [
-    'gemini-3.8-flash',
     'gemini-3.5-flash-lite',
-    'gemini-flash-latest',
-    'gemini-2.5-flash-lite',
+    'gemini-flash-lite-latest',
+    'gemini-3.8-flash',
+    'gemini-3.5-flash',
   ],
 } as const;
 
@@ -21,8 +21,10 @@ export const APP_META = {
 export const SECURITY_LIMITS = {
   JSON_BODY_LIMIT: '16kb',
   UPSTREAM_TIMEOUT_MS: 6_000,
+  GEMINI_REQUEST_TIMEOUT_MS: 8_000,
   TELEMETRY_RATE_LIMIT_PER_MIN: 60,
   AI_RATE_LIMIT_PER_MIN: 10,
+  CHAT_RATE_LIMIT_PER_MIN: 30,
   RATE_WINDOW_MS: 60_000,
   MAX_CHAT_QUERY_CHARS: 500,
   COORDINATE_PRECISION_DECIMALS: 2,

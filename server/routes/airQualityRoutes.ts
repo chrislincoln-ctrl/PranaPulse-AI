@@ -23,6 +23,7 @@ import { resolveAutoLocation } from '../services/waqiFirmsClient.js';
 export interface RateLimiterPair {
   readonly telemetry: SlidingWindowRateLimiter;
   readonly ai: SlidingWindowRateLimiter;
+  readonly chat: SlidingWindowRateLimiter;
 }
 
 function sendValidationError(res: Response, message: string): void {
@@ -222,13 +223,19 @@ function registerAssistantStreamRoute(
     res.status(HTTP_STATUS.OK);
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
-    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
 
-    const result = await streamGroundedAdvice(parsed.data, env, (chunk) => {
-      writeSseEvent(res, { chunk });
-    });
-
-    writeSseEvent(res, { done: true, isFallback: result.isFallback });
+    let isFallback = true;
+    try {
+      const result = await streamGroundedAdvice(parsed.data, env, (chunk) => {
+        writeSseEvent(res, { chunk });
+      });
+      isFallback = result.isFallback;
+    } catch {
+      isFallback = true;
+    }
+    writeSseEvent(res, { done: true, isFallback });
     res.end();
   });
 }
@@ -247,11 +254,12 @@ export function createAirQualityRouter(env: ServerEnv): {
   const limiters: RateLimiterPair = {
     telemetry: new SlidingWindowRateLimiter(SECURITY_LIMITS.TELEMETRY_RATE_LIMIT_PER_MIN),
     ai: new SlidingWindowRateLimiter(SECURITY_LIMITS.AI_RATE_LIMIT_PER_MIN),
+    chat: new SlidingWindowRateLimiter(SECURITY_LIMITS.CHAT_RATE_LIMIT_PER_MIN),
   };
 
   registerGeocodeAndTelemetry(router, env, limiters.telemetry);
   registerPlanRoute(router, env, limiters.ai);
-  registerAssistantStreamRoute(router, env, limiters.ai);
+  registerAssistantStreamRoute(router, env, limiters.chat);
 
   return { router, limiters };
 }

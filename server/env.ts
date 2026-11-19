@@ -11,12 +11,15 @@ const optionalTrimmedString = z
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  PORT: z.coerce
-    .number()
-    .int()
-    .min(SECURITY_LIMITS.MIN_PORT)
-    .max(SECURITY_LIMITS.MAX_PORT)
-    .default(SECURITY_LIMITS.DEFAULT_PORT),
+  PORT: z.preprocess(
+    (value) => (typeof value === 'string' && value.trim().length === 0 ? undefined : value),
+    z.coerce
+      .number()
+      .int()
+      .min(SECURITY_LIMITS.MIN_PORT)
+      .max(SECURITY_LIMITS.MAX_PORT)
+      .default(SECURITY_LIMITS.DEFAULT_PORT),
+  ),
   GEMINI_API_KEY: optionalTrimmedString,
   GEMINI_MODEL: optionalTrimmedString.transform((value) => value ?? APP_META.DEFAULT_GEMINI_MODEL),
   WAQI_API_TOKEN: optionalTrimmedString,

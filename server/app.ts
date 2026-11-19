@@ -147,7 +147,12 @@ export function createApp(customEnv?: ServerEnv): Express {
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
     next();
   });
-  app.use(compression());
+  app.use(
+    compression({
+      filter: (req, res) =>
+        req.path === '/api/assistant/stream' ? false : compression.filter(req, res),
+    }),
+  );
   app.use(express.json({ limit: SECURITY_LIMITS.JSON_BODY_LIMIT }));
 
   registerHealthRoute(app, env);

@@ -108,7 +108,10 @@ export const chatRequestSchema = z.object({
     .max(VALIDATION_BOUNDS.MAX_CITY_QUERY_LEN)
     .transform((val) => sanitizeUserText(val, VALIDATION_BOUNDS.MAX_CITY_QUERY_LEN)),
   language: supportedLanguageSchema.default('en'),
-  cpcbNaqi: z.coerce.number().min(0).max(STATION_CROSS_CHECK.MAX_AQI_SCALE),
+  cpcbNaqi: z.coerce
+    .number()
+    .min(0)
+    .max(STATION_CROSS_CHECK.MAX_AQI_SCALE * 2),
   pm25UgM3: z.coerce
     .number()
     .min(0)

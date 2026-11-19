@@ -1,7 +1,8 @@
 import { useCallback, useRef, useState } from 'react';
-import { SECURITY_LIMITS } from '../config/constants.js';
+import { HTTP_STATUS, SECURITY_LIMITS } from '../config/constants.js';
 import { PRECISION_DISPLAY } from '../config/uiConstants.js';
 import type { InversionSeverity } from '../domain/types.js';
+import { buildLocalizedChatReply } from '../i18n/fallbackTemplates.js';
 import type { ChatRequestPayload, SupportedLanguage } from '../validators/schemas.js';
 
 export interface AssistantTurn {
@@ -26,6 +27,15 @@ export interface StreamContext {
   readonly openWindowsNow: boolean;
 }
 
+class StreamHttpError extends Error {
+  public readonly status: number;
+
+  public constructor(status: number) {
+    super(`HTTP ${String(status)}`);
+    this.status = status;
+  }
+}
+
 function makeTurnId(): string {
   return `t-${Math.random()
     .toString(PRECISION_DISPLAY.RADIX)
@@ -44,16 +54,32 @@ function parseSseDataLine(line: string): SseEventData | null {
   }
 }
 
+function emitParsedLines(lines: readonly string[], onEvent: (evt: SseEventData) => void): void {
+  for (const line of lines) {
+    const evt = parseSseDataLine(line);
+    if (evt) {
+      onEvent(evt);
+    }
+  }
+}
+
 async function readStreamChunks(
   res: Response,
   onEvent: (evt: SseEventData) => void,
-): Promise<void> {
+): Promise<boolean> {
   if (!res.body) {
-    return;
+    return false;
   }
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  let receivedChunk = false;
+  const wrappedOnEvent = (evt: SseEventData): void => {
+    if (evt.chunk && evt.chunk.length > 0) {
+      receivedChunk = true;
+    }
+    onEvent(evt);
+  };
 
   for (;;) {
     const { done, value } = await reader.read();
@@ -63,20 +89,20 @@ async function readStreamChunks(
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split('\n');
     buffer = lines.pop() ?? '';
-    for (const line of lines) {
-      const evt = parseSseDataLine(line);
-      if (evt) {
-        onEvent(evt);
-      }
-    }
+    emitParsedLines(lines, wrappedOnEvent);
   }
+  const trailing = `${buffer}${decoder.decode()}`;
+  if (trailing.trim().length > 0) {
+    emitParsedLines(trailing.split('\n'), wrappedOnEvent);
+  }
+  return receivedChunk;
 }
 
 async function dispatchStreamRequest(
   payload: ChatRequestPayload,
   signal: AbortSignal,
   onEvent: (evt: SseEventData) => void,
-): Promise<void> {
+): Promise<boolean> {
   const res = await fetch('/api/assistant/stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -84,9 +110,9 @@ async function dispatchStreamRequest(
     signal,
   });
   if (!res.ok) {
-    throw new Error(`HTTP ${String(res.status)}`);
+    throw new StreamHttpError(res.status);
   }
-  await readStreamChunks(res, onEvent);
+  return await readStreamChunks(res, onEvent);
 }
 
 function applyStreamEvent(
@@ -105,9 +131,42 @@ function applyStreamEvent(
   });
 }
 
+function applyFallbackAnswer(
+  prev: readonly AssistantTurn[],
+  assistantId: string,
+  payload: ChatRequestPayload,
+): readonly AssistantTurn[] {
+  const fallbackText = buildLocalizedChatReply(payload);
+  return prev.map((turn) =>
+    turn.id === assistantId ? { ...turn, text: fallbackText, isFallback: true } : turn,
+  );
+}
+
+function handleStreamFailure(params: {
+  readonly err: unknown;
+  readonly aborted: boolean;
+  readonly assistantId: string;
+  readonly payload: ChatRequestPayload;
+  readonly setTurns: React.Dispatch<React.SetStateAction<readonly AssistantTurn[]>>;
+  readonly setStreamError: React.Dispatch<React.SetStateAction<string | null>>;
+}): void {
+  if (params.aborted) {
+    return;
+  }
+  if (
+    params.err instanceof StreamHttpError &&
+    params.err.status === HTTP_STATUS.TOO_MANY_REQUESTS
+  ) {
+    params.setTurns((prev) => prev.filter((turn) => turn.id !== params.assistantId));
+    params.setStreamError('Too many advisor requests — wait a few seconds and retry.');
+    return;
+  }
+  params.setTurns((prev) => applyFallbackAnswer(prev, params.assistantId, params.payload));
+}
+
 /**
  * Manages SSE conversational air quality Q&A streaming grounded strictly
- * in the active location's atmospheric telemetry.
+ * in the active location's atmospheric telemetry, with seamless deterministic fallback.
  */
 export function useAssistantStream() {
   const [turns, setTurns] = useState<readonly AssistantTurn[]>([]);
@@ -126,6 +185,7 @@ export function useAssistantStream() {
       abortRef.current = controller;
 
       const assistantId = makeTurnId();
+      const payload: ChatRequestPayload = { query: trimmed, ...context };
       setStreamError(null);
       setIsStreaming(true);
       setTurns((prev) => [
@@ -135,11 +195,21 @@ export function useAssistantStream() {
       ]);
 
       try {
-        await dispatchStreamRequest({ query: trimmed, ...context }, controller.signal, (evt) => {
+        const received = await dispatchStreamRequest(payload, controller.signal, (evt) => {
           setTurns((prev) => applyStreamEvent(prev, assistantId, evt));
         });
-      } catch {
-        setStreamError('Unable to reach guidance stream right now.');
+        if (!received && !controller.signal.aborted) {
+          setTurns((prev) => applyFallbackAnswer(prev, assistantId, payload));
+        }
+      } catch (err: unknown) {
+        handleStreamFailure({
+          err,
+          aborted: controller.signal.aborted,
+          assistantId,
+          payload,
+          setTurns,
+          setStreamError,
+        });
       } finally {
         if (!controller.signal.aborted) {
           setIsStreaming(false);
