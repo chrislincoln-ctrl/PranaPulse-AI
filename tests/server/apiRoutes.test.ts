@@ -325,4 +325,48 @@ describe('API route integration, upstream telemetry cross-checks & SSE streaming
     expect(body.firePlume.isSeasonalBaseline).toBe(false);
     expect(body.firePlume.summary).toContain('VIIRS NOAA21');
   });
+
+  it('uses accuracy-aware reverse geocoding with BigDataCloud fallback and Vercel Edge IP headers in /api/locate', async () => {
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response('Rate limited', { status: 429 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            locality: 'Shimultala',
+            city: 'Kolkata',
+            principalSubdivision: 'West Bengal',
+          }),
+          { status: 200 },
+        ),
+      );
+
+    const app = createApp(loadServerEnv({ NODE_ENV: 'test' }));
+    const coarseRes = await invokeExpress(app, {
+      url: '/api/locate?lat=22.45&lon=88.41&accuracy=2400',
+    });
+    expect(coarseRes.status).toBe(200);
+    expect(coarseRes.body).toEqual({
+      city: 'Kolkata',
+      lat: 22.45,
+      lon: 88.41,
+      precision: 'ip',
+    });
+
+    const edgeRes = await invokeExpress(app, {
+      url: '/api/locate',
+      headers: {
+        'x-vercel-ip-city': 'Kolkata',
+        'x-vercel-ip-country-region': 'WB',
+        'x-vercel-ip-latitude': '22.5726',
+        'x-vercel-ip-longitude': '88.3639',
+      },
+    });
+    expect(edgeRes.status).toBe(200);
+    expect(edgeRes.body).toEqual({
+      city: 'Kolkata, WB',
+      lat: 22.57,
+      lon: 88.36,
+      precision: 'ip',
+    });
+  });
 });

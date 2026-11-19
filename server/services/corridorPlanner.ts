@@ -114,10 +114,16 @@ function buildDirectionalOrPresetNodes(req: CorridorPlanRequest) {
 
 function buildFallbackResponse(req: CorridorPlanRequest, isValid: boolean): CorridorPlanResponse {
   const resolved = buildDirectionalOrPresetNodes(req);
+  const fullFrom =
+    sanitizeUserText(req.fromArea, VALIDATION_BOUNDS.MAX_CITY_QUERY_LEN) ||
+    resolved.nodes['home-sector'];
+  const fullTo =
+    sanitizeUserText(req.toArea, VALIDATION_BOUNDS.MAX_CITY_QUERY_LEN) ||
+    resolved.nodes['civic-hub'];
   const googleMapsUrl = buildClientGoogleMapsUrl({
     city: req.city,
-    fromArea: resolved.nodes['home-sector'],
-    toArea: resolved.nodes['civic-hub'],
+    fromArea: fullFrom,
+    toArea: fullTo,
     greenWaypoint: resolved.nodes['green-parkway'],
     commuteMode: req.commuteMode,
   });

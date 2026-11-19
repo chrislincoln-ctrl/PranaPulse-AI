@@ -10,7 +10,15 @@ interface ServerLocationPayload {
   readonly precision?: 'gps' | 'ip';
 }
 
+interface BrowserCoordsFix {
+  readonly lat: number;
+  readonly lon: number;
+  readonly accuracy?: number | undefined;
+}
+
 const GEO_PERMISSION_DENIED_CODE = 1;
+const PINPOINT_ACCURACY_METERS = 100;
+const WATCH_REFINE_WINDOW_MS = 2_500;
 
 function hasValidLocationFields(obj: Record<string, unknown>): obj is {
   city: string;
@@ -33,25 +41,47 @@ function parseServerLocation(raw: unknown): ServerLocationPayload | null {
   return { city: obj.city, lat: obj.lat, lon: obj.lon, ...(precision ? { precision } : {}) };
 }
 
-async function fetchServerLocation(coords?: {
-  readonly lat: number;
-  readonly lon: number;
-}): Promise<ServerLocationPayload | null> {
-  const query = coords ? `?lat=${String(coords.lat)}&lon=${String(coords.lon)}` : '';
+function buildLocateQuery(coords?: BrowserCoordsFix): string {
+  if (!coords) {
+    return '';
+  }
+  const base = `?lat=${String(coords.lat)}&lon=${String(coords.lon)}`;
+  if (
+    typeof coords.accuracy === 'number' &&
+    Number.isFinite(coords.accuracy) &&
+    coords.accuracy > 0
+  ) {
+    return `${base}&accuracy=${String(Math.round(coords.accuracy))}`;
+  }
+  return base;
+}
+
+async function fetchServerLocation(
+  coords?: BrowserCoordsFix,
+): Promise<ServerLocationPayload | null> {
   try {
-    const res = await fetch(`/api/locate${query}`);
+    const res = await fetch(`/api/locate${buildLocateQuery(coords)}`);
     return res.ok ? parseServerLocation(await res.json()) : null;
   } catch {
     return null;
   }
 }
 
-function queryBrowserCoords(
-  onCoords: (lat: number, lon: number) => void,
+function extractFix(pos: GeolocationPosition): BrowserCoordsFix {
+  const accuracy = pos.coords.accuracy;
+  return {
+    lat: pos.coords.latitude,
+    lon: pos.coords.longitude,
+    ...(typeof accuracy === 'number' && Number.isFinite(accuracy) ? { accuracy } : {}),
+  };
+}
+
+function queryWithGetCurrentPosition(
+  onFix: (fix: BrowserCoordsFix) => void,
   onUnavailable: () => void,
 ): void {
   const onSuccess: PositionCallback = (pos) => {
-    onCoords(pos.coords.latitude, pos.coords.longitude);
+    onFix(extractFix(pos));
   };
   const onHighAccuracyFail: PositionErrorCallback = (err) => {
     if (err.code === GEO_PERMISSION_DENIED_CODE) {
@@ -71,9 +101,72 @@ function queryBrowserCoords(
   });
 }
 
+function isSharperFix(next: BrowserCoordsFix, prev: BrowserCoordsFix | null): boolean {
+  return !prev || (next.accuracy ?? Infinity) < (prev.accuracy ?? Infinity);
+}
+
+interface WatchSession {
+  bestFix: BrowserCoordsFix | null;
+  settled: boolean;
+  refineTimer: ReturnType<typeof setTimeout> | null;
+  watchId: number;
+}
+
+function stopWatchSession(session: WatchSession): void {
+  session.settled = true;
+  if (session.refineTimer !== null) {
+    clearTimeout(session.refineTimer);
+  }
+  navigator.geolocation.clearWatch(session.watchId);
+}
+
+function queryWithWatchRefinement(
+  onFix: (fix: BrowserCoordsFix) => void,
+  onUnavailable: () => void,
+): void {
+  const session: WatchSession = { bestFix: null, settled: false, refineTimer: null, watchId: 0 };
+  const finish = (fix: BrowserCoordsFix | null): void => {
+    if (session.settled) {
+      return;
+    }
+    stopWatchSession(session);
+    if (fix) {
+      onFix(fix);
+    } else {
+      onUnavailable();
+    }
+  };
+  const onReading: PositionCallback = (pos) => {
+    const fix = extractFix(pos);
+    if (isSharperFix(fix, session.bestFix)) {
+      session.bestFix = fix;
+    }
+    if ((fix.accuracy ?? Infinity) <= PINPOINT_ACCURACY_METERS) {
+      finish(fix);
+      return;
+    }
+    session.refineTimer ??= setTimeout(() => {
+      finish(session.bestFix);
+    }, WATCH_REFINE_WINDOW_MS);
+  };
+  const onWatchError: PositionErrorCallback = (err) => {
+    if (session.bestFix || err.code === GEO_PERMISSION_DENIED_CODE) {
+      finish(session.bestFix);
+    } else {
+      stopWatchSession(session);
+      queryWithGetCurrentPosition(onFix, onUnavailable);
+    }
+  };
+  session.watchId = navigator.geolocation.watchPosition(onReading, onWatchError, {
+    enableHighAccuracy: true,
+    timeout: UI_TIMINGS.GEOLOCATION_HIGH_ACCURACY_TIMEOUT_MS,
+    maximumAge: 0,
+  });
+}
+
 /**
- * Resolves high-accuracy device GPS coordinates + neighborhood name first, gracefully
- * retrying coarse Wi-Fi geolocation and finally server IP estimation when permission is blocked.
+ * Resolves high-accuracy device GPS coordinates + accuracy-aware locality label, refining
+ * initial coarse readings via `watchPosition` and gracefully falling back to server IP geolocation.
  */
 export function useGeolocationAction(
   selectCityFromGps: (city: string, lat: number, lon: number) => void,
@@ -91,11 +184,11 @@ export function useGeolocationAction(
     });
   }, [selectCityFromGps]);
 
-  const handleBrowserCoords = useCallback(
-    (lat: number, lon: number): void => {
-      void fetchServerLocation({ lat, lon }).then((loc) => {
-        setGpsStatus('idle');
-        selectCityFromGps(loc?.city ?? 'Local Area Monitor', lat, lon);
+  const handleBrowserFix = useCallback(
+    (fix: BrowserCoordsFix): void => {
+      void fetchServerLocation(fix).then((loc) => {
+        setGpsStatus(loc?.precision === 'ip' ? 'ip-fallback' : 'idle');
+        selectCityFromGps(loc?.city ?? 'Local Area Monitor', fix.lat, fix.lon);
       });
     },
     [selectCityFromGps],
@@ -107,8 +200,12 @@ export function useGeolocationAction(
       fallbackToServerLocation();
       return;
     }
-    queryBrowserCoords(handleBrowserCoords, fallbackToServerLocation);
-  }, [fallbackToServerLocation, handleBrowserCoords]);
+    if (typeof navigator.geolocation.watchPosition === 'function') {
+      queryWithWatchRefinement(handleBrowserFix, fallbackToServerLocation);
+      return;
+    }
+    queryWithGetCurrentPosition(handleBrowserFix, fallbackToServerLocation);
+  }, [fallbackToServerLocation, handleBrowserFix]);
 
   const resetGpsStatus = useCallback((): void => {
     setGpsStatus('idle');

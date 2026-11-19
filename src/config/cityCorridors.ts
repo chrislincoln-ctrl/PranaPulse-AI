@@ -40,8 +40,21 @@ const KOLKATA_PRESET: CityCorridorPreset = {
 const CITY_CORRIDOR_MAP: Record<string, CityCorridorPreset> = {
   'new delhi': DEFAULT_DELHI_PRESET,
   delhi: DEFAULT_DELHI_PRESET,
+  noida: DEFAULT_DELHI_PRESET,
+  gurgaon: DEFAULT_DELHI_PRESET,
+  gurugram: DEFAULT_DELHI_PRESET,
+  faridabad: DEFAULT_DELHI_PRESET,
+  ghaziabad: DEFAULT_DELHI_PRESET,
   kolkata: KOLKATA_PRESET,
   calcutta: KOLKATA_PRESET,
+  sonarpur: KOLKATA_PRESET,
+  'south 24 parganas': KOLKATA_PRESET,
+  'north 24 parganas': KOLKATA_PRESET,
+  howrah: KOLKATA_PRESET,
+  hooghly: KOLKATA_PRESET,
+  barrackpore: KOLKATA_PRESET,
+  'salt lake': KOLKATA_PRESET,
+  'new town': KOLKATA_PRESET,
   lucknow: {
     defaultFrom: 'Gomti Nagar',
     defaultTo: 'Hazratganj',
@@ -127,9 +140,10 @@ export function resolveCityCorridorPreset(
     }
   }
   const nodes = fallbackNodes ?? DEFAULT_DELHI_PRESET.nodes;
+  const metro = extractMetroCity(city) || city;
   return {
-    defaultFrom: `${city} (${nodes['home-sector']})`,
-    defaultTo: `${city} (${nodes['civic-hub']})`,
+    defaultFrom: `${metro} (${nodes['home-sector']})`,
+    defaultTo: `${metro} (${nodes['civic-hub']})`,
     nodes,
   };
 }
@@ -140,18 +154,49 @@ function extractPrimaryPlace(rawPlace: string): string {
   return beforeParen || rawPlace.trim();
 }
 
+/**
+ * Extracts only the parent metropolitan city from a GPS label like `"Shimultala, Kolkata"`
+ * so GPS sub-localities never leak into user-entered Google Maps origins or destinations.
+ */
+export function extractMetroCity(rawCity: string): string {
+  const parts = rawCity
+    .split(',')
+    .map((part) => part.trim().replace(/^Greater\s+/i, ''))
+    .filter((part) => part.length > 0 && part.toLowerCase() !== 'india');
+  const metro = parts[parts.length - 1] ?? '';
+  return metro.toLowerCase() === 'local area monitor' ? '' : metro;
+}
+
 function formatMapsPlace(rawPlace: string, city: string): string {
   const cleanPlace = extractPrimaryPlace(rawPlace);
-  const cleanCity = city.trim();
-  if (!cleanCity || cleanCity.toLowerCase() === 'local area monitor') {
+  if (cleanPlace.includes(',')) {
     return cleanPlace;
   }
-  const lowerPlace = cleanPlace.toLowerCase();
-  const remainingParts = cleanCity
-    .split(',')
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0 && !lowerPlace.includes(part.toLowerCase()));
-  return remainingParts.length > 0 ? `${cleanPlace}, ${remainingParts.join(', ')}` : cleanPlace;
+  const metroCity = extractMetroCity(city);
+  if (!metroCity) {
+    return cleanPlace;
+  }
+  return cleanPlace.toLowerCase().includes(metroCity.toLowerCase())
+    ? cleanPlace
+    : `${cleanPlace}, ${metroCity}`;
+}
+
+function resolveTravelMode(commuteMode: CommuteModeId): string {
+  if (commuteMode === 'metro' || commuteMode === 'electric-bus') {
+    return 'transit';
+  }
+  if (commuteMode === 'cycling') {
+    return 'bicycling';
+  }
+  return commuteMode === 'walking' ? 'walking' : 'driving';
+}
+
+function isDistinctWaypoint(waypoint: string, origin: string, dest: string): boolean {
+  if (!waypoint) {
+    return false;
+  }
+  const lower = waypoint.toLowerCase();
+  return lower !== origin.toLowerCase() && lower !== dest.toLowerCase();
 }
 
 export function buildClientGoogleMapsUrl(params: {
@@ -161,19 +206,16 @@ export function buildClientGoogleMapsUrl(params: {
   readonly greenWaypoint: string;
   readonly commuteMode: CommuteModeId;
 }): string {
-  let travelmode = 'driving';
-  if (params.commuteMode === 'metro' || params.commuteMode === 'electric-bus') {
-    travelmode = 'transit';
-  } else if (params.commuteMode === 'cycling') {
-    travelmode = 'bicycling';
-  } else if (params.commuteMode === 'walking') {
-    travelmode = 'walking';
-  }
-  const origin = encodeURIComponent(formatMapsPlace(params.fromArea, params.city));
-  const dest = encodeURIComponent(formatMapsPlace(params.toArea, params.city));
+  const travelmode = resolveTravelMode(params.commuteMode);
+  const originText = formatMapsPlace(params.fromArea, params.city);
+  const destText = formatMapsPlace(params.toArea, params.city);
+  const baseUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(originText)}&destination=${encodeURIComponent(destText)}`;
   if (travelmode === 'transit') {
-    return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=transit`;
+    return `${baseUrl}&travelmode=transit`;
   }
-  const waypoint = encodeURIComponent(formatMapsPlace(params.greenWaypoint, params.city));
-  return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&waypoints=${waypoint}&travelmode=${travelmode}`;
+  const waypointText = formatMapsPlace(params.greenWaypoint, params.city);
+  if (!isDistinctWaypoint(waypointText, originText, destText)) {
+    return `${baseUrl}&travelmode=${travelmode}`;
+  }
+  return `${baseUrl}&waypoints=${encodeURIComponent(waypointText)}&travelmode=${travelmode}`;
 }

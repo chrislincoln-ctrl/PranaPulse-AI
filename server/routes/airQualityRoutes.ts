@@ -18,7 +18,7 @@ import {
 } from '../services/customOptionVerifier.js';
 import { generateGroundedPlan, streamGroundedAdvice } from '../services/geminiAdvisor.js';
 import { getUrbanTelemetryBundle, searchUrbanLocations } from '../services/telemetryClients.js';
-import { resolveAutoLocation } from '../services/waqiFirmsClient.js';
+import { extractRequestGeoContext, resolveAutoLocation } from '../services/waqiFirmsClient.js';
 
 export interface RateLimiterPair {
   readonly telemetry: SlidingWindowRateLimiter;
@@ -37,11 +37,13 @@ function writeSseEvent(res: Response, payload: Record<string, unknown>): void {
 function parseCoordQuery(query: Request['query']): {
   readonly lat?: number | undefined;
   readonly lon?: number | undefined;
+  readonly accuracy?: number | undefined;
 } {
   const lat = Number(query.lat);
   const lon = Number(query.lon);
+  const accuracy = Number(query.accuracy);
   if (Number.isFinite(lat) && Number.isFinite(lon)) {
-    return { lat, lon };
+    return { lat, lon, ...(Number.isFinite(accuracy) && accuracy > 0 ? { accuracy } : {}) };
   }
   return {};
 }
@@ -63,7 +65,8 @@ function registerGeocodeAndTelemetry(
 
   router.get('/locate', limiter.middleware, async (req: Request, res: Response) => {
     const coords = parseCoordQuery(req.query);
-    const located = await resolveAutoLocation({ ...coords, token: env.WAQI_API_TOKEN });
+    const geoCtx = extractRequestGeoContext(req.headers, req.socket.remoteAddress);
+    const located = await resolveAutoLocation({ ...coords, ...geoCtx, token: env.WAQI_API_TOKEN });
     if (!located) {
       res.status(HTTP_STATUS.INTERNAL_ERROR).json({ error: 'Unable to resolve current location.' });
       return;

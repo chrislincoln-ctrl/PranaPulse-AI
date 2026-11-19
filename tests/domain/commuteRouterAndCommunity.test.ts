@@ -1,5 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
+import { buildClientGoogleMapsUrl, extractMetroCity } from '../../src/config/cityCorridors.js';
 import { findLowestExposureCorridor } from '../../src/domain/cleanCorridorRouter.js';
 import {
   evaluateFamilyMember,
@@ -304,5 +305,32 @@ describe('commutePareto, cleanCorridorRouter, and communityImpact engines', () =
         },
       ),
     );
+  });
+
+  it('keeps user-entered From & To areas in Google Maps URLs without leaking GPS sub-localities', () => {
+    expect(extractMetroCity('Shimultala, Kolkata')).toBe('Kolkata');
+    expect(extractMetroCity('Garia, Greater Kolkata, India')).toBe('Kolkata');
+
+    const transitUrl = buildClientGoogleMapsUrl({
+      city: 'Shimultala, Kolkata',
+      fromArea: 'Garia',
+      toArea: 'Esplanade',
+      greenWaypoint: 'Rabindra Sarobar Lake',
+      commuteMode: 'metro',
+    });
+    expect(transitUrl).toContain('origin=Garia%2C%20Kolkata');
+    expect(transitUrl).toContain('destination=Esplanade%2C%20Kolkata');
+    expect(transitUrl).not.toContain('Shimultala');
+
+    const carUrl = buildClientGoogleMapsUrl({
+      city: 'Shimultala, Kolkata',
+      fromArea: 'Salt Lake Sector V, Kolkata',
+      toArea: 'Howrah Station, Howrah',
+      greenWaypoint: 'Rabindra Sarobar Lake',
+      commuteMode: 'ev-car',
+    });
+    expect(carUrl).toContain('origin=Salt%20Lake%20Sector%20V%2C%20Kolkata');
+    expect(carUrl).toContain('destination=Howrah%20Station%2C%20Howrah');
+    expect(carUrl).not.toContain('Shimultala');
   });
 });

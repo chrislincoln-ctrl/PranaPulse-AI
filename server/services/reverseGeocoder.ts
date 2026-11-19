@@ -10,6 +10,7 @@ interface NominatimAddress {
   readonly suburb?: string;
   readonly neighbourhood?: string;
   readonly residential?: string;
+  readonly city_district?: string;
   readonly village?: string;
   readonly town?: string;
   readonly city?: string;
@@ -23,22 +24,44 @@ interface NominatimReverseResponse {
   readonly address?: NominatimAddress;
 }
 
-const REVERSE_ZOOM_LOCALITY = 14;
-const USER_AGENT_HEADER = { 'User-Agent': `${APP_META.DISPLAY_NAME}/${APP_META.VERSION}` };
+interface BigDataCloudResponse {
+  readonly locality?: string;
+  readonly city?: string;
+  readonly principalSubdivision?: string;
+}
 
-const LOCALITY_KEYS: readonly (keyof NominatimAddress)[] = [
+export const COARSE_ACCURACY_METERS = 1_500;
+const MODERATE_ACCURACY_METERS = 300;
+const REVERSE_ZOOM_CITY = 10;
+const REVERSE_ZOOM_TOWN = 12;
+const REVERSE_ZOOM_NEIGHBORHOOD = 16;
+const USER_AGENT_HEADER = { 'User-Agent': `${APP_META.DISPLAY_NAME}/${APP_META.VERSION}` };
+const BIGDATACLOUD_REVERSE = 'https://api.bigdatacloud.net/data/reverse-geocode-client';
+
+const PRECISE_LOCALITY_KEYS: readonly (keyof NominatimAddress)[] = [
   'suburb',
   'neighbourhood',
   'residential',
   'village',
   'town',
 ];
+const TOWN_LOCALITY_KEYS: readonly (keyof NominatimAddress)[] = ['town', 'city_district', 'suburb'];
 const CITY_KEYS: readonly (keyof NominatimAddress)[] = [
   'city',
   'municipality',
   'state_district',
   'state',
 ];
+
+function resolveZoomLevel(accuracyMeters?: number): number {
+  if (typeof accuracyMeters !== 'number' || !Number.isFinite(accuracyMeters)) {
+    return REVERSE_ZOOM_NEIGHBORHOOD;
+  }
+  if (accuracyMeters > COARSE_ACCURACY_METERS) {
+    return REVERSE_ZOOM_CITY;
+  }
+  return accuracyMeters > MODERATE_ACCURACY_METERS ? REVERSE_ZOOM_TOWN : REVERSE_ZOOM_NEIGHBORHOOD;
+}
 
 function pickAddressField(
   addr: NominatimAddress | undefined,
@@ -66,29 +89,71 @@ function joinLocalityAndCity(locality: string, city: string): string | null {
   return `${locality}, ${city}`;
 }
 
-function formatNominatimLocality(data: NominatimReverseResponse): string | null {
-  const locality = pickAddressField(data.address, LOCALITY_KEYS) || (data.name ?? '').trim();
-  const city = pickAddressField(data.address, CITY_KEYS)
-    .replace(/^Greater\s+/i, '')
-    .trim();
-  const label = joinLocalityAndCity(locality, city);
+function isCoarseAccuracy(accuracyMeters?: number): boolean {
+  return typeof accuracyMeters === 'number' && accuracyMeters > COARSE_ACCURACY_METERS;
+}
+
+function formatBoundedLabel(locality: string, city: string, coarse: boolean): string | null {
+  const label = coarse && city ? city : joinLocalityAndCity(locality, city);
   return label ? label.slice(0, VALIDATION_BOUNDS.MAX_CITY_QUERY_LEN) : null;
 }
 
-/**
- * Resolves exact GPS coordinates into a human-readable neighborhood/city label
- * via free OpenStreetMap Nominatim reverse-geocoding (no API key required).
- */
-export async function reverseGeocodeCoords(lat: number, lon: number): Promise<string | null> {
+function formatNominatimLocality(
+  data: NominatimReverseResponse,
+  accuracyMeters?: number,
+): string | null {
+  const city = pickAddressField(data.address, CITY_KEYS)
+    .replace(/^Greater\s+/i, '')
+    .trim();
+  const isModerate =
+    typeof accuracyMeters === 'number' && accuracyMeters > MODERATE_ACCURACY_METERS;
+  const localityKeys = isModerate ? TOWN_LOCALITY_KEYS : PRECISE_LOCALITY_KEYS;
+  const locality = pickAddressField(data.address, localityKeys) || (data.name ?? '').trim();
+  return formatBoundedLabel(locality, city, isCoarseAccuracy(accuracyMeters));
+}
+
+async function reverseGeocodeBigDataCloud(
+  lat: number,
+  lon: number,
+  accuracyMeters?: number,
+): Promise<string | null> {
   try {
-    const url = `${UPSTREAM_ENDPOINTS.NOMINATIM_REVERSE}?format=jsonv2&lat=${String(lat)}&lon=${String(lon)}&zoom=${String(REVERSE_ZOOM_LOCALITY)}&accept-language=en`;
+    const url = `${BIGDATACLOUD_REVERSE}?latitude=${String(lat)}&longitude=${String(lon)}&localityLanguage=en`;
+    const json = await fetchJsonWithTimeout<BigDataCloudResponse>(
+      url,
+      SECURITY_LIMITS.UPSTREAM_TIMEOUT_MS,
+    );
+    const city = (json.city ?? json.principalSubdivision ?? '').trim();
+    const locality = (json.locality ?? '').trim();
+    return formatBoundedLabel(locality, city, isCoarseAccuracy(accuracyMeters));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolves GPS coordinates into an accuracy-matched locality/city label via OpenStreetMap
+ * Nominatim with automatic BigDataCloud fallback (no API key required).
+ */
+export async function reverseGeocodeCoords(
+  lat: number,
+  lon: number,
+  accuracyMeters?: number,
+): Promise<string | null> {
+  const zoom = resolveZoomLevel(accuracyMeters);
+  try {
+    const url = `${UPSTREAM_ENDPOINTS.NOMINATIM_REVERSE}?format=jsonv2&lat=${String(lat)}&lon=${String(lon)}&zoom=${String(zoom)}&accept-language=en`;
     const json = await fetchJsonWithTimeout<NominatimReverseResponse>(
       url,
       SECURITY_LIMITS.UPSTREAM_TIMEOUT_MS,
       USER_AGENT_HEADER,
     );
-    return formatNominatimLocality(json);
+    const formatted = formatNominatimLocality(json, accuracyMeters);
+    if (formatted) {
+      return formatted;
+    }
   } catch {
-    return null;
+    // Fall through to BigDataCloud backup when Nominatim rate-limits or times out.
   }
+  return await reverseGeocodeBigDataCloud(lat, lon, accuracyMeters);
 }
