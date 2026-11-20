@@ -1,11 +1,8 @@
-import { ArrowRight, Flame, Shield, Wind } from 'lucide-react';
 import { memo, useMemo, type ReactElement } from 'react';
 import { ScrollGlobe } from './ui/landing-page.js';
 import type { useAirQualityWorkspace } from '../hooks/useAirQualityWorkspace.js';
 import type { SupabaseAuthController } from '../hooks/useSupabaseAuth.js';
 import type { LocaleDictionary } from '../i18n/translations.js';
-import { LandingHeroSection } from './LandingHeroSection.js';
-import { LandingPillarsGrid } from './LandingPillarsGrid.js';
 
 export interface LandingPageViewProps {
   readonly workspace: ReturnType<typeof useAirQualityWorkspace>;
@@ -14,88 +11,11 @@ export interface LandingPageViewProps {
   readonly t: LocaleDictionary;
 }
 
-function LiveCityStrip({
-  city,
-  aqi,
-  pblMeters,
-  onEnterConsole,
-}: {
-  readonly city: string;
-  readonly aqi: number;
-  readonly pblMeters: number;
-  readonly onEnterConsole: () => void;
-}): ReactElement {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/30 bg-accent/5 p-4 sm:p-5">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/15 text-accent-ink">
-          <Flame className="h-5 w-5" aria-hidden="true" />
-        </div>
-        <div>
-          <p className="text-xs uppercase tracking-wider text-muted">
-            Live Station Telemetry
-          </p>
-          <p className="text-sm font-bold text-ink sm:text-base">
-            {city}: CPCB NAQI <span className="text-warn">{aqi.toString()}</span> • PBL{' '}
-            <span className="font-mono">{pblMeters.toString()} m</span>
-          </p>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        onClick={onEnterConsole}
-        className="btn-secondary touch-target inline-flex items-center gap-2 text-xs font-semibold"
-      >
-        <span>Open Station Deep-Dive</span>
-        <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-      </button>
-    </div>
-  );
-}
-
-function LandingBottomCtaBanner({
-  title,
-  ctaLabel,
-  onEnterConsole,
-}: {
-  readonly title: string;
-  readonly ctaLabel: string;
-  readonly onEnterConsole: () => void;
-}): ReactElement {
-  return (
-    <section
-      aria-label="Action Call"
-      className="card flex flex-col items-center justify-between gap-4 border border-rule bg-paper-3 p-6 text-center sm:flex-row sm:text-left"
-    >
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cool/10 text-cool">
-          <Wind className="h-5 w-5" aria-hidden="true" />
-        </div>
-        <div>
-          <h3 className="text-base font-bold text-ink">{title}</h3>
-          <p className="text-xs text-muted">
-            Physics-grounded CADR, route, and family risk management.
-          </p>
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={onEnterConsole}
-        className="btn-primary touch-target inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold"
-      >
-        <Shield className="h-4 w-4" aria-hidden="true" />
-        <span>{ctaLabel}</span>
-      </button>
-    </section>
-  );
-}
-
 function getHeroSection(onEnterConsole: () => void, t: LocaleDictionary) {
   return {
     id: 'hero',
     badge: 'Winter Smog AI',
-    title: 'PranaPulse AI',
+    title: 'PranaPulse',
     subtitle: t.landingHeroHeadline,
     description: t.landingHeroLede,
     align: 'left' as const,
@@ -106,22 +26,41 @@ function getHeroSection(onEnterConsole: () => void, t: LocaleDictionary) {
         onClick: onEnterConsole,
       },
       {
-        label: 'Explore Simulation',
+        label: 'Explore Science',
         variant: 'secondary' as const,
         onClick: () => {
-          const el = document.getElementById('simulation-section');
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth' });
-          }
+          window.scrollTo({ top: window.innerHeight, behavior: 'smooth' });
         },
       },
     ],
   };
 }
 
-function getFeatureSection(t: LocaleDictionary) {
+function getTelemetrySection(city: string, aqi: number, pblMeters: number) {
   return {
-    id: 'features',
+    id: 'telemetry',
+    badge: 'Inversion Physics',
+    title: `${city} Trapping`,
+    subtitle: `Current PBL: ${pblMeters.toString()}m | CPCB NAQI: ${aqi.toString()}`,
+    description:
+      'Ground cooling collapses the boundary layer under 300 meters, trapping particulates near the surface. Real-time telemetry tracks nocturnal inversions and surface thermal plumes.',
+    align: 'center' as const,
+    features: [
+      {
+        title: 'Planetary Boundary Layer Tracking',
+        description: 'Continuous vertical mixing layer height and nocturnal thermal lid estimation.',
+      },
+      {
+        title: 'Thermal Plume Detection',
+        description: '500km regional satellite thermal anomaly and biomass emission surveillance.',
+      },
+    ],
+  };
+}
+
+function getPillarsSection(t: LocaleDictionary) {
+  return {
+    id: 'pillars',
     badge: 'Exposure Defense',
     title: t.landingPillarsHeading,
     subtitle: 'Mass-Balance CADR & Route Modeling',
@@ -131,17 +70,19 @@ function getFeatureSection(t: LocaleDictionary) {
       { title: t.landingPillarPblTitle, description: t.landingPillarPblDesc },
       { title: t.landingPillarCadrTitle, description: t.landingPillarCadrDesc },
       { title: t.landingPillarCommuteTitle, description: t.landingPillarCommuteDesc },
+      { title: t.landingPillarFamilyTitle, description: t.landingPillarFamilyDesc },
     ],
   };
 }
 
-function getActionSection(onEnterConsole: () => void, t: LocaleDictionary) {
+function getGatewaySection(onEnterConsole: () => void, t: LocaleDictionary) {
   return {
-    id: 'gateway',
-    badge: 'Interactive Gateway',
+    id: 'console-gateway',
+    badge: 'Clean Air Mission',
     title: t.landingBottomBannerTitle,
     subtitle: 'Real-Time Telemetry & Filtration Modeling',
-    description: 'Physics-grounded CADR, route, and family risk management.',
+    description:
+      'Enter the workbench console to calculate exact room air changes, optimize commute routes, and generate tailored Gemini AI family recommendations.',
     align: 'center' as const,
     actions: [
       {
@@ -149,13 +90,23 @@ function getActionSection(onEnterConsole: () => void, t: LocaleDictionary) {
         variant: 'primary' as const,
         onClick: onEnterConsole,
       },
+      {
+        label: 'Return to Top',
+        variant: 'secondary' as const,
+        onClick: () => {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+      },
     ],
   };
 }
 
+/**
+ * Premium scroll-driven atmospheric intelligence landing page powered by ScrollGlobe
+ * with custom winter smog revolving orb and direct workbench console actions.
+ */
 export const LandingPageView = memo(function LandingPageView({
   workspace,
-  auth,
   onEnterConsole,
   t,
 }: LandingPageViewProps): ReactElement {
@@ -163,34 +114,26 @@ export const LandingPageView = memo(function LandingPageView({
   const sections = useMemo(
     () => [
       getHeroSection(onEnterConsole, t),
-      getFeatureSection(t),
-      getActionSection(onEnterConsole, t),
+      getTelemetrySection(
+        telemetry.city,
+        telemetry.assessment.cpcbNaqi,
+        telemetry.inversion.currentPblMeters,
+      ),
+      getPillarsSection(t),
+      getGatewaySection(onEnterConsole, t),
     ],
-    [onEnterConsole, t],
+    [
+      onEnterConsole,
+      t,
+      telemetry.city,
+      telemetry.assessment.cpcbNaqi,
+      telemetry.inversion.currentPblMeters,
+    ],
   );
 
   return (
-    <div className="relative w-full">
+    <main id="main-content" className="relative w-full">
       <ScrollGlobe sections={sections} className="bg-paper" />
-      <div id="simulation-section" className="container space-y-8 pb-16">
-        <LiveCityStrip
-          city={telemetry.city}
-          aqi={telemetry.assessment.cpcbNaqi}
-          pblMeters={telemetry.inversion.currentPblMeters}
-          onEnterConsole={onEnterConsole}
-        />
-        <LandingHeroSection
-          auth={auth}
-          onEnterConsole={onEnterConsole}
-          t={t}
-        />
-        <LandingPillarsGrid t={t} />
-        <LandingBottomCtaBanner
-          title={t.landingBottomBannerTitle}
-          ctaLabel={t.landingBottomBannerCta}
-          onEnterConsole={onEnterConsole}
-        />
-      </div>
-    </div>
+    </main>
   );
 });
