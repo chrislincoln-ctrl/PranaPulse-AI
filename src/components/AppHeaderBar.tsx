@@ -15,6 +15,8 @@ export interface AppHeaderBarProps {
   readonly liveGeminiConfigured: boolean;
   readonly authUser: User | null;
   readonly authInitializing: boolean;
+  readonly viewMode: 'landing' | 'workbench';
+  readonly onToggleViewMode: (mode: 'landing' | 'workbench') => void;
   readonly onChangeLanguage: (lang: SupportedLanguage) => void;
   readonly onToggleTheme: () => void;
   readonly onOpenAuthModal: () => void;

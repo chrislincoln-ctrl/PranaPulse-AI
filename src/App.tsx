@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useState, type ReactElement } from 'react
 import { ActiveSectionStrip } from './components/ActiveSectionStrip.js';
 import { AppHeaderBar, type ThemeMode } from './components/AppHeaderBar.js';
 import { AuthModal } from './components/AuthModal.js';
+import { LandingPageView } from './components/LandingPageView.js';
 import { SectionStepperFooter } from './components/SectionStepperFooter.js';
 import { SegmentedTabs } from './components/SegmentedTabs.js';
 import { SevereAlertBanner } from './components/SevereAlertBanner.js';
@@ -114,6 +115,82 @@ function scrollToMainTop(): void {
   }
 }
 
+interface AppShellProps {
+  readonly viewMode: 'landing' | 'workbench';
+  readonly onToggleViewMode: (m: 'landing' | 'workbench') => void;
+  readonly workspace: ReturnType<typeof useAirQualityWorkspace>;
+  readonly auth: ReturnType<typeof useSupabaseAuth>;
+  readonly t: LocaleDictionary;
+  readonly themeMode: ThemeMode;
+  readonly toggleTheme: () => void;
+  readonly activeTab: WorkbenchTabId;
+  readonly setActiveTab: (tab: WorkbenchTabId) => void;
+  readonly handleStepTab: (tab: WorkbenchTabId) => void;
+  readonly authModalOpen: boolean;
+  readonly setAuthModalOpen: (open: boolean) => void;
+}
+
+function AppViewBody(p: AppShellProps): ReactElement {
+  if (p.viewMode === 'landing') {
+    return (
+      <LandingPageView
+        workspace={p.workspace}
+        auth={p.auth}
+        onEnterConsole={() => {
+          p.onToggleViewMode('workbench');
+        }}
+        t={p.t}
+      />
+    );
+  }
+  return (
+    <AppMainContent
+      activeTab={p.activeTab}
+      workspace={p.workspace}
+      onSelectTab={p.setActiveTab}
+      onStepTab={p.handleStepTab}
+      t={p.t}
+    />
+  );
+}
+
+/** Stateless shell rendering the header, body, footer and auth modal. */
+function AppShell(p: AppShellProps): ReactElement {
+  return (
+    <div className="flex min-h-dvh flex-col bg-paper text-ink">
+      <SkipToMainLink label={p.t.skipLink} />
+      <AppHeaderBar
+        language={p.workspace.input.language}
+        themeMode={p.themeMode}
+        liveGeminiConfigured={p.workspace.liveGeminiConfigured}
+        authUser={p.auth.user}
+        authInitializing={p.auth.isInitializing}
+        viewMode={p.viewMode}
+        onToggleViewMode={p.onToggleViewMode}
+        onChangeLanguage={(language) => {
+          p.workspace.updateInput({ language });
+        }}
+        onToggleTheme={p.toggleTheme}
+        onOpenAuthModal={() => {
+          p.auth.clearMessages();
+          p.setAuthModalOpen(true);
+        }}
+        t={p.t}
+      />
+      <AppViewBody {...p} />
+      <AppFooter notice={p.t.footerNotice} />
+      <AuthModal
+        isOpen={p.authModalOpen}
+        auth={p.auth}
+        workspaceInput={p.workspace.input}
+        onClose={() => {
+          p.setAuthModalOpen(false);
+        }}
+      />
+    </div>
+  );
+}
+
 /**
  * Accessible Workbench application root uniting real-time atmospheric telemetry,
  * deterministic domain physics, and localized Gemini guidance in Light and Dark modes.
@@ -122,6 +199,7 @@ export const App = memo(function App(): ReactElement {
   const [activeTab, setActiveTab] = useState<WorkbenchTabId>('dashboard');
   const [themeMode, toggleTheme] = useDocumentThemeMode();
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'landing' | 'workbench'>('landing');
   const workspace = useAirQualityWorkspace();
   const auth = useCloudWorkspaceRestore(workspace.selectCity, workspace.updateInput);
   const t = TRANSLATIONS[workspace.input.language];
@@ -131,41 +209,27 @@ export const App = memo(function App(): ReactElement {
     scrollToMainTop();
   }, []);
 
+  const handleToggleViewMode = useCallback((mode: 'landing' | 'workbench'): void => {
+    setViewMode(mode);
+    if (mode === 'workbench') {
+      setActiveTab('dashboard');
+    }
+  }, []);
+
   return (
-    <div className="flex min-h-dvh flex-col bg-paper text-ink">
-      <SkipToMainLink label={t.skipLink} />
-      <AppHeaderBar
-        language={workspace.input.language}
-        themeMode={themeMode}
-        liveGeminiConfigured={workspace.liveGeminiConfigured}
-        authUser={auth.user}
-        authInitializing={auth.isInitializing}
-        onChangeLanguage={(language) => {
-          workspace.updateInput({ language });
-        }}
-        onToggleTheme={toggleTheme}
-        onOpenAuthModal={() => {
-          auth.clearMessages();
-          setAuthModalOpen(true);
-        }}
-        t={t}
-      />
-      <AppMainContent
-        activeTab={activeTab}
-        workspace={workspace}
-        onSelectTab={setActiveTab}
-        onStepTab={handleStepTab}
-        t={t}
-      />
-      <AppFooter notice={t.footerNotice} />
-      <AuthModal
-        isOpen={authModalOpen}
-        auth={auth}
-        workspaceInput={workspace.input}
-        onClose={() => {
-          setAuthModalOpen(false);
-        }}
-      />
-    </div>
+    <AppShell
+      viewMode={viewMode}
+      onToggleViewMode={handleToggleViewMode}
+      workspace={workspace}
+      auth={auth}
+      t={t}
+      themeMode={themeMode}
+      toggleTheme={toggleTheme}
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+      handleStepTab={handleStepTab}
+      authModalOpen={authModalOpen}
+      setAuthModalOpen={setAuthModalOpen}
+    />
   );
 });

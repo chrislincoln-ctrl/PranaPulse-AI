@@ -152,6 +152,38 @@ export interface LocaleDictionary {
   readonly quickCitiesHeading: string;
   readonly footerNotice: string;
   readonly languageLabel: string;
+  readonly landingNavOverview: string;
+  readonly landingNavConsole: string;
+  readonly landingHeroHeadline: string;
+  readonly landingHeroLede: string;
+  readonly landingEnterConsole: string;
+  readonly landingContinueAsGuest: string;
+  readonly landingSimulateSevere: string;
+  readonly landingSimulateClean: string;
+  readonly landingInversionCeilingLabel: string;
+  readonly landingEstimatedPm25Label: string;
+  readonly landingVisibilityLabel: string;
+  readonly landingSevereInversionDesc: string;
+  readonly landingCleanAirDesc: string;
+  readonly landingAuthGatewayTitle: string;
+  readonly landingAuthGatewaySubtitle: string;
+  readonly landingAuthGuestCta: string;
+  readonly landingAuthSignedInAs: string;
+  readonly landingAuthOpenConsole: string;
+  readonly landingPillarsHeading: string;
+  readonly landingPillarsSubheading: string;
+  readonly landingPillarPblTitle: string;
+  readonly landingPillarPblDesc: string;
+  readonly landingPillarCadrTitle: string;
+  readonly landingPillarCadrDesc: string;
+  readonly landingPillarCommuteTitle: string;
+  readonly landingPillarCommuteDesc: string;
+  readonly landingPillarFamilyTitle: string;
+  readonly landingPillarFamilyDesc: string;
+  readonly landingPillarAdvisorTitle: string;
+  readonly landingPillarAdvisorDesc: string;
+  readonly landingBottomBannerTitle: string;
+  readonly landingBottomBannerCta: string;
   readonly languageNames: Record<SupportedLanguage, string>;
   readonly cityNames: Record<string, string>;
   readonly defaultMemberLabels: Record<string, string>;
@@ -320,6 +352,49 @@ const en: LocaleDictionary = {
   footerNotice:
     'PranaPulse AI computes deterministic atmospheric & exposure equations for informational guidance only. Consult clinicians for medical emergencies.',
   languageLabel: 'Language',
+  landingNavOverview: 'Overview',
+  landingNavConsole: 'Live Console',
+  landingHeroHeadline: 'Survive & Mitigate the Winter Smog Crisis',
+  landingHeroLede:
+    'Real-time atmospheric inversion telemetry, indoor CADR filtration modeling, and low-exposure family routines powered by Gemini AI.',
+  landingEnterConsole: 'Launch Live Console',
+  landingContinueAsGuest: 'Explore as Guest',
+  landingSimulateSevere: 'Severe Winter Inversion (AQI 380 • 220m PBL)',
+  landingSimulateClean: 'Clean Afternoon Air (AQI 45 • 1200m Mixing)',
+  landingInversionCeilingLabel: 'Thermal Boundary Lid',
+  landingEstimatedPm25Label: 'Estimated PM2.5 Load',
+  landingVisibilityLabel: 'Urban Visibility',
+  landingSevereInversionDesc:
+    'Cold ground trapping keeps particulates suspended under 220 m.',
+  landingCleanAirDesc:
+    'Solar convective mixing lifts atmospheric inversion above 1200 m.',
+  landingAuthGatewayTitle: 'Access PranaPulse Console',
+  landingAuthGatewaySubtitle:
+    'Launch immediately as a guest or sign in to synchronize your family roster across devices.',
+  landingAuthGuestCta: 'Launch Live Console',
+  landingAuthSignedInAs: 'Active session',
+  landingAuthOpenConsole: 'Open Your Console',
+  landingPillarsHeading: 'Engineered for Indo-Gangetic Winter Smog',
+  landingPillarsSubheading:
+    'Ground-truth physics combined with strict AI reasoning to protect household respiratory health.',
+  landingPillarPblTitle: 'Planetary Boundary Layer Tracking',
+  landingPillarPblDesc:
+    'Real-time monitoring of nocturnal thermal inversions, ventilation indices, and CPCB NAQI ground stations.',
+  landingPillarCadrTitle: 'Indoor Clearance & CADR Physics',
+  landingPillarCadrDesc:
+    'Room mass-balance modeling, Corsi-Rosenthal box specs, and precise air change calculations.',
+  landingPillarCommuteTitle: 'Clean Commute Corridors',
+  landingPillarCommuteDesc:
+    'Dijkstra low-exposure pathfinding to navigate around arterial flyovers and diesel exhaust hot spots.',
+  landingPillarFamilyTitle: 'Family Care Roster',
+  landingPillarFamilyDesc:
+    'Tailored outdoor exposure limits and mask guidelines for children, seniors, and daily commuters.',
+  landingPillarAdvisorTitle: 'Grounded Gemini AI Advisor',
+  landingPillarAdvisorDesc:
+    'Multi-tier Gemini 2.5 Flash guidance bound strictly to peer-reviewed aerosol science without hallucination.',
+  landingBottomBannerTitle:
+    'Protect your family from winter atmospheric trapping today.',
+  landingBottomBannerCta: 'Enter Workbench Console',
   languageNames: { en: 'English', hi: 'हिन्दी', ta: 'தமிழ்' },
   cityNames: {
     'New Delhi': 'New Delhi',
@@ -549,6 +624,49 @@ const hi: LocaleDictionary = {
   footerNotice:
     'PranaPulse AI सूचनात्मक पर्यावरणीय मार्गदर्शन के लिए भौतिकी गणना करता है। चिकित्सकीय आपात स्थिति में डॉक्टर से संपर्क करें।',
   languageLabel: 'भाषा',
+  landingNavOverview: 'अवलोकन',
+  landingNavConsole: 'लाइव कंसोल',
+  landingHeroHeadline: 'सर्दियों के स्मॉग संकट से सुरक्षा और प्रबंधन',
+  landingHeroLede:
+    'सटीक वायुमंडलीय इनवर्जन टेलीमेट्री, इनडोर CADR फिल्ट्रेशन मॉडल और जेमिनी AI द्वारा संचालित कम-प्रदूषण पारिवारिक दिनचर्या।',
+  landingEnterConsole: 'लाइव कंसोल शुरू करें',
+  landingContinueAsGuest: 'अतिथि के रूप में देखें',
+  landingSimulateSevere: 'गंभीर शीतकालीन इनवर्जन (AQI 380 • 220m PBL)',
+  landingSimulateClean: 'स्वच्छ दोपहर की हवा (AQI 45 • 1200m मिक्सिंग)',
+  landingInversionCeilingLabel: 'थर्मल बाउंड्री सीलिंग',
+  landingEstimatedPm25Label: 'अनुमानित PM2.5 भार',
+  landingVisibilityLabel: 'शहरी दृश्यता',
+  landingSevereInversionDesc:
+    'जमीन की ठंडक से प्रदूषक 220 मीटर के नीचे ही फंसे रहते हैं।',
+  landingCleanAirDesc:
+    'धूप से संवहन मिश्रण वायुमंडलीय इनवर्जन को 1200 मीटर से ऊपर उठाता है।',
+  landingAuthGatewayTitle: 'प्राणपल्स कंसोल में प्रवेश करें',
+  landingAuthGatewaySubtitle:
+    'अतिथि के रूप में तुरंत शुरू करें या अपने पारिवारिक डेटा को सिंक करने के लिए साइन इन करें।',
+  landingAuthGuestCta: 'लाइव कंसोल शुरू करें',
+  landingAuthSignedInAs: 'सक्रिय सत्र',
+  landingAuthOpenConsole: 'अपना कंसोल खोलें',
+  landingPillarsHeading: 'सिंधु-गंगा मैदानों के शीतकालीन स्मॉग हेतु विशेष रूप से तैयार',
+  landingPillarsSubheading:
+    'पारिवारिक श्वसन स्वास्थ्य की सुरक्षा के लिए ठोस भौतिकी और सख्त AI विश्लेषण का संगम।',
+  landingPillarPblTitle: 'प्लेनेटरी बाउंड्री लेयर ट्रैकिंग',
+  landingPillarPblDesc:
+    'रात के थर्मल इनवर्जन, वेंटिलेशन इंडेक्स और CPCB NAQI मॉनिटरों की वास्तविक समय की निगरानी।',
+  landingPillarCadrTitle: 'इनडोर प्यूरिफिकेशन और CADR भौतिकी',
+  landingPillarCadrDesc:
+    'कमरे का मास-बैलेंस मॉडल, कोर्सी-रोसेंथल बॉक्स विवरण और सटीक एयर चेंज प्रति घंटा गणना।',
+  landingPillarCommuteTitle: 'स्वच्छ आवागमन गलियारे',
+  landingPillarCommuteDesc:
+    'व्यस्त फ्लाईओवर और डीजल धुएं वाले क्षेत्रों से बचकर सुरक्षित मार्ग खोजने हेतु डिक्सट्रा पाथफाइंडिंग।',
+  landingPillarFamilyTitle: 'पारिवारिक देखभाल सूची',
+  landingPillarFamilyDesc:
+    'बच्चों, बुजुर्गों और यात्रियों के लिए विशिष्ट बाहरी जोखिम सीमा और मास्क दिशानिर्देश।',
+  landingPillarAdvisorTitle: 'सत्यापित जेमिनी AI सलाहकार',
+  landingPillarAdvisorDesc:
+    'वायुमंडलीय विज्ञान पर आधारित सख्त मल्टी-टियर जेमिनी 2.5 फ्लैश परामर्श बिना किसी भ्रम के।',
+  landingBottomBannerTitle:
+    'आज ही अपने परिवार को शीतकालीन वायुमंडलीय प्रदूषण से सुरक्षित करें।',
+  landingBottomBannerCta: 'वर्कबेंच कंसोल में प्रवेश करें',
   languageNames: { en: 'English', hi: 'हिन्दी', ta: 'தமிழ்' },
   cityNames: {
     'New Delhi': 'नई दिल्ली',
@@ -780,6 +898,49 @@ const ta: LocaleDictionary = {
   footerNotice:
     'PranaPulse AI தகவல் வழிகாட்டுதலுக்கான சுற்றுச்சூழல் கணக்கீடுகளை வழங்குகிறது. மருத்துவ அவசரத்திற்கு மருத்துவரை அணுகவும்.',
   languageLabel: 'மொழி',
+  landingNavOverview: 'கண்ணோட்டம்',
+  landingNavConsole: 'நேரலை கன்சோல்',
+  landingHeroHeadline: 'குளிர்கால புகை மூட்ட நெருக்கடியிலிருந்து பாதுகாப்பு',
+  landingHeroLede:
+    'நிகழ்நேர வளிமண்டல இன்வெர்ஷன் டெலிமெட்ரி, உள்ளக CADR வடிகட்டுதல் மாதிரி மற்றும் ஜெமினி AI இயக்கும் குறைந்த-வெளிப்பாடு குடும்ப வழிகாட்டல்.',
+  landingEnterConsole: 'நேரலை கன்சோலைத் தொடங்கவும்',
+  landingContinueAsGuest: 'விருந்தினராகப் பார்க்கவும்',
+  landingSimulateSevere: 'கடுமையான குளிர்கால இன்வெர்ஷன் (AQI 380 • 220m PBL)',
+  landingSimulateClean: 'சுத்தமான மதிய காற்று (AQI 45 • 1200m கலவை)',
+  landingInversionCeilingLabel: 'வெப்ப வரம்பு மூடி',
+  landingEstimatedPm25Label: 'மதிப்பிடப்பட்ட PM2.5 அளவு',
+  landingVisibilityLabel: 'நகர பார்வைத் திறன்',
+  landingSevereInversionDesc:
+    'குளிர்ந்த நிலப்பரப்பு மாசுகளை 220 மீட்டருக்குள் தடுத்து வைக்கிறது.',
+  landingCleanAirDesc:
+    'சூரிய வெப்பக் கலவை வளிமண்டல இன்வெர்ஷனை 1200 மீட்டருக்கு மேல் உயர்த்துகிறது.',
+  landingAuthGatewayTitle: 'பிராணபல்ஸ் கன்சோலை அணுகவும்',
+  landingAuthGatewaySubtitle:
+    'விருந்தினராக உடனடியாகத் தொடங்கவும் அல்லது உங்கள் குடும்பப் பட்டியலை ஒத்திசைக்க உள்நுழையவும்.',
+  landingAuthGuestCta: 'நேரலை கன்சோலைத் தொடங்கவும்',
+  landingAuthSignedInAs: 'செயலில் உள்ள அமர்வு',
+  landingAuthOpenConsole: 'உங்கள் கன்சோலைத் திறக்கவும்',
+  landingPillarsHeading: 'குளிர்கால புகை மூட்டத்திற்காக சிறப்பாக வடிவமைக்கப்பட்டது',
+  landingPillarsSubheading:
+    'குடும்ப சுவாச ஆரோக்கியத்தைப் பாதுகாக்க விஞ்ஞான இயற்பியல் மற்றும் கடுமையான AI பகுப்பாய்வு.',
+  landingPillarPblTitle: 'வளிமண்டல எல்லை அடுக்கு கண்காணிப்பு',
+  landingPillarPblDesc:
+    'இரவு நேர வெப்ப மாற்றங்கள், காற்றோட்டக் குறியீடுகள் மற்றும் CPCB NAQI நிலையங்களின் நிகழ்நேரக் கண்காணிப்பு.',
+  landingPillarCadrTitle: 'உள்ளக தூய்மைப்படுத்தல் & CADR இயற்பியல்',
+  landingPillarCadrDesc:
+    'அறை நிறை-சமநிலை மாதிரி, கோர்சி-ரோசெந்தால் பெட்டி விவரக்குறிப்புகள் மற்றும் காற்று மாற்றக் கணக்கீடு.',
+  landingPillarCommuteTitle: 'தூய பயண வழித்தடங்கள்',
+  landingPillarCommuteDesc:
+    'போக்குவரத்து நெரிசல்கள் மற்றும் டீசல் புகை மண்டலங்களைத் தவிர்ப்பதற்கான குறைந்த-வெளிப்பாடு வழித்தடம்.',
+  landingPillarFamilyTitle: 'குடும்ப பராமரிப்புப் பட்டியல்',
+  landingPillarFamilyDesc:
+    'குழந்தைகள், முதியவர்கள் மற்றும் பயணிகளுக்கான தனிப்பயனாக்கப்பட்ட வெளிப்புற வெளிப்பாடு வரம்புகள்.',
+  landingPillarAdvisorTitle: 'நம்பகமான ஜெமினி AI ஆலோசகர்',
+  landingPillarAdvisorDesc:
+    'பொய் தகவல்கள் இன்றி விஞ்ஞான உண்மைக்குக் கட்டுப்பட்ட பல அடுக்கு ஜெமினி 2.5 ஃப்ளாஷ் வழிகாட்டல்.',
+  landingBottomBannerTitle:
+    'இன்றே உங்கள் குடும்பத்தை குளிர்கால வளிமண்டல புகை மூட்டத்திலிருந்து பாதுகாக்கவும்.',
+  landingBottomBannerCta: 'பணிமனை கன்சோலில் நுழையவும்',
   languageNames: { en: 'English', hi: 'हिन्दी', ta: 'தமிழ்' },
   cityNames: {
     'New Delhi': 'புது டெல்லி',
