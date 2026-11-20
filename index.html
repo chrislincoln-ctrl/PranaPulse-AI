@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-mode="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,6 +7,16 @@
       name="description"
       content="PranaPulse AI: Winter Smog, Indoor Clearance, and Low-Emission Family Assistant with live telemetry, CPCB NAQI, and inhaled dose optimization."
     />
+    <script>
+      try {
+        const savedMode = localStorage.getItem('pranapulse_theme_mode');
+        if (savedMode === 'light' || savedMode === 'dark') {
+          document.documentElement.dataset.mode = savedMode;
+        } else {
+          document.documentElement.dataset.mode = 'dark';
+        }
+      } catch {}
+    </script>
     <link
       rel="icon"
       type="image/svg+xml"
@@ -19,4 +29,3 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

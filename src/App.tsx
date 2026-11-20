@@ -97,10 +97,32 @@ function SkipToMainLink({ label }: { readonly label: string }): ReactElement {
   );
 }
 
+const THEME_KEY = 'pranapulse_theme_mode';
+
+function getInitialThemeMode(): ThemeMode {
+  if (typeof window === 'undefined') {
+    return 'dark';
+  }
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === 'light' || saved === 'dark') {
+      return saved;
+    }
+  } catch {
+    // ignore storage restrictions
+  }
+  return 'dark';
+}
+
 function useDocumentThemeMode(): readonly [ThemeMode, () => void] {
-  const [themeMode, setThemeMode] = useState<ThemeMode>('light');
+  const [themeMode, setThemeMode] = useState<ThemeMode>(getInitialThemeMode);
   useEffect(() => {
     document.documentElement.dataset.mode = themeMode;
+    try {
+      localStorage.setItem(THEME_KEY, themeMode);
+    } catch {
+      // ignore
+    }
   }, [themeMode]);
   const toggleTheme = useCallback((): void => {
     setThemeMode((prev) => (prev === 'light' ? 'dark' : 'light'));

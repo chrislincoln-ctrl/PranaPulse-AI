@@ -142,12 +142,12 @@ describe('Phase 4 full Console UI, hooks & accessibility verification', () => {
 
     render(<App />);
 
-    expect(document.documentElement.dataset.mode).toBe('light');
-    const themeBtn = screen.getByRole('button', { name: /Dark mode/i });
-    fireEvent.click(themeBtn);
     expect(document.documentElement.dataset.mode).toBe('dark');
-    fireEvent.click(screen.getByRole('button', { name: /Light mode/i }));
+    const themeBtn = screen.getByRole('button', { name: /Light mode/i });
+    fireEvent.click(themeBtn);
     expect(document.documentElement.dataset.mode).toBe('light');
+    fireEvent.click(screen.getByRole('button', { name: /Dark mode/i }));
+    expect(document.documentElement.dataset.mode).toBe('dark');
 
     await waitFor(() => {
       expect(screen.getByText(/Live Gemini telemetry active/i)).toBeInTheDocument();

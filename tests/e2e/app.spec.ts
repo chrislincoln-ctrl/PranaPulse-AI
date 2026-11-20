@@ -15,7 +15,7 @@ test.describe('PranaPulse AI live E2E, WCAG 2.2 AA & Hallmark viewport verificat
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto('/');
 
-    await expect(page.locator('html')).toHaveAttribute('data-mode', 'light');
+    await expect(page.locator('html')).toHaveAttribute('data-mode', 'dark');
 
     const heading = page.getByRole('heading', { level: 1 });
     await expect(heading).toBeVisible();
@@ -39,23 +39,23 @@ test.describe('PranaPulse AI live E2E, WCAG 2.2 AA & Hallmark viewport verificat
     );
     expect(hasHorizOverflow).toBe(false);
 
-    // Real Chromium WCAG 2.2 AA + color-contrast audit on Light Mode default screen
-    const lightAxe = await new AxeBuilder({ page })
-      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
-      .analyze();
-    expect(lightAxe.violations).toEqual([]);
-
-    // Toggle to Dark Mode and verify full WCAG 2.2 AA color-contrast in Dark Mode
-    await page.getByRole('button', { name: /Dark mode/i }).click();
-    await expect(page.locator('html')).toHaveAttribute('data-mode', 'dark');
+    // Real Chromium WCAG 2.2 AA + color-contrast audit on Dark Mode default screen
     const darkAxe = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
       .analyze();
     expect(darkAxe.violations).toEqual([]);
 
-    // Toggle back to Light Mode
+    // Toggle to Light Mode and verify full WCAG 2.2 AA color-contrast in Light Mode
     await page.getByRole('button', { name: /Light mode/i }).click();
     await expect(page.locator('html')).toHaveAttribute('data-mode', 'light');
+    const lightAxe = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+      .analyze();
+    expect(lightAxe.violations).toEqual([]);
+
+    // Toggle back to Dark Mode
+    await page.getByRole('button', { name: /Dark mode/i }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-mode', 'dark');
 
     // Navigate workbench tabs and verify streaming Q&A + Hindi switch
     await page.getByRole('tab', { name: /Indoor & CADR/i }).click();
