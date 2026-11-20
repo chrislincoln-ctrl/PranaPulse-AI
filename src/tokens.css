@@ -27,6 +27,14 @@
   --color-accent: oklch(44% 0.14 55);
   --color-accent-ink: oklch(99% 0.003 85);
   --color-accent-soft: oklch(93% 0.035 80);
+  --color-background: var(--color-paper);
+  --color-foreground: var(--color-ink);
+  --color-border: var(--color-rule);
+  --color-primary: var(--color-accent);
+  --color-primary-foreground: var(--color-accent-ink);
+  --color-card: var(--color-paper-2);
+  --color-card-foreground: var(--color-ink);
+  --color-muted-foreground: var(--color-muted);
   --color-focus: oklch(44% 0.14 55);
   --color-cool: oklch(42% 0.14 245);
   --color-cool-soft: oklch(93% 0.03 245);

@@ -1,7 +1,27 @@
 /* Hallmark · shape: Workbench · genre: modern-minimal · theme: Console (deal 3/3, seed pranapulse-urban-winter-smog-bfae-3ce0e60b-2026-11-18-r0) · modes: light+dark · job: try · draw: 75be14 · hero: Corridor · nav: edge-aligned · footer: colophon · pre-emit critique: P5 H5 E5 S5 R4 V5 · weakest: R, single-screen density tempted duplicate badges; cut redundant chips and kept amber strictly for the family actions */
 @import 'tailwindcss';
+@import 'tw-animate-css';
 @import './tokens.css';
 @import './base.css' layer(base);
+
+@keyframes fadeOutLabel {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  70% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(0.5rem) scale(0.95);
+  }
+}
+
+.animate-fadeOut {
+  animation: fadeOutLabel 2.5s ease-out forwards;
+}
 
 @layer components {
   .touch-target {

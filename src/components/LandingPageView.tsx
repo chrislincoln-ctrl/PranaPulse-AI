@@ -1,5 +1,6 @@
 import { ArrowRight, Flame, Shield, Wind } from 'lucide-react';
-import { memo, type ReactElement } from 'react';
+import { memo, useMemo, type ReactElement } from 'react';
+import { ScrollGlobe } from './ui/landing-page.js';
 import type { useAirQualityWorkspace } from '../hooks/useAirQualityWorkspace.js';
 import type { SupabaseAuthController } from '../hooks/useSupabaseAuth.js';
 import type { LocaleDictionary } from '../i18n/translations.js';
@@ -90,6 +91,68 @@ function LandingBottomCtaBanner({
   );
 }
 
+function getHeroSection(onEnterConsole: () => void, t: LocaleDictionary) {
+  return {
+    id: 'hero',
+    badge: 'Winter Smog AI',
+    title: 'PranaPulse AI',
+    subtitle: t.landingHeroHeadline,
+    description: t.landingHeroLede,
+    align: 'left' as const,
+    actions: [
+      {
+        label: t.landingAuthGuestCta,
+        variant: 'primary' as const,
+        onClick: onEnterConsole,
+      },
+      {
+        label: 'Explore Simulation',
+        variant: 'secondary' as const,
+        onClick: () => {
+          const el = document.getElementById('simulation-section');
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth' });
+          }
+        },
+      },
+    ],
+  };
+}
+
+function getFeatureSection(t: LocaleDictionary) {
+  return {
+    id: 'features',
+    badge: 'Exposure Defense',
+    title: t.landingPillarsHeading,
+    subtitle: 'Mass-Balance CADR & Route Modeling',
+    description: t.landingPillarsSubheading,
+    align: 'left' as const,
+    features: [
+      { title: t.landingPillarPblTitle, description: t.landingPillarPblDesc },
+      { title: t.landingPillarCadrTitle, description: t.landingPillarCadrDesc },
+      { title: t.landingPillarCommuteTitle, description: t.landingPillarCommuteDesc },
+    ],
+  };
+}
+
+function getActionSection(onEnterConsole: () => void, t: LocaleDictionary) {
+  return {
+    id: 'gateway',
+    badge: 'Interactive Gateway',
+    title: t.landingBottomBannerTitle,
+    subtitle: 'Real-Time Telemetry & Filtration Modeling',
+    description: 'Physics-grounded CADR, route, and family risk management.',
+    align: 'center' as const,
+    actions: [
+      {
+        label: t.landingBottomBannerCta,
+        variant: 'primary' as const,
+        onClick: onEnterConsole,
+      },
+    ],
+  };
+}
+
 export const LandingPageView = memo(function LandingPageView({
   workspace,
   auth,
@@ -97,29 +160,37 @@ export const LandingPageView = memo(function LandingPageView({
   t,
 }: LandingPageViewProps): ReactElement {
   const telemetry = workspace.bundle.telemetry;
+  const sections = useMemo(
+    () => [
+      getHeroSection(onEnterConsole, t),
+      getFeatureSection(t),
+      getActionSection(onEnterConsole, t),
+    ],
+    [onEnterConsole, t],
+  );
 
   return (
-    <main id="main-content" className="container flex-1 space-y-8 pb-16">
-      <LandingHeroSection
-        auth={auth}
-        onEnterConsole={onEnterConsole}
-        t={t}
-      />
-
-      <LiveCityStrip
-        city={telemetry.city}
-        aqi={telemetry.assessment.cpcbNaqi}
-        pblMeters={telemetry.inversion.currentPblMeters}
-        onEnterConsole={onEnterConsole}
-      />
-
-      <LandingPillarsGrid t={t} />
-
-      <LandingBottomCtaBanner
-        title={t.landingBottomBannerTitle}
-        ctaLabel={t.landingBottomBannerCta}
-        onEnterConsole={onEnterConsole}
-      />
-    </main>
+    <div className="relative w-full">
+      <ScrollGlobe sections={sections} className="bg-paper" />
+      <div id="simulation-section" className="container space-y-8 pb-16">
+        <LiveCityStrip
+          city={telemetry.city}
+          aqi={telemetry.assessment.cpcbNaqi}
+          pblMeters={telemetry.inversion.currentPblMeters}
+          onEnterConsole={onEnterConsole}
+        />
+        <LandingHeroSection
+          auth={auth}
+          onEnterConsole={onEnterConsole}
+          t={t}
+        />
+        <LandingPillarsGrid t={t} />
+        <LandingBottomCtaBanner
+          title={t.landingBottomBannerTitle}
+          ctaLabel={t.landingBottomBannerCta}
+          onEnterConsole={onEnterConsole}
+        />
+      </div>
+    </div>
   );
 });
