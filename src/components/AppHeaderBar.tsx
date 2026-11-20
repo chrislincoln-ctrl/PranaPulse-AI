@@ -84,6 +84,26 @@ function LanguageSelectControl({
   );
 }
 
+function BrandLogoButton({
+  onReturnLanding,
+}: {
+  readonly onReturnLanding: () => void;
+}): ReactElement {
+  return (
+    <button
+      type="button"
+      onClick={onReturnLanding}
+      className="group flex cursor-pointer items-center gap-2.5 text-left transition-opacity hover:opacity-85 focus:outline-hidden sm:gap-3"
+      aria-label={`${APP_META.DISPLAY_NAME} - Return to landing page`}
+    >
+      <Wind className="h-6 w-6 shrink-0 text-cool transition-transform group-hover:scale-105" aria-hidden="true" />
+      <span className="text-base font-semibold text-ink sm:text-lg">
+        {APP_META.DISPLAY_NAME}
+      </span>
+    </button>
+  );
+}
+
 /**
  * Top workbench header bar containing brand mark, AI engine status, theme toggle,
  * language selector, and Supabase Sign In / Account modal trigger.
@@ -92,12 +112,11 @@ export const AppHeaderBar = memo(function AppHeaderBar(props: AppHeaderBarProps)
   return (
     <header className="border-b border-rule bg-paper-3">
       <div className="container flex flex-wrap items-center justify-between gap-2.5 py-2.5 sm:gap-4 sm:py-3">
-        <div className="flex items-center gap-2.5 sm:gap-3">
-          <Wind className="h-6 w-6 shrink-0 text-cool" aria-hidden="true" />
-          <span className="text-base font-semibold text-ink sm:text-lg">
-            {APP_META.DISPLAY_NAME}
-          </span>
-        </div>
+        <BrandLogoButton
+          onReturnLanding={() => {
+            props.onToggleViewMode('landing');
+          }}
+        />
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <span className="status-pill text-ink-2">
             <ShieldCheck className="h-4 w-4 text-ok" aria-hidden="true" />
