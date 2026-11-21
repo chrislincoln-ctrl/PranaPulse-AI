@@ -150,7 +150,7 @@ describe('Phase 4 full Console UI, hooks & accessibility verification', () => {
     expect(document.documentElement.dataset.mode).toBe('dark');
 
     await waitFor(() => {
-      expect(screen.getByText(/Live Gemini telemetry active/i)).toBeInTheDocument();
+      expect(screen.getByText(/Live sensor & satellite telemetry active/i)).toBeInTheDocument();
       expect(screen.getByRole('alert')).toHaveTextContent(/CPCB NAQI 385/i);
       expect(screen.getByRole('alert')).toHaveTextContent(
         /Station monitor reads significantly higher/i,
@@ -307,7 +307,7 @@ describe('Phase 4 full Console UI, hooks & accessibility verification', () => {
 
     render(<App />);
     await waitFor(() => {
-      expect(screen.getByText(/Deterministic physics engine active/i)).toBeInTheDocument();
+      expect(screen.getByText(/Verified sensor & physics engine active/i)).toBeInTheDocument();
     });
     fireEvent.click(screen.getByRole('button', { name: /Use GPS/i }));
     await waitFor(() => {

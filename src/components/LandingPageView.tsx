@@ -82,7 +82,7 @@ function getGatewaySection(onEnterConsole: () => void, t: LocaleDictionary) {
     title: t.landingBottomBannerTitle,
     subtitle: 'Real-Time Telemetry & Filtration Modeling',
     description:
-      'Enter the workbench console to calculate exact room air changes, optimize commute routes, and generate tailored Gemini AI family recommendations.',
+      'Enter the workbench console to inspect verified OpenAQ and satellite telemetry, calculate exact room air changes, optimize commute routes, and build science-backed family schedules.',
     align: 'center' as const,
     actions: [
       {

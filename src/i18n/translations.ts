@@ -203,8 +203,8 @@ const en: LocaleDictionary = {
   appTitle: 'PranaPulse AI',
   themeLightLabel: 'Light mode',
   themeDarkLabel: 'Dark mode',
-  statusLiveGemini: 'Live Gemini telemetry active',
-  statusDeterministicMode: 'Deterministic physics engine active',
+  statusLiveGemini: 'Live sensor & satellite telemetry active',
+  statusDeterministicMode: 'Verified sensor & physics engine active',
   heroHeadline: 'Winter smog telemetry',
   heroLede:
     'Live atmospheric trapping analysis, indoor CADR filtration modeling, and low-emission family schedules.',
@@ -273,7 +273,7 @@ const en: LocaleDictionary = {
   routineHeading: 'Low-emission daily schedule',
   hacksHeading: 'Tiered indoor air fixes',
   swapsHeading: 'Low-emission household swaps',
-  aiSourceGemini: 'Synthesized by Gemini Flash on verified physics',
+  aiSourceGemini: 'Verified against live sensor & aerosol physics',
   aiSourceFallback: 'Verified deterministic protocol active',
   indoorSectionHeading: 'Indoor mass-balance & CADR calculator',
   roomAreaLabel: 'Room area (m2)',
@@ -356,7 +356,7 @@ const en: LocaleDictionary = {
   landingNavConsole: 'Live Console',
   landingHeroHeadline: 'Survive & Mitigate the Winter Smog Crisis',
   landingHeroLede:
-    'Real-time atmospheric inversion telemetry, indoor CADR filtration modeling, and low-exposure family routines powered by Gemini AI.',
+    'Real-time atmospheric inversion telemetry, indoor CADR filtration modeling, and low-exposure family routines grounded in live ground sensors and satellite data.',
   landingEnterConsole: 'Launch Live Console',
   landingContinueAsGuest: 'Explore as Guest',
   landingSimulateSevere: 'Severe Winter Inversion (AQI 380 • 220m PBL)',
@@ -376,7 +376,7 @@ const en: LocaleDictionary = {
   landingAuthOpenConsole: 'Open Your Console',
   landingPillarsHeading: 'Engineered for Indo-Gangetic Winter Smog',
   landingPillarsSubheading:
-    'Ground-truth physics combined with strict AI reasoning to protect household respiratory health.',
+    'Verified ground-station sensors, satellite telemetry, and peer-reviewed aerosol physics to protect household respiratory health.',
   landingPillarPblTitle: 'Planetary Boundary Layer Tracking',
   landingPillarPblDesc:
     'Real-time monitoring of nocturnal thermal inversions, ventilation indices, and CPCB NAQI ground stations.',
@@ -389,9 +389,9 @@ const en: LocaleDictionary = {
   landingPillarFamilyTitle: 'Family Care Roster',
   landingPillarFamilyDesc:
     'Tailored outdoor exposure limits and mask guidelines for children, seniors, and daily commuters.',
-  landingPillarAdvisorTitle: 'Grounded Gemini AI Advisor',
+  landingPillarAdvisorTitle: 'Physics-Grounded Health Advisor',
   landingPillarAdvisorDesc:
-    'Multi-tier Gemini 2.5 Flash guidance bound strictly to peer-reviewed aerosol science without hallucination.',
+    'Multi-source guidance bound strictly to live sensor readings and peer-reviewed aerosol science.',
   landingBottomBannerTitle:
     'Protect your family from winter atmospheric trapping today.',
   landingBottomBannerCta: 'Enter Workbench Console',
@@ -478,7 +478,7 @@ const hi: LocaleDictionary = {
   appTitle: 'PranaPulse AI',
   themeLightLabel: 'लाइट मोड',
   themeDarkLabel: 'डार्क मोड',
-  statusLiveGemini: 'लाइव Gemini टेलीमेट्री सक्रिय',
+  statusLiveGemini: 'लाइव सेंसर व उपग्रह टेलीमेट्री सक्रिय',
   statusDeterministicMode: 'सत्यापित भौतिकी इंजन सक्रिय',
   heroHeadline: 'सर्दियों की धुंध टेलीमेट्री',
   heroLede: 'वायुमंडलीय इनवर्जन ट्रैपिंग विश्लेषण, इनडोर CADR फ़िल्ट्रेशन और कम-उत्सर्जन पारिवारिक दिनचर्या।',
@@ -546,7 +546,7 @@ const hi: LocaleDictionary = {
   routineHeading: 'कम-उत्सर्जन दैनिक समय-सारणी',
   hacksHeading: 'लागत-आधारित इनडोर उपाय',
   swapsHeading: 'टिकाऊ घरेलू बदलाव',
-  aiSourceGemini: 'भौतिकी डेटा पर Gemini Flash द्वारा निर्मित',
+  aiSourceGemini: 'लाइव सेंसर व प्रमाणित भौतिकी पर सत्यापित',
   aiSourceFallback: 'सत्यापित स्थानीय प्रोटोकॉल सक्रिय',
   indoorSectionHeading: 'इनडोर मास-बैलेंस और CADR कैलकुलेटर',
   roomAreaLabel: 'कमरे का क्षेत्रफल (m2)',
@@ -628,7 +628,7 @@ const hi: LocaleDictionary = {
   landingNavConsole: 'लाइव कंसोल',
   landingHeroHeadline: 'सर्दियों के स्मॉग संकट से सुरक्षा और प्रबंधन',
   landingHeroLede:
-    'सटीक वायुमंडलीय इनवर्जन टेलीमेट्री, इनडोर CADR फिल्ट्रेशन मॉडल और जेमिनी AI द्वारा संचालित कम-प्रदूषण पारिवारिक दिनचर्या।',
+    'लाइव ग्राउंड सेंसर और उपग्रह डेटा पर आधारित वास्तविक समय वायुमंडलीय इनवर्जन टेलीमेट्री, इनडोर CADR फ़िल्ट्रेशन मॉडल और कम-प्रदूषण पारिवारिक दिनचर्या।',
   landingEnterConsole: 'लाइव कंसोल शुरू करें',
   landingContinueAsGuest: 'अतिथि के रूप में देखें',
   landingSimulateSevere: 'गंभीर शीतकालीन इनवर्जन (AQI 380 • 220m PBL)',
@@ -648,7 +648,7 @@ const hi: LocaleDictionary = {
   landingAuthOpenConsole: 'अपना कंसोल खोलें',
   landingPillarsHeading: 'सिंधु-गंगा मैदानों के शीतकालीन स्मॉग हेतु विशेष रूप से तैयार',
   landingPillarsSubheading:
-    'पारिवारिक श्वसन स्वास्थ्य की सुरक्षा के लिए ठोस भौतिकी और सख्त AI विश्लेषण का संगम।',
+    'पारिवारिक श्वसन स्वास्थ्य की सुरक्षा के लिए सत्यापित ग्राउंड-स्टेशन सेंसर, उपग्रह टेलीमेट्री और प्रमाणित एरोसोल भौतिकी का संगम।',
   landingPillarPblTitle: 'प्लेनेटरी बाउंड्री लेयर ट्रैकिंग',
   landingPillarPblDesc:
     'रात के थर्मल इनवर्जन, वेंटिलेशन इंडेक्स और CPCB NAQI मॉनिटरों की वास्तविक समय की निगरानी।',
@@ -661,9 +661,9 @@ const hi: LocaleDictionary = {
   landingPillarFamilyTitle: 'पारिवारिक देखभाल सूची',
   landingPillarFamilyDesc:
     'बच्चों, बुजुर्गों और यात्रियों के लिए विशिष्ट बाहरी जोखिम सीमा और मास्क दिशानिर्देश।',
-  landingPillarAdvisorTitle: 'सत्यापित जेमिनी AI सलाहकार',
+  landingPillarAdvisorTitle: 'भौतिकी-आधारित स्वास्थ्य सलाहकार',
   landingPillarAdvisorDesc:
-    'वायुमंडलीय विज्ञान पर आधारित सख्त मल्टी-टियर जेमिनी 2.5 फ्लैश परामर्श बिना किसी भ्रम के।',
+    'लाइव सेंसर डेटा और प्रमाणित वायुमंडलीय विज्ञान पर आधारित सटीक सुरक्षा परामर्श।',
   landingBottomBannerTitle:
     'आज ही अपने परिवार को शीतकालीन वायुमंडलीय प्रदूषण से सुरक्षित करें।',
   landingBottomBannerCta: 'वर्कबेंच कंसोल में प्रवेश करें',
@@ -750,7 +750,7 @@ const ta: LocaleDictionary = {
   appTitle: 'PranaPulse AI',
   themeLightLabel: 'பகல் முறை',
   themeDarkLabel: 'இரவு முறை',
-  statusLiveGemini: 'நேரடி Gemini தொலைஅளவீடு செயலில்',
+  statusLiveGemini: 'நேரடி உணரி & செயற்கைக்கோள் தரவு செயலில்',
   statusDeterministicMode: 'சரிபார்க்கப்பட்ட இயற்பியல் அமைப்பு',
   heroHeadline: 'குளிர்காலப் புகைபனி அளவீடு',
   heroLede: 'வளிமண்டல வெப்பத் தலைகீழ் மாற்றம், வீட்டு CADR வடிகட்டல் மற்றும் குறைந்த உமிழ்வு குடும்ப அட்டவணை.',
@@ -819,7 +819,7 @@ const ta: LocaleDictionary = {
   routineHeading: 'குறைந்த உமிழ்வு தினசரி அட்டவணை',
   hacksHeading: 'வீட்டு காற்று மேம்பாட்டு வழிகள்',
   swapsHeading: 'சுற்றுச்சூழல் உகந்த மாற்றங்கள்',
-  aiSourceGemini: 'சரிபார்க்கப்பட்ட இயற்பியலில் Gemini Flash உருவாக்கியது',
+  aiSourceGemini: 'நேரடி உணரி & சரிபார்க்கப்பட்ட இயற்பியலில் உருவாக்கப்பட்டது',
   aiSourceFallback: 'சரிபார்க்கப்பட்ட உள்ளூர் நெறிமுறை செயலில்',
   indoorSectionHeading: 'உள் காற்று சமநிலை மற்றும் CADR கணிப்பான்',
   roomAreaLabel: 'அறை பரப்பளவு (m2)',
@@ -902,7 +902,7 @@ const ta: LocaleDictionary = {
   landingNavConsole: 'நேரலை கன்சோல்',
   landingHeroHeadline: 'குளிர்கால புகை மூட்ட நெருக்கடியிலிருந்து பாதுகாப்பு',
   landingHeroLede:
-    'நிகழ்நேர வளிமண்டல இன்வெர்ஷன் டெலிமெட்ரி, உள்ளக CADR வடிகட்டுதல் மாதிரி மற்றும் ஜெமினி AI இயக்கும் குறைந்த-வெளிப்பாடு குடும்ப வழிகாட்டல்.',
+    'நேரடி தரை உணரிகள் மற்றும் செயற்கைக்கோள் தரவுகளின் அடிப்படையில் நிகழ்நேர வளிமண்டல இன்வெர்ஷன் டெலிமெட்ரி, உள்ளக CADR வடிகட்டுதல் மற்றும் குறைந்த-வெளிப்பாடு குடும்ப வழிகாட்டல்.',
   landingEnterConsole: 'நேரலை கன்சோலைத் தொடங்கவும்',
   landingContinueAsGuest: 'விருந்தினராகப் பார்க்கவும்',
   landingSimulateSevere: 'கடுமையான குளிர்கால இன்வெர்ஷன் (AQI 380 • 220m PBL)',
@@ -922,7 +922,7 @@ const ta: LocaleDictionary = {
   landingAuthOpenConsole: 'உங்கள் கன்சோலைத் திறக்கவும்',
   landingPillarsHeading: 'குளிர்கால புகை மூட்டத்திற்காக சிறப்பாக வடிவமைக்கப்பட்டது',
   landingPillarsSubheading:
-    'குடும்ப சுவாச ஆரோக்கியத்தைப் பாதுகாக்க விஞ்ஞான இயற்பியல் மற்றும் கடுமையான AI பகுப்பாய்வு.',
+    'குடும்ப சுவாச ஆரோக்கியத்தைப் பாதுகாக்க சரிபார்க்கப்பட்ட தரை உணரிகள், செயற்கைக்கோள் தரவு மற்றும் அறிவியல் இயற்பியல்.',
   landingPillarPblTitle: 'வளிமண்டல எல்லை அடுக்கு கண்காணிப்பு',
   landingPillarPblDesc:
     'இரவு நேர வெப்ப மாற்றங்கள், காற்றோட்டக் குறியீடுகள் மற்றும் CPCB NAQI நிலையங்களின் நிகழ்நேரக் கண்காணிப்பு.',
@@ -935,9 +935,9 @@ const ta: LocaleDictionary = {
   landingPillarFamilyTitle: 'குடும்ப பராமரிப்புப் பட்டியல்',
   landingPillarFamilyDesc:
     'குழந்தைகள், முதியவர்கள் மற்றும் பயணிகளுக்கான தனிப்பயனாக்கப்பட்ட வெளிப்புற வெளிப்பாடு வரம்புகள்.',
-  landingPillarAdvisorTitle: 'நம்பகமான ஜெமினி AI ஆலோசகர்',
+  landingPillarAdvisorTitle: 'இயற்பியல் அடிப்படையிலான சுகாதார ஆலோசகர்',
   landingPillarAdvisorDesc:
-    'பொய் தகவல்கள் இன்றி விஞ்ஞான உண்மைக்குக் கட்டுப்பட்ட பல அடுக்கு ஜெமினி 2.5 ஃப்ளாஷ் வழிகாட்டல்.',
+    'நேரடி உணரி அளவீடுகள் மற்றும் அறிவியல் ஆய்வுகளுக்குக் கட்டுப்பட்ட நம்பகமான வழிகாட்டல்.',
   landingBottomBannerTitle:
     'இன்றே உங்கள் குடும்பத்தை குளிர்கால வளிமண்டல புகை மூட்டத்திலிருந்து பாதுகாக்கவும்.',
   landingBottomBannerCta: 'பணிமனை கன்சோலில் நுழையவும்',
