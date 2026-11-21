@@ -2,6 +2,13 @@ import { VALIDATION_BOUNDS } from '../../src/config/constants.js';
 import type { FamilyMemberInput, FamilyRole } from '../../src/domain/types.js';
 import type { ProfileHabitPatch } from './companionDbMapper.js';
 
+export const ROLE_DISPLAY_NAMES: Readonly<Record<FamilyRole, string>> = {
+  child: 'Child / school student',
+  'senior-respiratory': 'Senior / COPD / asthma',
+  commuter: 'Adult outdoor commuter',
+  caregiver: 'Home caregiver',
+};
+
 const MIN_NAME_LEN = 3;
 const MIN_FUZZY_LEN = 4;
 

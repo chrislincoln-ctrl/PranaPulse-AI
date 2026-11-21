@@ -60,7 +60,10 @@ const ROLE_RULES: readonly {
 const EXPLICIT_ROLE_RE =
   /(?:vulnerability\s+profile|health\s+profile|my\s+profile|my\s+role)\s*(?:to|is|as|:)\s*([A-Za-z][A-Za-z0-9\s/-]{2,36}?)(?=[.,!?]|$|\s+and\b)/i;
 const OUTDOOR_HRS_RE =
-  /(?:outdoor\s+(?:hours?|time)\s*(?:to|is|of|:)?\s*(\d+(?:\.\d+)?)|(?:spend|outside|outdoors)\s+(?:for\s+)?(\d+(?:\.\d+)?)\s*(?:hrs?|hours?))/i;
+  /(?:outdoor\s+(?:hours?|time)[^0-9]{0,16}(\d+(?:\.\d+)?)|(?:spend\w*|stay\w*|outside|outdoors)\s+(?:for\s+)?(?:approx\.?\s+|about\s+|around\s+|roughly\s+)?(\d+(?:\.\d+)?)\s*(?:hrs?|hours?)(?:\s*(?:approx\.?|approximately|about|around|a\s+day|per\s+day|daily))*\s*(?:outside|outdoors)?)/i;
+const HOURS_BEFORE_OUTSIDE_RE =
+  /\b(\d+(?:\.\d+)?)\s*(?:hrs?|hours?)(?:\s*(?:approx\.?|approximately|about|around|a\s+day|per\s+day|daily))*\s*(?:outside|outdoors)\b/i;
+const OUTDOOR_WORD_RE = /\b(?:outdoor|outdoors|outside)\b/i;
 const ROOM_AREA_RE =
   /(?:room|bedroom|living\s+room|hall|flat|house)?\s*(?:area|size)?\s*(?:is|to|of|:)?\s*(\d+(?:\.\d+)?)\s*(?:sqm|sq\.?\s*m|m2|m²|square\s+meters?)\b|\broom\s+(?:area|size)\s*(?:is|to|of|:)?\s*(\d+(?:\.\d+)?)\b/i;
 const CADR_RE = /(?:purifier\s+)?cadr\s*(?:is|to|of|:)?\s*(\d+)|\b(\d+)\s*(?:m3\/h|m3\/hr|cmh)\b/i;
@@ -68,9 +71,9 @@ const NO_PURIFIER_RE = /\bno\s+(?:air\s+)?purifier\b/i;
 const DISTANCE_RE =
   /(?:commute|travel|trip|office|college|school)\s+(?:distance\s+)?(?:is\s+|of\s+|to\s+)?(\d+(?:\.\d+)?)\s*km\b|\bdistance\s*(?:is|to|of|:)?\s*(\d+(?:\.\d+)?)\s*km\b/i;
 const RWA_HOMES_RE =
-  /\b(\d+)\s*(?:participating\s+)?(?:homes|households|flats|apartments)\b|\brwa\s+(\d+)\s*homes?\b/i;
+  /(?:participating\s+(?:homes|households|flats|ones)|rwa\s+homes?)[^0-9]{0,40}(\d+)\b|\b(\d+)\s*(?:participating\s+)?(?:homes|households|flats|apartments)\b/i;
 const TRANSIT_SHIFT_RE =
-  /(?:transit|shared\s+transit|carpool)\s+shift\s*(?:to|is|at|:)?\s*(\d{1,3})\s*%?/i;
+  /(?:shared\s+)?(?:transit|carpool)\s+shift[^0-9]{0,24}(\d{1,3})\s*(?:%|percent)?/i;
 const LANG_RE =
   /(?:switch|change|set|reply|speak|talk)\s+(?:language\s+)?(?:to|in)\s+(hindi|tamil|english)\b/i;
 
@@ -80,12 +83,7 @@ const LANG_MAP: Readonly<Record<string, SupportedLanguage>> = {
   english: 'en',
 };
 
-export const ROLE_DISPLAY_NAMES: Readonly<Record<FamilyRole, string>> = {
-  child: 'Child / school student',
-  'senior-respiratory': 'Senior / COPD / asthma',
-  commuter: 'Adult outdoor commuter',
-  caregiver: 'Home caregiver',
-};
+export { ROLE_DISPLAY_NAMES } from './memberMatcher.js';
 
 function clampInt(val: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Math.round(val)));
@@ -186,7 +184,12 @@ function extractCommunityPatch(lower: string): Partial<PlanRequestPayload> {
 }
 
 function parseOutdoorHours(message: string): number | undefined {
-  const hrs = parseMatchedFloat(OUTDOOR_HRS_RE.exec(message));
+  if (!OUTDOOR_WORD_RE.test(message)) {
+    return undefined;
+  }
+  const hrs =
+    parseMatchedFloat(HOURS_BEFORE_OUTSIDE_RE.exec(message)) ??
+    parseMatchedFloat(OUTDOOR_HRS_RE.exec(message));
   if (hrs === null) {
     return undefined;
   }

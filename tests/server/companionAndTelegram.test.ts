@@ -533,4 +533,161 @@ describe('Family Companion Chat, Telegram Webhook & Daily Brief Cron', () => {
     expect(syncBody.payload.cookingFuel).toBe('induction');
     expect(syncBody.payload.householdsParticipating).toBe(220);
   });
+
+  it('handles multi-intent natural messages (mask + RWA homes + transit shift + outdoor hours) via deterministic + Groq/Gemini AI JSON parser', async () => {
+    mockCompanionUpstreamFetch();
+    const env = loadServerEnv({
+      NODE_ENV: 'test',
+      TELEGRAM_BOT_TOKEN: 'test-bot-token',
+      TELEGRAM_BOT_USERNAME: 'PranaPulseBot',
+      TELEGRAM_WEBHOOK_SECRET: 'multi-secret',
+    });
+    const app = createApp(env);
+
+    const linkRes = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/companion/telegram-link',
+      body: {
+        workspaceKey: 'wmulti01',
+        payload: {
+          ...DEFAULT_WORKSPACE_INPUT,
+          city: 'Shimultala, Kolkata',
+          lat: 22.57,
+          lon: 88.36,
+        },
+        activeMemberId: 'm1',
+      },
+    });
+    const { linkCode } = linkRes.body as { linkCode: string };
+    await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'multi-secret' },
+      body: { message: { chat: { id: 6622 }, text: `/start ${linkCode}` } },
+    });
+
+    // 1. Exact user message from screenshot: surgical mask + participating homes approx 200 + shared transit shift around 60%
+    const rwaMulti = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'multi-secret' },
+      body: {
+        message: {
+          chat: { id: 6622 },
+          text: 'I will be using a surgical mask today and the participating homes in my neighborhood are approx 200 and the shared transit shift, around 60%',
+        },
+      },
+    });
+    expect(rwaMulti.status).toBe(200);
+    const rwaReply = (rwaMulti.body as { replyText: string }).replyText;
+    expect(rwaReply).toContain('Mask surgical');
+    expect(rwaReply).toContain('RWA 200 homes');
+    expect(rwaReply).toContain('Transit 60%');
+
+    // 2. Exact user multi-intent message: N95 + college student + metro + 10 hours approx outside
+    const memberMulti = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'multi-secret' },
+      body: {
+        message: {
+          chat: { id: 6622 },
+          text: 'I will be using an N95 mask, I am a college student, I will be taking metro and also I will be staying 10 hours approx. outside',
+        },
+      },
+    });
+    expect(memberMulti.status).toBe(200);
+    const multiReply = (memberMulti.body as { replyText: string }).replyText;
+    expect(multiReply).toContain('Mask n95-ffp2');
+    expect(multiReply).toContain('Adult outdoor commuter');
+    expect(multiReply).toContain('Mode metro');
+    expect(multiReply).toContain('Outdoor 10 hrs/day');
+
+    // 3. Verify all multi-intent edits persisted to workspace-sync
+    const sync1 = await invokeExpress(app, {
+      method: 'GET',
+      url: '/api/companion/workspace-sync?workspaceKey=wmulti01',
+    });
+    const p1 = (sync1.body as { payload: typeof DEFAULT_WORKSPACE_INPUT }).payload;
+    expect(p1.householdsParticipating).toBe(200);
+    expect(p1.transitShiftShare).toBe(0.6);
+    expect(p1.mask).toBe('n95-ffp2');
+    expect(p1.commuteMode).toBe('metro');
+    expect(p1.members[0]?.role).toBe('commuter');
+    expect(p1.members[0]?.dailyOutdoorHours).toBe(10);
+
+    // 4. Verify AI JSON parser (Groq JSON mode mocked) handles completely paraphrased multi-intent commands
+    const baseFetch = globalThis.fetch;
+    vi.spyOn(globalThis, 'fetch').mockImplementation((urlArg, init) => {
+      const url = resolveFetchUrl(urlArg);
+      if (url.includes('api.groq.com')) {
+        const bodyObj =
+          typeof init?.body === 'string'
+            ? (JSON.parse(init.body) as { response_format?: unknown })
+            : {};
+        if (bodyObj.response_format) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                choices: [
+                  {
+                    message: {
+                      content: JSON.stringify({
+                        dailyOutdoorHours: 7,
+                        householdsParticipating: 320,
+                        transitShiftShare: 75,
+                        areaM2: 40,
+                        haltLeafBurning: false,
+                      }),
+                    },
+                  },
+                ],
+              }),
+              { status: 200 },
+            ),
+          );
+        }
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              choices: [{ message: { content: 'Hi Aarav! Got all your updates synced safely.' } }],
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      return baseFetch(urlArg, init);
+    });
+
+    const aiEnv = loadServerEnv({
+      NODE_ENV: 'test',
+      GROQ_API_KEY: 'test-groq-key',
+      TELEGRAM_BOT_TOKEN: 'test-bot-token',
+      TELEGRAM_BOT_USERNAME: 'PranaPulseBot',
+      TELEGRAM_WEBHOOK_SECRET: 'multi-secret',
+    });
+    const aiApp = createApp(aiEnv);
+    const aiMsg = await invokeExpress(aiApp, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'multi-secret' },
+      body: {
+        message: {
+          chat: { id: 6622 },
+          text: 'Will be outdoors seven hours daily, roughly three hundred twenty neighbors joining, three-quarters shifting transit, forty square meter hall, leaf burning resumed',
+        },
+      },
+    });
+    expect(aiMsg.status).toBe(200);
+    const aiSync = await invokeExpress(aiApp, {
+      method: 'GET',
+      url: '/api/companion/workspace-sync?workspaceKey=wmulti01',
+    });
+    const p2 = (aiSync.body as { payload: typeof DEFAULT_WORKSPACE_INPUT }).payload;
+    expect(p2.members[0]?.dailyOutdoorHours).toBe(7);
+    expect(p2.householdsParticipating).toBe(320);
+    expect(p2.transitShiftShare).toBe(0.75);
+    expect(p2.areaM2).toBe(40);
+    expect(p2.haltLeafBurning).toBe(false);
+  });
 });
