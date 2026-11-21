@@ -142,12 +142,11 @@ function AtmosphericStatusPanels({
 const DEFAULT_WINDOW_HOUR = 13;
 
 function formatBestWindowLabel(hours: readonly number[]): string {
-  if (hours.length === 0) {
-    return '13:00 - 15:00';
-  }
   const first = hours[0] ?? DEFAULT_WINDOW_HOUR;
   const last = hours[hours.length - 1] ?? first;
-  return `${String(first).padStart(2, '0')}:00 - ${String(last).padStart(2, '0')}:59`;
+  return hours.length === 0
+    ? '13:00 - 15:00'
+    : `${String(first).padStart(2, '0')}:00 - ${String(last).padStart(2, '0')}:59`;
 }
 
 function DispersionBriefCell({
@@ -175,6 +174,12 @@ function DispersionBriefCell({
   );
 }
 
+const SEVERITY_LABELS: Readonly<Record<string, string>> = {
+  'severe-inversion': 'Severe thermal inversion',
+  'moderate-trapping': 'Moderate trapping layer',
+  neutral: 'Neutral mixing layer',
+};
+
 function AtmosphericDispersionBrief({
   telemetry,
   t,
@@ -186,6 +191,8 @@ function AtmosphericDispersionBrief({
   const wind = Math.round(cur?.windKmh ?? 0);
   const rh = Math.round(cur?.rhPercent ?? 0);
   const windowLabel = formatBestWindowLabel(telemetry.inversion.bestWindowHours);
+  const severityLabel =
+    SEVERITY_LABELS[telemetry.inversion.currentSeverity] ?? telemetry.inversion.currentSeverity;
   return (
     <div className="surface-hairline mt-4 grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
       <DispersionBriefCell
@@ -200,7 +207,7 @@ function AtmosphericDispersionBrief({
         label="Surface Dispersion"
         value={`${String(wind)} km/h · ${String(rh)}% RH`}
         valueTone="text-ink"
-        sub={`${telemetry.inversion.currentSeverity} inversion layer`}
+        sub={severityLabel}
       />
       <DispersionBriefCell
         icon={<ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden="true" />}

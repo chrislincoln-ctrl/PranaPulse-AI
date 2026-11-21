@@ -54,11 +54,13 @@ function AppMainContent({
   );
 }
 
-function AppFooter({ notice }: { readonly notice: string }): ReactElement {
+function AppFooter(p: { readonly notice: string; readonly dock: boolean }): ReactElement {
   return (
-    <footer className="relative z-[2] border-t border-rule/80 bg-paper-3/85 px-4 py-4 text-center text-xs text-muted backdrop-blur-md">
+    <footer
+      className={`relative z-[2] border-t border-rule/80 bg-paper-3/85 px-4 pt-4 text-center text-xs text-muted backdrop-blur-md ${p.dock ? 'pb-24 sm:pb-4' : 'pb-4'}`}
+    >
       <div className="container">
-        {APP_META.DISPLAY_NAME} v{APP_META.VERSION}: {notice}
+        {APP_META.DISPLAY_NAME} v{APP_META.VERSION}: {p.notice}
       </div>
     </footer>
   );
@@ -195,7 +197,7 @@ function AppShell(p: AppShellProps): ReactElement {
         t={p.t}
       />
       <AppViewBody {...p} />
-      <AppFooter notice={p.t.footerNotice} />
+      <AppFooter notice={p.t.footerNotice} dock={p.viewMode === 'workbench'} />
       {p.viewMode === 'workbench' && <WorkbenchCompanionOverlay workspace={p.workspace} t={p.t} />}
       <AuthModal
         isOpen={p.authModalOpen}

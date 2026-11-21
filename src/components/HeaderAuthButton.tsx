@@ -51,9 +51,9 @@ export const HeaderAuthButton = memo(function HeaderAuthButton({
       onClick={onOpenModal}
       disabled={isInitializing}
       aria-label="Sign in to PranaPulse AI"
-      className="btn-primary touch-target inline-flex items-center gap-1.5 px-3 text-xs whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm"
+      className="btn-primary touch-target inline-flex items-center gap-1 px-2.5 text-xs whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm"
     >
-      <LogIn className="h-4 w-4 shrink-0" aria-hidden="true" />
+      <LogIn className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" aria-hidden="true" />
       <span>Sign in</span>
     </button>
   );

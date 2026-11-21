@@ -51,7 +51,7 @@ function MemberSelectField(p: {
   readonly t: LocaleDictionary;
 }): ReactElement {
   return (
-    <div className="w-full min-w-0 flex-1 sm:w-auto sm:min-w-[175px]">
+    <div className="min-w-0 w-full sm:flex-1 sm:min-w-[175px]">
       <label htmlFor="companion-member-select" className="mb-1 block text-[11px] text-muted">
         {p.t.companionChatMemberLabel}
       </label>
@@ -96,7 +96,7 @@ export function ChatMemberControls(p: {
 }): ReactElement {
   const GpsIcon = p.isLocatingGps ? Loader2 : MapPin;
   return (
-    <div className="mt-3 flex flex-wrap items-end justify-between gap-2">
+    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
       <MemberSelectField
         members={p.members}
         selectedId={p.selectedId}
