@@ -200,15 +200,19 @@ function buildHabitFields(m: FamilyMemberInput, existing: StoredMemberProfile | 
 }
 
 function buildTelegramFields(m: FamilyMemberInput, existing: StoredMemberProfile | undefined) {
-  const optIn = m.telegramDailyBrief ?? (existing ? existing.telegramOptIn : true);
-  const briefTime =
-    m.briefTimeLocal ?? (existing ? existing.briefTimeLocal : DEFAULT_BRIEF_TIME_LOCAL);
+  const base = existing ?? {
+    telegramChatId: null,
+    telegramLinkCode: null,
+    telegramOptIn: true,
+    briefTimeLocal: DEFAULT_BRIEF_TIME_LOCAL,
+    lastBriefSentAt: null,
+  };
   return {
-    telegramChatId: existing ? existing.telegramChatId : null,
-    telegramLinkCode: existing ? existing.telegramLinkCode : null,
-    telegramOptIn: optIn,
-    briefTimeLocal: briefTime,
-    lastBriefSentAt: existing ? existing.lastBriefSentAt : null,
+    telegramChatId: base.telegramChatId,
+    telegramLinkCode: base.telegramLinkCode,
+    telegramOptIn: m.telegramDailyBrief ?? base.telegramOptIn,
+    briefTimeLocal: m.briefTimeLocal ?? base.briefTimeLocal,
+    lastBriefSentAt: base.lastBriefSentAt,
   };
 }
 
@@ -218,7 +222,7 @@ export function buildProfileFromUpsert(
   existing: StoredMemberProfile | undefined,
   newId: string,
 ): StoredMemberProfile {
-  const m = input.member;
+  const { member: m, city, lat, lon, language } = input;
   return {
     id: existing?.id ?? newId,
     userId: pickStr(input.userId, existing?.userId),
@@ -227,10 +231,10 @@ export function buildProfileFromUpsert(
     role: m.role,
     mask: m.mask,
     dailyOutdoorHours: m.dailyOutdoorHours,
-    city: input.city,
-    lat: input.lat,
-    lon: input.lon,
-    language: input.language,
+    city,
+    lat,
+    lon,
+    language,
     ...buildHabitFields(m, existing),
     ...buildTelegramFields(m, existing),
     updatedAt: new Date().toISOString(),

@@ -3,7 +3,7 @@ import { computePlanPhysics } from '../../src/domain/localBaseline.js';
 import type { ServerEnv } from '../env.js';
 import { buildMemberScheduleSnapshot, handleCompanionCheckin } from './familyCompanionAgent.js';
 import {
-  findMemberByTelegramChatId,
+  ensureMemberForTelegramChatId,
   recordCompanionCheckin,
   redeemTelegramLinkCode,
   storedProfileToFamilyMember,
@@ -112,13 +112,9 @@ async function handleStartCommand(
   code: string | undefined,
   env: ServerEnv,
 ): Promise<string> {
-  if (!code) {
-    return 'Welcome to PranaPulse AI. Open Family Routine in the web app and tap "Connect Telegram" next to your name to link your daily schedule.';
-  }
-  const linked = await redeemTelegramLinkCode(code, chatId, env);
-  if (!linked) {
-    return 'This pairing link is expired or unrecognized. Generate a fresh "Connect Telegram" link from the PranaPulse Family Routine tab.';
-  }
+  const linked =
+    (code ? await redeemTelegramLinkCode(code, chatId, env) : null) ??
+    (await ensureMemberForTelegramChatId(chatId, env));
   const brief = await buildLiveScheduleBrief(linked, env);
   return `Linked to ${linked.label} (${linked.city})! You will receive personalized morning briefs and can message or drop a GPS pin anytime.\n\n${brief}`;
 }
@@ -240,13 +236,7 @@ export async function processTelegramUpdate(
     await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, ctx.chatId, reply, DEFAULT_TELEGRAM_BUTTONS);
     return { handled: 'start', replyText: reply };
   }
-  const profile = await findMemberByTelegramChatId(ctx.chatId, env);
-  if (!profile) {
-    const reply =
-      'Your Telegram account is not linked yet. Open PranaPulse Family Routine and tap "Connect Telegram" next to your name.';
-    await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, ctx.chatId, reply);
-    return { handled: 'unlinked', replyText: reply };
-  }
+  const profile = await ensureMemberForTelegramChatId(ctx.chatId, env);
   const reply = await handleLinkedTelegramMessage({
     profile,
     text: ctx.text,
