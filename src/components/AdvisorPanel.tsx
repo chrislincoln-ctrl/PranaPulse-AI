@@ -1,4 +1,4 @@
-import { MessageSquare, Send } from 'lucide-react';
+import { Loader2, MessageSquare, Send } from 'lucide-react';
 import { memo, useState, type ReactElement, type SyntheticEvent } from 'react';
 import { SECURITY_LIMITS, VALIDATION_BOUNDS } from '../config/constants.js';
 import type { TelemetrySnapshot } from '../domain/localBaseline.js';
@@ -145,42 +145,41 @@ function AdvisorChipsBar({
   );
 }
 
-function AdvisorQueryForm({
-  question,
-  isStreaming,
-  onChangeQuestion,
-  onSubmit,
-  t,
-}: {
+function AdvisorQueryForm(p: {
   readonly question: string;
   readonly isStreaming: boolean;
   readonly onChangeQuestion: (nextValue: string) => void;
   readonly onSubmit: (event: SyntheticEvent<HTMLFormElement>) => void;
   readonly t: LocaleDictionary;
 }): ReactElement {
+  const SubmitIcon = p.isStreaming ? Loader2 : Send;
   return (
-    <form onSubmit={onSubmit} className="mt-4 flex flex-col gap-2 sm:flex-row">
+    <form onSubmit={p.onSubmit} className="mt-4 flex flex-col gap-2 sm:flex-row">
       <label htmlFor="advisor-input" className="sr-only">
-        {t.advisorHeading}
+        {p.t.advisorHeading}
       </label>
       <input
         id="advisor-input"
         type="text"
         maxLength={SECURITY_LIMITS.MAX_CHAT_QUERY_CHARS}
-        value={question}
-        placeholder={t.advisorPlaceholder}
+        value={p.question}
+        placeholder={p.t.advisorPlaceholder}
         onChange={(e) => {
-          onChangeQuestion(e.target.value);
+          p.onChangeQuestion(e.target.value);
         }}
         className="field-control flex-1 text-sm"
       />
       <button
         type="submit"
-        disabled={isStreaming || question.trim().length === 0}
+        disabled={p.isStreaming || p.question.trim().length === 0}
+        data-loading={p.isStreaming ? 'true' : undefined}
         className="btn-primary touch-target inline-flex items-center justify-center gap-2 text-sm"
       >
-        <Send className="h-4 w-4" aria-hidden="true" />
-        <span>{t.advisorSendButton}</span>
+        <SubmitIcon
+          className={`h-4 w-4 ${p.isStreaming ? 'icon-spin keep-motion' : ''}`}
+          aria-hidden="true"
+        />
+        <span>{p.isStreaming ? p.t.advisorStreamingLabel : p.t.advisorSendButton}</span>
       </button>
     </form>
   );

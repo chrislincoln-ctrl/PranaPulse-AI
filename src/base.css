@@ -130,9 +130,9 @@ td.num {
   display: none !important;
 }
 @media (prefers-reduced-motion: reduce) {
-  *:not(.keep-motion),
-  *:not(.keep-motion)::before,
-  *:not(.keep-motion)::after {
+  *:not(.keep-motion):not(.icon-spin):not([data-loading='true']),
+  *:not(.keep-motion):not(.icon-spin):not([data-loading='true'])::before,
+  *:not(.keep-motion):not(.icon-spin):not([data-loading='true'])::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

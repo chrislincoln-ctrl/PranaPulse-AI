@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Sparkles } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
 import { useState, type ReactElement } from 'react';
 import { VALIDATION_BOUNDS } from '../config/constants.js';
 import type { LocaleDictionary } from '../i18n/translations.js';
@@ -102,9 +102,14 @@ function CustomEntryDrawer(props: {
           type="button"
           onClick={onVerify}
           disabled={verifying || customText.trim().length === 0}
+          data-loading={verifying ? 'true' : undefined}
           className="btn-secondary touch-target inline-flex w-full items-center justify-center gap-1.5 px-3 text-xs"
         >
-          <Sparkles className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+          {verifying ? (
+            <Loader2 className="h-3.5 w-3.5 icon-spin keep-motion text-accent" aria-hidden="true" />
+          ) : (
+            <Sparkles className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+          )}
           <span>{verifying ? t.verifyingCustomButton : t.verifyCustomButton}</span>
         </button>
       </div>

@@ -1,4 +1,4 @@
-import { ExternalLink, Navigation } from 'lucide-react';
+import { ExternalLink, Loader2, Navigation } from 'lucide-react';
 import { type ReactElement } from 'react';
 import { VALIDATION_BOUNDS } from '../config/constants.js';
 import type { CorridorPlanFeedback } from '../hooks/useCityCorridorPlanner.js';
@@ -60,9 +60,14 @@ function RouteActionBar(props: {
         type="button"
         onClick={props.onPlanRoute}
         disabled={!props.canPlan}
+        data-loading={props.loading ? 'true' : undefined}
         className="btn-primary touch-target inline-flex items-center gap-2 text-xs"
       >
-        <Navigation className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        {props.loading ? (
+          <Loader2 className="h-3.5 w-3.5 shrink-0 icon-spin keep-motion" aria-hidden="true" />
+        ) : (
+          <Navigation className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        )}
         <span>{props.loading ? props.t.planningRouteButton : props.t.planRouteButton}</span>
       </button>
       <a

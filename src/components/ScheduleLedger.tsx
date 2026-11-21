@@ -194,9 +194,13 @@ function ScheduleHeaderBar({
         type="button"
         onClick={onRefreshPlan}
         disabled={isLoadingPlan}
+        data-loading={isLoadingPlan ? 'true' : undefined}
         className="btn-primary touch-target inline-flex items-center gap-2 text-sm"
       >
-        <RefreshCw className="h-4 w-4" aria-hidden="true" />
+        <RefreshCw
+          className={`h-4 w-4 ${isLoadingPlan ? 'icon-spin keep-motion' : ''}`}
+          aria-hidden="true"
+        />
         <span>{isLoadingPlan ? t.generatingPlan : t.refreshPlan}</span>
       </button>
     </div>

@@ -1,4 +1,4 @@
-import { MapPin, Search } from 'lucide-react';
+import { Loader2, MapPin, Search } from 'lucide-react';
 import { memo, useId, type ReactElement } from 'react';
 import type { GpsStatus } from '../hooks/useAirQualityWorkspace.js';
 import { useCitySearchState, type GeocodedOption } from '../hooks/useDebouncedGeocode.js';
@@ -61,15 +61,21 @@ function GpsLookupButton({
   readonly onRequestGps: () => void;
   readonly t: LocaleDictionary;
 }): ReactElement {
+  const isLoading = gpsStatus === 'loading';
   return (
     <button
       type="button"
       onClick={onRequestGps}
-      disabled={gpsStatus === 'loading'}
+      disabled={isLoading}
+      data-loading={isLoading ? 'true' : undefined}
       className="btn-secondary touch-target inline-flex items-center justify-center gap-2 text-sm"
     >
-      <MapPin className="h-4 w-4 text-accent" aria-hidden="true" />
-      <span>{gpsStatus === 'loading' ? t.gpsLoading : t.useGpsButton}</span>
+      {isLoading ? (
+        <Loader2 className="h-4 w-4 icon-spin keep-motion text-accent" aria-hidden="true" />
+      ) : (
+        <MapPin className="h-4 w-4 text-accent" aria-hidden="true" />
+      )}
+      <span>{isLoading ? t.gpsLoading : t.useGpsButton}</span>
     </button>
   );
 }

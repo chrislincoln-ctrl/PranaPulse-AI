@@ -589,6 +589,40 @@
     cursor: not-allowed;
   }
 
+  @keyframes btn-spinner-rotate {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes btn-loading-pulse {
+    0%,
+    100% {
+      border-color: var(--color-accent);
+      box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-accent) 35%, transparent);
+    }
+    50% {
+      border-color: color-mix(in oklab, var(--color-accent) 65%, var(--color-ink));
+      box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-accent) 16%, transparent);
+    }
+  }
+
+  .icon-spin {
+    animation: btn-spinner-rotate 0.8s linear infinite !important;
+  }
+
+  .btn-primary[data-loading='true'],
+  .btn-secondary[data-loading='true'] {
+    background: color-mix(in oklab, var(--color-paper-2) 82%, var(--color-accent-soft)) !important;
+    color: var(--color-accent) !important;
+    border-color: var(--color-accent) !important;
+    cursor: progress !important;
+    animation: btn-loading-pulse 1.3s ease-in-out infinite !important;
+  }
+
   .field-control {
     min-height: 44px;
     min-width: 0;

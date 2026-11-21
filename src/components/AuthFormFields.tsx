@@ -63,7 +63,7 @@ export function AuthSubmitIcon({
   readonly busy: boolean;
 }): ReactElement {
   if (busy) {
-    return <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />;
+    return <Loader2 className="h-4 w-4 icon-spin keep-motion" aria-hidden="true" />;
   }
   if (mode === 'signup') {
     return <UserPlus className="h-4 w-4" aria-hidden="true" />;

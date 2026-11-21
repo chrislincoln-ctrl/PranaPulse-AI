@@ -1,4 +1,4 @@
-import { ExternalLink, Send } from 'lucide-react';
+import { ExternalLink, Loader2, Send } from 'lucide-react';
 import { memo, useState, type ReactElement } from 'react';
 import type { FamilyMemberInput } from '../domain/types.js';
 import type { LocaleDictionary } from '../i18n/translations.js';
@@ -76,6 +76,7 @@ export const TelegramPairingControl = memo(function TelegramPairingControl(
   const { member, onChange, t } = props;
   const [linkState, setLinkState] = useState<TelegramLinkPayload | null>(null);
   const [isLinking, setIsLinking] = useState(false);
+  const ConnectIcon = isLinking ? Loader2 : Send;
 
   const handleCreateLink = (): void => {
     setIsLinking(true);
@@ -110,9 +111,10 @@ export const TelegramPairingControl = memo(function TelegramPairingControl(
           type="button"
           onClick={handleCreateLink}
           disabled={isLinking}
+          data-loading={isLinking ? 'true' : undefined}
           className="btn-secondary touch-target inline-flex items-center gap-1.5 px-3 py-1.5 text-xs"
         >
-          <Send className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+          <ConnectIcon className={`h-3.5 w-3.5 text-accent ${isLinking ? 'icon-spin keep-motion' : ''}`} aria-hidden="true" />
           <span>{t.memberConnectTelegramButton}</span>
         </button>
       </div>

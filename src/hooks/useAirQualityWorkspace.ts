@@ -114,6 +114,7 @@ function usePlanSynchronizer(setBundle: React.Dispatch<React.SetStateAction<Plan
 
   const schedulePlanSync = useCallback(
     (nextInput: PlanRequestPayload): void => {
+      setIsLoadingPlan(true);
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
       }

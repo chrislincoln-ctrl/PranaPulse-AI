@@ -90,6 +90,7 @@ function AuthFormBody(p: AuthFormBodyProps): ReactElement {
       <button
         type="submit"
         disabled={p.disabled}
+        data-loading={p.busy ? 'true' : undefined}
         className="btn-primary touch-target inline-flex w-full items-center justify-center gap-2 text-sm"
       >
         <AuthSubmitIcon mode={p.mode} busy={p.busy} />

@@ -1,4 +1,4 @@
-import { CheckCircle2, MapPin, Send, Share2 } from 'lucide-react';
+import { CheckCircle2, Loader2, MapPin, Send, Share2 } from 'lucide-react';
 import { type ReactElement, type SyntheticEvent } from 'react';
 import { SECURITY_LIMITS } from '../config/constants.js';
 import { resolveMemberArchetype } from '../domain/memberScheduleBuilder.js';
@@ -73,18 +73,28 @@ function MemberSelectField(p: {
   );
 }
 
+function resolveGpsButtonLabel(
+  isLocating: boolean | undefined,
+  gpsPoint: CompanionGpsPoint | null,
+  t: LocaleDictionary,
+): string {
+  if (isLocating) {
+    return t.gpsLoading;
+  }
+  return gpsPoint ? t.companionChatGpsAttached : t.companionChatUseGps;
+}
+
 export function ChatMemberControls(p: {
   readonly members: readonly FamilyMemberInput[];
   readonly selectedId: string;
   readonly gpsPoint: CompanionGpsPoint | null;
+  readonly isLocatingGps?: boolean | undefined;
   readonly shareBriefText: string | undefined;
   readonly onSelectId: (id: string) => void;
   readonly onToggleGps: () => void;
   readonly t: LocaleDictionary;
 }): ReactElement {
-  const waHref = p.shareBriefText
-    ? `https://wa.me/?text=${encodeURIComponent(p.shareBriefText)}`
-    : null;
+  const GpsIcon = p.isLocatingGps ? Loader2 : MapPin;
   return (
     <div className="mt-3 flex flex-wrap items-end justify-between gap-2">
       <MemberSelectField
@@ -94,9 +104,9 @@ export function ChatMemberControls(p: {
         t={p.t}
       />
       <div className="flex flex-wrap items-center gap-1.5">
-        {waHref && (
+        {p.shareBriefText && (
           <a
-            href={waHref}
+            href={`https://wa.me/?text=${encodeURIComponent(p.shareBriefText)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="btn-secondary inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-ok"
@@ -108,10 +118,15 @@ export function ChatMemberControls(p: {
         <button
           type="button"
           onClick={p.onToggleGps}
+          disabled={p.isLocatingGps}
+          data-loading={p.isLocatingGps ? 'true' : undefined}
           className={`btn-secondary inline-flex items-center gap-1 px-2.5 py-1.5 text-xs ${p.gpsPoint ? 'border-accent text-accent' : ''}`}
         >
-          <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>{p.gpsPoint ? p.t.companionChatGpsAttached : p.t.companionChatUseGps}</span>
+          <GpsIcon
+            className={`h-3.5 w-3.5 ${p.isLocatingGps ? 'icon-spin keep-motion text-accent' : ''}`}
+            aria-hidden="true"
+          />
+          <span>{resolveGpsButtonLabel(p.isLocatingGps, p.gpsPoint, p.t)}</span>
         </button>
       </div>
     </div>
@@ -168,9 +183,14 @@ export function CompanionChatForm(p: {
       <button
         type="submit"
         disabled={p.isSending || p.draft.trim().length === 0}
+        data-loading={p.isSending ? 'true' : undefined}
         className="btn-primary touch-target inline-flex shrink-0 items-center justify-center gap-1.5 px-3 text-xs"
       >
-        <Send className="h-3.5 w-3.5" aria-hidden="true" />
+        {p.isSending ? (
+          <Loader2 className="h-3.5 w-3.5 icon-spin keep-motion" aria-hidden="true" />
+        ) : (
+          <Send className="h-3.5 w-3.5" aria-hidden="true" />
+        )}
         <span>{p.isSending ? p.t.companionChatSending : p.t.companionChatSend}</span>
       </button>
     </form>

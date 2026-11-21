@@ -66,6 +66,7 @@ function CompanionFloatingDrawer(p: {
         members={p.members}
         selectedId={p.state.activeMember?.id ?? ''}
         gpsPoint={p.state.gpsPoint}
+        isLocatingGps={p.state.isLocatingGps}
         shareBriefText={p.activeBrief}
         onSelectId={p.state.setSelectedMemberId}
         onToggleGps={p.state.toggleGps}

@@ -61,15 +61,19 @@ async function postCompanionQuery(
   return res.ok ? ((await res.json()) as CompanionApiResponse) : null;
 }
 
-function requestBrowserGps(onFound: (pt: CompanionGpsPoint) => void): void {
+function requestBrowserGps(onFound: (pt: CompanionGpsPoint) => void, onDone: () => void): void {
   if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
+    onDone();
     return;
   }
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       onFound({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+      onDone();
     },
-    () => undefined,
+    () => {
+      onDone();
+    },
     { enableHighAccuracy: false, timeout: GPS_TIMEOUT_MS },
   );
 }
@@ -120,14 +124,18 @@ function applyResponseToTurns(params: {
 
 function useGpsAttachment() {
   const [gpsPoint, setGpsPoint] = useState<CompanionGpsPoint | null>(null);
+  const [isLocatingGps, setIsLocatingGps] = useState(false);
   const toggleGps = (): void => {
     if (gpsPoint) {
       setGpsPoint(null);
       return;
     }
-    requestBrowserGps(setGpsPoint);
+    setIsLocatingGps(true);
+    requestBrowserGps(setGpsPoint, () => {
+      setIsLocatingGps(false);
+    });
   };
-  return { gpsPoint, toggleGps };
+  return { gpsPoint, isLocatingGps, toggleGps };
 }
 
 /** Manages per-member Family Companion Chat state, optional GPS attachment, and habit patch syncing. */
@@ -139,7 +147,7 @@ export function useCompanionChat(
   const [draft, setDraft] = useState('');
   const [turns, setTurns] = useState<readonly CompanionChatTurn[]>([]);
   const [isSending, setIsSending] = useState(false);
-  const { gpsPoint, toggleGps } = useGpsAttachment();
+  const { gpsPoint, isLocatingGps, toggleGps } = useGpsAttachment();
   const activeMember = input.members.find((m) => m.id === selectedMemberId) ?? input.members[0];
 
   const sendQuestion = (questionText: string): void => {
@@ -171,6 +179,7 @@ export function useCompanionChat(
     setDraft,
     turns,
     isSending,
+    isLocatingGps,
     gpsPoint,
     setSelectedMemberId,
     toggleGps,
