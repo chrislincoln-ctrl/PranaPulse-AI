@@ -1,7 +1,7 @@
 import { Trash2, UserRound } from 'lucide-react';
 import { memo, type ReactElement } from 'react';
 import { VALIDATION_BOUNDS } from '../config/constants.js';
-import { SLIDER_LIMITS } from '../config/uiConstants.js';
+import { DEFAULT_WORKSPACE_INPUT, SLIDER_LIMITS } from '../config/uiConstants.js';
 import type {
   FamilyMemberAdvisory,
   FamilyMemberInput,
@@ -12,12 +12,16 @@ import type { LocaleDictionary } from '../i18n/translations.js';
 import type { SupportedLanguage } from '../validators/schemas.js';
 import { CustomVerifiedSelect } from './CustomVerifiedSelect.js';
 import { SelectField } from './FormFields.js';
+import { MemberHabitEditor } from './MemberHabitEditor.js';
 
 export interface FamilyMemberRowProps {
   readonly member: FamilyMemberInput;
   readonly memberNumber: number;
   readonly advisory: FamilyMemberAdvisory | undefined;
   readonly language: SupportedLanguage;
+  readonly city?: string | undefined;
+  readonly lat?: number | undefined;
+  readonly lon?: number | undefined;
   readonly canRemove: boolean;
   readonly onChange: (patch: Partial<FamilyMemberInput>) => void;
   readonly onRemove: () => void;
@@ -204,6 +208,15 @@ export const FamilyMemberRow = memo(function FamilyMemberRow(
       <MemberBadgeHeader memberNumber={props.memberNumber} prefix={props.t.newMemberPrefix} />
       <MemberIdentityRow {...props} />
       <MemberExposureRow {...props} />
+      <MemberHabitEditor
+        member={props.member}
+        city={props.city ?? DEFAULT_WORKSPACE_INPUT.city}
+        lat={props.lat ?? DEFAULT_WORKSPACE_INPUT.lat}
+        lon={props.lon ?? DEFAULT_WORKSPACE_INPUT.lon}
+        language={props.language}
+        onChange={props.onChange}
+        t={props.t}
+      />
     </li>
   );
 });

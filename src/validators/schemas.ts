@@ -9,13 +9,13 @@ export { quantizeCoord, sanitizeUserText };
 export const supportedLanguageSchema = z.enum(['en', 'hi', 'ta']);
 export type SupportedLanguage = z.infer<typeof supportedLanguageSchema>;
 
-const latSchema = z.coerce
+export const latSchema = z.coerce
   .number()
   .min(SECURITY_LIMITS.MIN_LATITUDE)
   .max(SECURITY_LIMITS.MAX_LATITUDE)
   .transform(quantizeCoord);
 
-const lonSchema = z.coerce
+export const lonSchema = z.coerce
   .number()
   .min(SECURITY_LIMITS.MIN_LONGITUDE)
   .max(SECURITY_LIMITS.MAX_LONGITUDE)
@@ -41,6 +41,43 @@ export const geocodeQuerySchema = z.object({
     .transform((val) => sanitizeUserText(val, VALIDATION_BOUNDS.MAX_CITY_QUERY_LEN)),
 });
 
+const HH_MM_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const MAX_HABIT_NOTE_CHARS = 200;
+
+const optionalTimeSchema = z
+  .string()
+  .trim()
+  .refine((val) => val.length === 0 || HH_MM_RE.test(val), 'Use HH:MM 24-hour time')
+  .transform((val) => (val.length > 0 ? val : undefined))
+  .optional();
+
+const optionalHabitTextSchema = z
+  .string()
+  .max(MAX_HABIT_NOTE_CHARS)
+  .transform((val) => {
+    const cleaned = sanitizeUserText(val, MAX_HABIT_NOTE_CHARS);
+    return cleaned.length > 0 ? cleaned : undefined;
+  })
+  .optional();
+
+export const memberArchetypeSchema = z.enum([
+  'school-student',
+  'office-commuter',
+  'senior-homebound',
+  'outdoor-active',
+  'home-caregiver',
+]);
+
+export const commuteModeSchema = z.enum([
+  'metro',
+  'electric-bus',
+  'ev-car',
+  'petrol-car',
+  'two-wheeler',
+  'cycling',
+  'walking',
+]);
+
 export const familyMemberSchema = z.object({
   id: z.string().min(1).max(VALIDATION_BOUNDS.GEOCODE_RETURN_LIMIT),
   label: z
@@ -51,6 +88,14 @@ export const familyMemberSchema = z.object({
   role: z.enum(['child', 'senior-respiratory', 'commuter', 'caregiver']),
   mask: z.enum(['none', 'cloth', 'surgical', 'n95-ffp2']),
   dailyOutdoorHours: z.coerce.number().min(0).max(VALIDATION_BOUNDS.MAX_DAILY_HOURS),
+  archetype: memberArchetypeSchema.optional(),
+  leaveHomeTime: optionalTimeSchema,
+  returnHomeTime: optionalTimeSchema,
+  commuteMode: commuteModeSchema.optional(),
+  healthNotes: optionalHabitTextSchema,
+  dailyHabitsNote: optionalHabitTextSchema,
+  telegramDailyBrief: z.boolean().optional(),
+  briefTimeLocal: optionalTimeSchema,
 });
 
 export const planRequestSchema = z.object({
@@ -123,20 +168,30 @@ export const chatRequestSchema = z.object({
 
 export type ChatRequestPayload = z.infer<typeof chatRequestSchema>;
 
+export const routineStepSchema = z.object({
+  timeWindow: z.string().min(1),
+  actionTitle: z.string().min(1),
+  reasonSummary: z.string().min(1),
+  estimatedImpactLabel: z.string().min(1),
+  exposureTag: z.enum(['indoor', 'commute', 'outdoor', 'ventilation']),
+});
+
+export const memberDailyScheduleSchema = z.object({
+  memberId: z.string().min(1),
+  memberLabel: z.string().min(1),
+  archetype: memberArchetypeSchema,
+  summaryHeadline: z.string().min(1),
+  dailyRoutine: z.array(routineStepSchema).min(1).max(VALIDATION_BOUNDS.MAX_ROUTINE_ITEMS),
+  shareBriefText: z.string().min(1),
+});
+
 export const aiPlanOutputSchema = z.object({
   headline: z.string().min(1),
   dailyRoutine: z
-    .array(
-      z.object({
-        timeWindow: z.string().min(1),
-        actionTitle: z.string().min(1),
-        reasonSummary: z.string().min(1),
-        estimatedImpactLabel: z.string().min(1),
-        exposureTag: z.enum(['indoor', 'commute', 'outdoor', 'ventilation']),
-      }),
-    )
+    .array(routineStepSchema)
     .min(VALIDATION_BOUNDS.MIN_ROUTINE_ITEMS)
     .max(VALIDATION_BOUNDS.MAX_ROUTINE_ITEMS),
+  memberSchedules: z.array(memberDailyScheduleSchema).optional(),
   indoorHacks: z
     .array(
       z.object({

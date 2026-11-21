@@ -23,6 +23,13 @@ export type MaskTypeId = 'none' | 'cloth' | 'surgical' | 'n95-ffp2';
 
 export type FamilyRole = 'child' | 'senior-respiratory' | 'commuter' | 'caregiver';
 
+export type MemberRoutineArchetype =
+  | 'school-student'
+  | 'office-commuter'
+  | 'senior-homebound'
+  | 'outdoor-active'
+  | 'home-caregiver';
+
 export interface PollutantReadingInput {
   readonly pm25UgM3: number;
   readonly pm10UgM3: number;
@@ -146,6 +153,31 @@ export interface FamilyMemberInput {
   readonly role: FamilyRole;
   readonly mask: MaskTypeId;
   readonly dailyOutdoorHours: number;
+  readonly archetype?: MemberRoutineArchetype | undefined;
+  readonly leaveHomeTime?: string | undefined;
+  readonly returnHomeTime?: string | undefined;
+  readonly commuteMode?: CommuteModeId | undefined;
+  readonly healthNotes?: string | undefined;
+  readonly dailyHabitsNote?: string | undefined;
+  readonly telegramDailyBrief?: boolean | undefined;
+  readonly briefTimeLocal?: string | undefined;
+}
+
+export interface RoutineStepItem {
+  readonly timeWindow: string;
+  readonly actionTitle: string;
+  readonly reasonSummary: string;
+  readonly estimatedImpactLabel: string;
+  readonly exposureTag: 'indoor' | 'commute' | 'outdoor' | 'ventilation';
+}
+
+export interface MemberDailySchedule {
+  readonly memberId: string;
+  readonly memberLabel: string;
+  readonly archetype: MemberRoutineArchetype;
+  readonly summaryHeadline: string;
+  readonly dailyRoutine: readonly RoutineStepItem[];
+  readonly shareBriefText: string;
 }
 
 export interface FamilyMemberAdvisory {

@@ -17,6 +17,7 @@ interface HealthPayload {
   readonly capabilities?: {
     readonly geminiConfigured?: boolean;
     readonly groqConfigured?: boolean;
+    readonly telegramConfigured?: boolean;
   };
 }
 
@@ -59,8 +60,13 @@ async function fetchPlanBundle(
 function useHealthCapability(): {
   readonly liveGeminiConfigured: boolean;
   readonly groqConfigured: boolean;
+  readonly telegramConfigured: boolean;
 } {
-  const [caps, setCaps] = useState({ liveGeminiConfigured: false, groqConfigured: false });
+  const [caps, setCaps] = useState({
+    liveGeminiConfigured: false,
+    groqConfigured: false,
+    telegramConfigured: false,
+  });
 
   useEffect(() => {
     void fetch('/api/health')
@@ -69,6 +75,7 @@ function useHealthCapability(): {
         setCaps({
           liveGeminiConfigured: Boolean(data?.capabilities?.geminiConfigured),
           groqConfigured: Boolean(data?.capabilities?.groqConfigured),
+          telegramConfigured: Boolean(data?.capabilities?.telegramConfigured),
         });
       })
       .catch(() => undefined);
@@ -214,7 +221,7 @@ export function useAirQualityWorkspace() {
   const [bundle, setBundle] = useState<PlanBundleResponse>(() =>
     buildInitialWorkspaceBundle(DEFAULT_WORKSPACE_INPUT),
   );
-  const { liveGeminiConfigured, groqConfigured } = useHealthCapability();
+  const { liveGeminiConfigured, groqConfigured, telegramConfigured } = useHealthCapability();
   const sync = usePlanSynchronizer(setBundle);
 
   useWorkspaceEffects(input.language, sync.executePlanSync, sync.cancelPending);
@@ -245,6 +252,7 @@ export function useAirQualityWorkspace() {
     bundle,
     liveGeminiConfigured,
     groqConfigured,
+    telegramConfigured,
     isLoadingPlan: sync.isLoadingPlan,
     gpsStatus,
     gpsCity,

@@ -57,12 +57,15 @@ export const UPSTREAM_ENDPOINTS = {
   OPENAQ_V3_BASE: 'https://api.openaq.org/v3',
   NASA_FIRMS_BASE: 'https://firms.modaps.eosdis.nasa.gov/api/area/csv',
   GROQ_CHAT_COMPLETIONS: 'https://api.groq.com/openai/v1/chat/completions',
+  TELEGRAM_API_BASE: 'https://api.telegram.org',
 } as const;
 
 /** Standard HTTP status codes used consistently across Express handlers. */
 export const HTTP_STATUS = {
   OK: 200,
   BAD_REQUEST: 400,
+  UNAUTHORIZED: 401,
+  FORBIDDEN: 403,
   PAYLOAD_TOO_LARGE: 413,
   TOO_MANY_REQUESTS: 429,
   INTERNAL_ERROR: 500,

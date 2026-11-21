@@ -84,7 +84,13 @@ function resolveLanguageRule(lang: DeterministicBriefContext['request']['languag
  * Formats verified atmospheric physics values and sanitized preferences inside XML boundaries.
  */
 export function buildStructuredPrompt(ctx: DeterministicBriefContext): string {
-  const familyRoles = ctx.request.members.map((m) => `${m.role}(${m.mask})`).join(', ');
+  const familyRoles = ctx.request.members
+    .map((m) => {
+      const hours = m.leaveHomeTime ? `${m.leaveHomeTime}-${m.returnHomeTime ?? '?'}` : 'home';
+      const note = [m.healthNotes, m.dailyHabitsNote].filter(Boolean).join('; ');
+      return `${m.label}[${m.archetype ?? m.role},${m.mask},${m.commuteMode ?? ctx.request.commuteMode},${hours}${note ? `,${note}` : ''}]`;
+    })
+    .join(' | ');
   return [
     'You are PranaPulse AI, a public-health urban air quality planner.',
     `Respond STRICTLY in language code "${ctx.request.language}". ${resolveLanguageRule(ctx.request.language)}`,

@@ -69,9 +69,9 @@ function useCloudWorkspaceRestore(
 ) {
   const onRestore = useCallback(
     (prefs: SavedWorkspacePreferences): void => {
-      const { city, lat, lon, ...rest } = prefs;
+      const { city, lat, lon, members, savedAt: _savedAt, ...rest } = prefs;
       selectCity(city, lat, lon);
-      updateInput(rest);
+      updateInput(members ? { ...rest, members } : rest);
     },
     [selectCity, updateInput],
   );

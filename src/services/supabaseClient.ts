@@ -17,6 +17,7 @@ const cloudPrefsSchema = planRequestSchema
     language: true,
   })
   .extend({
+    members: planRequestSchema.shape.members.optional(),
     savedAt: z.string().optional(),
   });
 
@@ -106,6 +107,7 @@ export function buildCloudPreferencesPayload(input: PlanRequestPayload): SavedWo
     commuteMode: input.commuteMode,
     mask: input.mask,
     language: input.language,
+    members: input.members,
     savedAt: new Date().toISOString(),
   };
 }

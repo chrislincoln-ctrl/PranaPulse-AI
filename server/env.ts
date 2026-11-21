@@ -28,6 +28,11 @@ const envSchema = z.object({
   OPENAQ_API_KEY: optionalTrimmedString,
   NASA_FIRMS_MAP_KEY: optionalTrimmedString,
   VITE_SUPABASE_URL: optionalTrimmedString,
+  SUPABASE_SERVICE_ROLE_KEY: optionalTrimmedString,
+  TELEGRAM_BOT_TOKEN: optionalTrimmedString,
+  TELEGRAM_BOT_USERNAME: optionalTrimmedString,
+  TELEGRAM_WEBHOOK_SECRET: optionalTrimmedString,
+  CRON_SECRET: optionalTrimmedString,
   ALLOWED_ORIGINS: optionalTrimmedString.transform((value) =>
     value
       ? value

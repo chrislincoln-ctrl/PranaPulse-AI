@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import { APP_META, HTTP_STATUS, SECURITY_LIMITS } from '../src/config/constants.js';
 import { loadServerEnv, type ServerEnv } from './env.js';
 import { createAirQualityRouter, type RateLimiterPair } from './routes/airQualityRoutes.js';
+import { createCompanionRouter } from './routes/companionRoutes.js';
 
 interface AppErrorLike {
   status?: number;
@@ -67,6 +68,7 @@ function registerHealthRoute(app: Express, env: ServerEnv): void {
         waqiConfigured: Boolean(env.WAQI_API_TOKEN),
         firmsConfigured: Boolean(env.NASA_FIRMS_MAP_KEY),
         supabaseConfigured: Boolean(resolveSupabaseOrigin(env.VITE_SUPABASE_URL)),
+        telegramConfigured: Boolean(env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_BOT_USERNAME),
       },
     });
   });
@@ -159,6 +161,7 @@ export function createApp(customEnv?: ServerEnv): Express {
   registerHealthRoute(app, env);
   const { router } = createAirQualityRouter(env);
   app.use('/api', router);
+  app.use('/api', createCompanionRouter(env));
   registerStaticServing(app, env);
   registerErrorHandlers(app);
 

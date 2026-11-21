@@ -13,6 +13,7 @@ import type {
   FamilyRole,
   InversionSeverity,
   MaskTypeId,
+  MemberRoutineArchetype,
 } from '../domain/types.js';
 import type { SupportedLanguage } from '../validators/schemas.js';
 
@@ -196,6 +197,32 @@ export interface LocaleDictionary {
   readonly commuteModes: Record<CommuteModeId, string>;
   readonly outdoorStatuses: Record<FamilyMemberAdvisory['outdoorStatus'], string>;
   readonly corridorNodes: Record<CorridorNodeId, string>;
+  readonly archetypeOptions: Record<MemberRoutineArchetype, string>;
+  readonly memberHabitsToggle: string;
+  readonly memberArchetypeLabel: string;
+  readonly memberLeaveTimeLabel: string;
+  readonly memberReturnTimeLabel: string;
+  readonly memberCommuteLabel: string;
+  readonly memberHealthNotesLabel: string;
+  readonly memberHabitsNoteLabel: string;
+  readonly memberTelegramBriefLabel: string;
+  readonly memberConnectTelegramButton: string;
+  readonly memberOpenTelegramLink: string;
+  readonly memberTelegramPendingHint: string;
+  readonly scheduleAllHouseholdTab: string;
+  readonly shareWhatsAppButton: string;
+  readonly copyBriefButton: string;
+  readonly copiedBriefButton: string;
+  readonly companionChatHeading: string;
+  readonly companionChatSubheading: string;
+  readonly companionChatMemberLabel: string;
+  readonly companionChatPlaceholder: string;
+  readonly companionChatSend: string;
+  readonly companionChatSending: string;
+  readonly companionChatUseGps: string;
+  readonly companionChatGpsAttached: string;
+  readonly companionChatUpdatedBadge: string;
+  readonly companionChatChips: readonly string[];
 }
 
 const en: LocaleDictionary = {
@@ -471,6 +498,45 @@ const en: LocaleDictionary = {
     'metro-concourse': 'Metro Concourse',
     'civic-hub': 'School / Work Hub',
   },
+  archetypeOptions: {
+    'school-student': 'School Student',
+    'office-commuter': 'Office Commuter',
+    'senior-homebound': 'Senior / Respiratory',
+    'outdoor-active': 'Outdoor & Fitness',
+    'home-caregiver': 'Home Caregiver',
+  },
+  memberHabitsToggle: 'Customize daily habits & Telegram',
+  memberArchetypeLabel: 'Routine preset',
+  memberLeaveTimeLabel: 'Leaves home',
+  memberReturnTimeLabel: 'Returns home',
+  memberCommuteLabel: 'Personal commute',
+  memberHealthNotesLabel: 'Health notes (asthma, inhaler)',
+  memberHabitsNoteLabel: 'Daily habits & timing notes',
+  memberTelegramBriefLabel: 'Daily 06:30 morning brief on Telegram',
+  memberConnectTelegramButton: 'Connect Telegram',
+  memberOpenTelegramLink: 'Open Telegram to pair',
+  memberTelegramPendingHint:
+    'Add TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_USERNAME in env to activate 1-tap Telegram pairing.',
+  scheduleAllHouseholdTab: 'All Household',
+  shareWhatsAppButton: 'Share on WhatsApp',
+  copyBriefButton: 'Copy Brief',
+  copiedBriefButton: 'Copied',
+  companionChatHeading: 'Family Daily Companion Chat',
+  companionChatSubheading:
+    'Ask about live air and weather wherever you are, or share daily habit changes to adapt your schedule immediately.',
+  companionChatMemberLabel: 'Chatting as',
+  companionChatPlaceholder:
+    'Ask e.g. Near Salt Lake right now, how is the air? Or: School timing is 08:00 to 15:00',
+  companionChatSend: 'Ask Companion',
+  companionChatSending: 'Checking live sensors',
+  companionChatUseGps: 'Attach GPS',
+  companionChatGpsAttached: 'GPS attached',
+  companionChatUpdatedBadge: 'Applied to daily schedule',
+  companionChatChips: [
+    'I am outside right now, how is the air and weather for me?',
+    'My new timing is 08:00 to 15:30 via metro',
+    'Mild asthma today, can I sit on the terrace this afternoon?',
+  ],
 };
 
 const hi: LocaleDictionary = {
@@ -743,6 +809,45 @@ const hi: LocaleDictionary = {
     'metro-concourse': 'मेट्रो कॉनकोर्स',
     'civic-hub': 'स्कूल / कार्य केंद्र',
   },
+  archetypeOptions: {
+    'school-student': 'स्कूल छात्र',
+    'office-commuter': 'ऑफ़िस यात्री',
+    'senior-homebound': 'वरिष्ठ / श्वसन देखभाल',
+    'outdoor-active': 'बाहरी व्यायाम',
+    'home-caregiver': 'गृह देखभाल',
+  },
+  memberHabitsToggle: 'दैनिक आदतें व Telegram सेट करें',
+  memberArchetypeLabel: 'दिनचर्या प्रकार',
+  memberLeaveTimeLabel: 'घर से प्रस्थान',
+  memberReturnTimeLabel: 'घर वापसी',
+  memberCommuteLabel: 'व्यक्तिगत यात्रा साधन',
+  memberHealthNotesLabel: 'स्वास्थ्य नोट (अस्थमा, इनहेलर)',
+  memberHabitsNoteLabel: 'दैनिक आदतें व समय नोट',
+  memberTelegramBriefLabel: 'Telegram पर सुबह 06:30 दैनिक बुलेटिन',
+  memberConnectTelegramButton: 'Telegram जोड़ें',
+  memberOpenTelegramLink: 'जोड़ने हेतु Telegram खोलें',
+  memberTelegramPendingHint:
+    '1-टैप Telegram पेयरिंग चालू करने हेतु env में TELEGRAM_BOT_TOKEN व TELEGRAM_BOT_USERNAME जोड़ें।',
+  scheduleAllHouseholdTab: 'पूरा परिवार',
+  shareWhatsAppButton: 'WhatsApp पर भेजें',
+  copyBriefButton: 'सारांश कॉपी करें',
+  copiedBriefButton: 'कॉपी किया गया',
+  companionChatHeading: 'पारिवारिक दैनिक साथी चैट',
+  companionChatSubheading:
+    'बाहर होने पर तुरंत स्थानीय हवा व मौसम पूछें, या अपनी दिनचर्या बदलकर समय-सारणी अपडेट करें।',
+  companionChatMemberLabel: 'सदस्य चुनें',
+  companionChatPlaceholder:
+    'पूछें जैसे: मैं अभी बाहर हूं, हवा कैसी है? या: मेरा स्कूल समय 08:00 से 15:00 है',
+  companionChatSend: 'साथी से पूछें',
+  companionChatSending: 'लाइव सेंसर जांच रहा है',
+  companionChatUseGps: 'GPS जोड़ें',
+  companionChatGpsAttached: 'GPS जुड़ा है',
+  companionChatUpdatedBadge: 'दैनिक समय-सारणी अपडेट हुई',
+  companionChatChips: [
+    'मैं अभी बाहर हूं, मेरे लिए हवा और मौसम कैसा है?',
+    'मेरा नया समय सुबह 08:00 से शाम 15:30 मेट्रो से है',
+    'आज हल्का अस्थमा है, क्या दोपहर बालकनी में बैठना सुरक्षित है?',
+  ],
 };
 
 const ta: LocaleDictionary = {
@@ -1017,6 +1122,45 @@ const ta: LocaleDictionary = {
     'metro-concourse': 'மெட்ரோ நிலையம்',
     'civic-hub': 'பள்ளி / பணி மையம்',
   },
+  archetypeOptions: {
+    'school-student': 'பள்ளி மாணவர்',
+    'office-commuter': 'அலுவலகப் பயணி',
+    'senior-homebound': 'மூத்தோர் / சுவாசப் பராமரிப்பு',
+    'outdoor-active': 'வெளிப்புற உடற்பயிற்சி',
+    'home-caregiver': 'இல்லப் பராமரிப்பாளர்',
+  },
+  memberHabitsToggle: 'தினசரி வழக்கம் & Telegram அமைப்பு',
+  memberArchetypeLabel: 'அட்டவணை வகை',
+  memberLeaveTimeLabel: 'புறப்படும் நேரம்',
+  memberReturnTimeLabel: 'திரும்பும் நேரம்',
+  memberCommuteLabel: 'தனிப்பட்ட பயணம்',
+  memberHealthNotesLabel: 'உடல்நல குறிப்பு (ஆஸ்துமா, இன்ஹேலர்)',
+  memberHabitsNoteLabel: 'தினசரி வழக்கம் & நேர குறிப்பு',
+  memberTelegramBriefLabel: 'Telegram-ல் காலை 06:30 தினசரி அறிக்கை',
+  memberConnectTelegramButton: 'Telegram இணை',
+  memberOpenTelegramLink: 'இணைக்க Telegram திற',
+  memberTelegramPendingHint:
+    '1-தட்டல் Telegram இணைப்பை இயக்க env-ல் TELEGRAM_BOT_TOKEN மற்றும் TELEGRAM_BOT_USERNAME சேர்க்கவும்.',
+  scheduleAllHouseholdTab: 'முழு குடும்பம்',
+  shareWhatsAppButton: 'WhatsApp-ல் பகிர்',
+  copyBriefButton: 'அறிக்கை நகலெடு',
+  copiedBriefButton: 'நகலெடுக்கப்பட்டது',
+  companionChatHeading: 'குடும்ப தினசரி துணை உரையாடல்',
+  companionChatSubheading:
+    'நீங்கள் இருக்கும் இடத்தின் நேரடி காற்று மற்றும் வானிலையைக் கேளுங்கள், அல்லது உங்கள் வழக்கத்தை உடனே புதுப்பியுங்கள்.',
+  companionChatMemberLabel: 'உறுப்பினர்',
+  companionChatPlaceholder:
+    'கேளுங்கள் எ.கா. நான் இப்போது வெளியே உள்ளேன், காற்று எப்படி உள்ளது? அல்லது: பள்ளி நேரம் 08:00 முதல் 15:00',
+  companionChatSend: 'துணையிடம் கேள்',
+  companionChatSending: 'நேரடி உணரிகளைச் சரிபார்க்கிறது',
+  companionChatUseGps: 'GPS இணை',
+  companionChatGpsAttached: 'GPS இணைக்கப்பட்டது',
+  companionChatUpdatedBadge: 'அட்டவணையில் சேர்க்கப்பட்டது',
+  companionChatChips: [
+    'நான் இப்போது வெளியே உள்ளேன், காற்று மற்றும் வானிலை எப்படி உள்ளது?',
+    'என் புதிய நேரம் 08:00 முதல் 15:30 மெட்ரோ மூலம்',
+    'இன்று லேசான ஆஸ்துமா உள்ளது, மதியம் பால்கனியில் அமரலாமா?',
+  ],
 };
 
 export const TRANSLATIONS: Record<SupportedLanguage, LocaleDictionary> = {

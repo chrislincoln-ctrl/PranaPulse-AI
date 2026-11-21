@@ -4,6 +4,7 @@ import { VALIDATION_BOUNDS } from '../config/constants.js';
 import type { FamilyMemberAdvisory, FamilyMemberInput } from '../domain/types.js';
 import type { LocaleDictionary } from '../i18n/translations.js';
 import type { AiPlanOutput, PlanRequestPayload } from '../validators/schemas.js';
+import { FamilyCompanionChat } from './FamilyCompanionChat.js';
 import { FamilyMemberRow } from './FamilyMemberRow.js';
 import { HousingEnvelopeSelects } from './FormFields.js';
 import { ScheduleLedger } from './ScheduleLedger.js';
@@ -36,18 +37,17 @@ function HousingControls({
 }
 
 function RosterMemberList({
-  members,
+  input,
   advisories,
-  language,
   onUpdateInput,
   t,
 }: {
-  readonly members: readonly FamilyMemberInput[];
+  readonly input: PlanRequestPayload;
   readonly advisories: readonly FamilyMemberAdvisory[];
-  readonly language: PlanRequestPayload['language'];
   readonly onUpdateInput: (patch: Partial<PlanRequestPayload>) => void;
   readonly t: LocaleDictionary;
 }): ReactElement {
+  const { members, language, city, lat, lon } = input;
   const advisoryMap = new Map(advisories.map((a) => [a.id, a]));
   return (
     <ul className="divide-y divide-rule">
@@ -58,6 +58,9 @@ function RosterMemberList({
           memberNumber={index + 1}
           advisory={advisoryMap.get(member.id)}
           language={language}
+          city={city}
+          lat={lat}
+          lon={lon}
           canRemove={members.length > VALIDATION_BOUNDS.MIN_FAMILY_MEMBERS}
           onChange={(patch: Partial<FamilyMemberInput>) => {
             onUpdateInput({
@@ -145,9 +148,8 @@ function FamilyRosterSection({
       />
       <HousingControls input={input} onUpdateInput={onUpdateInput} t={t} />
       <RosterMemberList
-        members={input.members}
+        input={input}
         advisories={advisories}
-        language={input.language}
         onUpdateInput={onUpdateInput}
         t={t}
       />
@@ -168,23 +170,32 @@ export const FamilyRoutineView = memo(function FamilyRoutineView({
   onRefreshPlan,
   t,
 }: FamilyRoutineViewProps): ReactElement {
+  const applyMemberPatch = (memberId: string, patch: Partial<FamilyMemberInput>): void => {
+    onUpdateInput({
+      members: input.members.map((m) => (m.id === memberId ? { ...m, ...patch } : m)),
+    });
+  };
+
   return (
-    <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-      <FamilyRosterSection
-        input={input}
-        advisories={advisories}
-        onUpdateInput={onUpdateInput}
-        t={t}
-      />
-      <section aria-label={t.routineHeading} className="min-w-0 lg:col-span-6">
-        <ScheduleLedger
-          aiPlan={aiPlan}
-          aiIsFallback={aiIsFallback}
-          isLoadingPlan={isLoadingPlan}
-          onRefreshPlan={onRefreshPlan}
+    <div className="space-y-8">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+        <FamilyRosterSection
+          input={input}
+          advisories={advisories}
+          onUpdateInput={onUpdateInput}
           t={t}
         />
-      </section>
+        <section aria-label={t.routineHeading} className="min-w-0 lg:col-span-6">
+          <ScheduleLedger
+            aiPlan={aiPlan}
+            aiIsFallback={aiIsFallback}
+            isLoadingPlan={isLoadingPlan}
+            onRefreshPlan={onRefreshPlan}
+            t={t}
+          />
+        </section>
+      </div>
+      <FamilyCompanionChat input={input} onApplyMemberPatch={applyMemberPatch} t={t} />
     </div>
   );
 });

@@ -184,6 +184,15 @@ export function recomputeBundlePhysics(
     rwa: physics.rwa,
   });
 
+  const mergedAiPlan: AiPlanOutput = existingAi?.aiPlan
+    ? {
+        ...existingAi.aiPlan,
+        ...(fallbackAiPlan.memberSchedules
+          ? { memberSchedules: fallbackAiPlan.memberSchedules }
+          : {}),
+      }
+    : fallbackAiPlan;
+
   return {
     telemetry,
     indoor: physics.indoor,
@@ -191,7 +200,7 @@ export function recomputeBundlePhysics(
     corridor: physics.corridor,
     rwa: physics.rwa,
     memberAdvisories: physics.memberAdvisories,
-    aiPlan: existingAi?.aiPlan ?? fallbackAiPlan,
+    aiPlan: mergedAiPlan,
     aiMeta: existingAi?.aiMeta ?? {
       isFallback: true,
       modelUsed: 'deterministic-physics',

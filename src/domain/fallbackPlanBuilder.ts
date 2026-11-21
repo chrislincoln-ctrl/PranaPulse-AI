@@ -1,4 +1,5 @@
 import { buildLocalizedChatReply, buildLocalizedFallbackPlan } from '../i18n/fallbackTemplates.js';
+import { buildPerMemberSchedules } from './memberScheduleBuilder.js';
 import type {
   AqiAssessment,
   CommuteOptionEvaluation,
@@ -34,7 +35,10 @@ const STREAM_CHUNK_SIZE = 32;
  * @returns Schema-compliant action routine, indoor hacks, and sustainable swaps.
  */
 export function buildDeterministicFallbackPlan(ctx: DeterministicBriefContext): AiPlanOutput {
-  return buildLocalizedFallbackPlan(ctx);
+  return {
+    ...buildLocalizedFallbackPlan(ctx),
+    memberSchedules: buildPerMemberSchedules(ctx),
+  };
 }
 
 /**

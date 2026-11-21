@@ -5,6 +5,7 @@ import {
   SECURITY_LIMITS,
   VALIDATION_BOUNDS,
 } from '../../src/config/constants.js';
+import { buildPerMemberSchedules } from '../../src/domain/memberScheduleBuilder.js';
 import {
   aiPlanOutputSchema,
   type AiPlanOutput,
@@ -121,6 +122,28 @@ async function tryGeminiPlanCascade(
   return null;
 }
 
+function buildPlanCacheKey(ctx: DeterministicBriefContext): string {
+  const members = ctx.request.members.map((m) =>
+    [m.role, m.archetype, m.leaveHomeTime, m.returnHomeTime, m.commuteMode, m.healthNotes, m.dailyHabitsNote].join('|'),
+  );
+  return createSha256Key({
+    city: ctx.request.city,
+    lang: ctx.request.language,
+    effectiveAqi: ctx.effectiveAqi,
+    mode: ctx.request.commuteMode,
+    fuel: ctx.request.cookingFuel,
+    cadr: ctx.request.cadrM3Hr,
+    members,
+  });
+}
+
+function attachMemberSchedules(plan: AiPlanOutput, ctx: DeterministicBriefContext): AiPlanOutput {
+  return {
+    ...plan,
+    memberSchedules: buildPerMemberSchedules(ctx),
+  };
+}
+
 /**
  * Generates a grounded, schema-validated action plan using 3-tier failover:
  * Gemini (primary) -> Groq (secondary live LLM fallback) -> deterministic multilingual physics.
@@ -130,33 +153,31 @@ export async function generateGroundedPlan(
   env: ServerEnv,
   createClient: (apiKey: string) => GoogleGenAI = (apiKey) => new GoogleGenAI({ apiKey }),
 ): Promise<PlanGenerationResult> {
-  const cacheKey = createSha256Key({
-    city: ctx.request.city,
-    lang: ctx.request.language,
-    effectiveAqi: ctx.effectiveAqi,
-    mode: ctx.request.commuteMode,
-    fuel: ctx.request.cookingFuel,
-    cadr: ctx.request.cadrM3Hr,
-    members: ctx.request.members.map((m) => m.role),
-  });
-
+  const cacheKey = buildPlanCacheKey(ctx);
   const cached = planCache.get(cacheKey);
   if (cached) {
-    return { plan: cached, isFallback: false, modelUsed: env.GEMINI_MODEL, cached: true };
+    return {
+      plan: attachMemberSchedules(cached, ctx),
+      isFallback: false,
+      modelUsed: env.GEMINI_MODEL,
+      cached: true,
+    };
   }
 
   const geminiResult = await tryGeminiPlanCascade(ctx, env, createClient);
   if (geminiResult) {
-    planCache.set(cacheKey, geminiResult.plan);
-    return { ...geminiResult, isFallback: false, cached: false };
+    const enriched = attachMemberSchedules(geminiResult.plan, ctx);
+    planCache.set(cacheKey, enriched);
+    return { plan: enriched, modelUsed: geminiResult.modelUsed, isFallback: false, cached: false };
   }
 
   const groqResult = await generateGroqPlan(ctx, env, (plan) =>
     verifyNumericGrounding(plan, ctx.aqi.cpcbNaqi, ctx.effectiveAqi),
   );
   if (groqResult) {
-    planCache.set(cacheKey, groqResult.plan);
-    return { ...groqResult, isFallback: false, cached: false };
+    const enriched = attachMemberSchedules(groqResult.plan, ctx);
+    planCache.set(cacheKey, enriched);
+    return { plan: enriched, modelUsed: groqResult.modelUsed, isFallback: false, cached: false };
   }
 
   return {

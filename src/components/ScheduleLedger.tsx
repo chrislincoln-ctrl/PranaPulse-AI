@@ -1,8 +1,10 @@
 import { ArrowRight, ExternalLink, RefreshCw, ShieldAlert, ShieldCheck } from 'lucide-react';
-import { memo, type ReactElement } from 'react';
+import { memo, useState, type ReactElement } from 'react';
 import { buildAmazonInUrl, buildFlipkartUrl } from '../config/gearCatalog.js';
+import type { RoutineStepItem } from '../domain/types.js';
 import type { LocaleDictionary } from '../i18n/translations.js';
 import type { AiPlanOutput } from '../validators/schemas.js';
+import { MemberScheduleBar } from './MemberScheduleBar.js';
 
 export interface ScheduleLedgerProps {
   readonly aiPlan: AiPlanOutput;
@@ -95,10 +97,14 @@ function HackBuyLinks({ hack }: { readonly hack: IndoorHackItem }): ReactElement
   );
 }
 
-function RoutineStepsList({ aiPlan }: { readonly aiPlan: AiPlanOutput }): ReactElement {
+function RoutineStepsList({
+  steps,
+}: {
+  readonly steps: readonly RoutineStepItem[];
+}): ReactElement {
   return (
     <ol className="mt-4 space-y-3">
-      {aiPlan.dailyRoutine.map((step, idx) => (
+      {steps.map((step, idx) => (
         <li key={`${step.timeWindow}-${step.actionTitle}`} className="surface-recessed p-3.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -164,9 +170,46 @@ function HacksAndSwapsGrid({
   );
 }
 
+function ScheduleHeaderBar({
+  aiIsFallback,
+  isLoadingPlan,
+  onRefreshPlan,
+  t,
+}: {
+  readonly aiIsFallback: boolean;
+  readonly isLoadingPlan: boolean;
+  readonly onRefreshPlan: () => void;
+  readonly t: LocaleDictionary;
+}): ReactElement {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rule pb-4">
+      <div>
+        <h3 className="text-ink">{t.routineHeading}</h3>
+        <p className="mt-1 inline-flex items-center gap-2 text-xs text-ink-2">
+          {aiIsFallback ? (
+            <ShieldAlert className="h-4 w-4 text-accent" aria-hidden="true" />
+          ) : (
+            <ShieldCheck className="h-4 w-4 text-ok" aria-hidden="true" />
+          )}
+          <span>{aiIsFallback ? t.aiSourceFallback : t.aiSourceGemini}</span>
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onRefreshPlan}
+        disabled={isLoadingPlan}
+        className="btn-primary touch-target inline-flex items-center gap-2 text-sm"
+      >
+        <RefreshCw className="h-4 w-4" aria-hidden="true" />
+        <span>{isLoadingPlan ? t.generatingPlan : t.refreshPlan}</span>
+      </button>
+    </div>
+  );
+}
+
 /**
- * Displays grounded Gemini daily routine schedule, indoor cost tiers, and sustainable swaps
- * styled with 21st.dev Timeline Stepper and Analytics Bento cards.
+ * Displays grounded daily routine schedule, per-member routine tabs, indoor cost tiers,
+ * and sustainable swaps.
  */
 export const ScheduleLedger = memo(function ScheduleLedger({
   aiPlan,
@@ -175,32 +218,27 @@ export const ScheduleLedger = memo(function ScheduleLedger({
   onRefreshPlan,
   t,
 }: ScheduleLedgerProps): ReactElement {
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const memberSchedules = aiPlan.memberSchedules ?? [];
+  const activeSchedule = memberSchedules.find((s) => s.memberId === selectedMemberId) ?? null;
+
   return (
     <div className="surface-hairline p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rule pb-4">
-        <div>
-          <h3 className="text-ink">{t.routineHeading}</h3>
-          <p className="mt-1 inline-flex items-center gap-2 text-xs text-ink-2">
-            {aiIsFallback ? (
-              <ShieldAlert className="h-4 w-4 text-accent" aria-hidden="true" />
-            ) : (
-              <ShieldCheck className="h-4 w-4 text-ok" aria-hidden="true" />
-            )}
-            <span>{aiIsFallback ? t.aiSourceFallback : t.aiSourceGemini}</span>
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onRefreshPlan}
-          disabled={isLoadingPlan}
-          className="btn-primary touch-target inline-flex items-center gap-2 text-sm"
-        >
-          <RefreshCw className="h-4 w-4" aria-hidden="true" />
-          <span>{isLoadingPlan ? t.generatingPlan : t.refreshPlan}</span>
-        </button>
-      </div>
-      <p className="mt-4 font-medium text-ink">{aiPlan.headline}</p>
-      <RoutineStepsList aiPlan={aiPlan} />
+      <ScheduleHeaderBar
+        aiIsFallback={aiIsFallback}
+        isLoadingPlan={isLoadingPlan}
+        onRefreshPlan={onRefreshPlan}
+        t={t}
+      />
+      <MemberScheduleBar
+        memberSchedules={memberSchedules}
+        selectedMemberId={activeSchedule ? activeSchedule.memberId : null}
+        onSelectMemberId={setSelectedMemberId}
+        activeSchedule={activeSchedule}
+        t={t}
+      />
+      {!activeSchedule && <p className="mt-4 font-medium text-ink">{aiPlan.headline}</p>}
+      <RoutineStepsList steps={activeSchedule ? activeSchedule.dailyRoutine : aiPlan.dailyRoutine} />
       <HacksAndSwapsGrid aiPlan={aiPlan} t={t} />
     </div>
   );
