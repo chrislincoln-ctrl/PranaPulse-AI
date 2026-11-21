@@ -2,44 +2,26 @@ export const CONSOLE_SMOKE_VERTEX = `attribute vec2 a_pos; void main() { gl_Posi
 
 export const CONSOLE_SMOKE_FRAGMENT = `
 precision mediump float;
-uniform vec2 u_res;
-uniform vec2 u_viewport;
-uniform float u_time;
-uniform float u_maxAlpha;
-uniform vec3 u_color;
-uniform vec3 u_warmTint;
-uniform float u_warmMix;
-
-float hash21(vec2 p) {
-  p = fract(p * vec2(127.1, 311.7));
-  p += dot(p, p + 34.53);
-  return fract(p.x * p.y);
-}
+uniform vec2 u_res, u_viewport;
+uniform float u_time, u_maxAlpha, u_warmMix;
+uniform vec3 u_color, u_warmTint;
+float hash21(vec2 p) { p = fract(p * vec2(127.1, 311.7)); p += dot(p, p + 34.53); return fract(p.x * p.y); }
 float noise(vec2 p) {
-  vec2 i = floor(p);
-  vec2 f = fract(p);
-  vec2 u = f * f * (3.0 - 2.0 * f);
-  return mix(
-    mix(hash21(i), hash21(i + vec2(1.0, 0.0)), u.x),
-    mix(hash21(i + vec2(0.0, 1.0)), hash21(i + vec2(1.0, 1.0)), u.x),
-    u.y
-  );
+  vec2 i = floor(p), f = fract(p), u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash21(i), hash21(i + vec2(1.0, 0.0)), u.x), mix(hash21(i + vec2(0.0, 1.0)), hash21(i + vec2(1.0, 1.0)), u.x), u.y);
 }
 const mat2 ROT = mat2(0.80, -0.60, 0.60, 0.80);
 float fbm4(vec2 p) {
-  float v = 0.0; float a = 0.52;
+  float v = 0.0, a = 0.52;
   for (int i = 0; i < 4; i++) { v += a * noise(p); p = ROT * p * 2.04 + vec2(17.1, 31.7); a *= 0.50; }
   return v;
 }
 float ridgedFbm5(vec2 p) {
-  float v = 0.0; float a = 0.55; float w = 1.0;
+  float v = 0.0, a = 0.55, w = 1.0;
   for (int i = 0; i < 5; i++) {
     float ridge = 1.0 - abs(noise(p) * 2.0 - 1.0);
-    ridge = ridge * ridge * w;
-    w = clamp(ridge * 1.85, 0.16, 1.0);
-    v += ridge * a;
-    p = ROT * p * 2.09 + vec2(11.3, 23.9);
-    a *= 0.50;
+    ridge = ridge * ridge * w; w = clamp(ridge * 1.85, 0.16, 1.0);
+    v += ridge * a; p = ROT * p * 2.09 + vec2(11.3, 23.9); a *= 0.50;
   }
   return v;
 }
@@ -60,17 +42,18 @@ void main() {
   float primary = ridgedFbm5(baseP + 2.15 * r - adv1 * 0.72);
   float secondary = ridgedFbm5(p * 2.25 + 1.65 * r.yx - adv3 + vec2(3.4, 5.8));
   float wisps = ridgedFbm5(p * 3.15 - 1.25 * q + adv2 * 1.12 + vec2(9.1, 1.9));
-  float body = smoothstep(0.32, 0.92, primary);
-  float filament = pow(smoothstep(0.38, 0.92, secondary), 1.4);
-  float edgeGlow = pow(smoothstep(0.46, 0.95, wisps), 1.7);
-  float smoke = (body * 0.62 + filament * 0.64 + edgeGlow * 0.44) * smoothstep(0.18, 0.62, primary * 0.66 + secondary * 0.40);
+  float body = smoothstep(0.24, 0.88, primary);
+  float filament = pow(smoothstep(0.30, 0.88, secondary), 1.32);
+  float edgeGlow = pow(smoothstep(0.38, 0.92, wisps), 1.55);
+  float smoke = (body * 0.68 + filament * 0.70 + edgeGlow * 0.48) * smoothstep(0.14, 0.56, primary * 0.68 + secondary * 0.42);
   float leftWing = smoothstep(0.48, 0.0, uv.x);
   float rightWing = smoothstep(0.52, 1.0, uv.x);
-  float bottomPlume = smoothstep(0.60, 0.0, uv.y);
-  float centerCorridor = exp(-pow((uv.x - 0.44) / 0.18, 2.0)) * 0.78;
-  float spatial = max(max(leftWing, rightWing), max(bottomPlume * 0.92, max(centerCorridor, 0.58)));
-  float alpha = clamp(clamp(smoke * spatial * 1.48, 0.0, 1.0) * u_maxAlpha, 0.0, u_maxAlpha);
-  vec3 tinted = mix(u_color, u_warmTint, u_warmMix * smoothstep(0.25, 0.88, filament));
+  float bottomPlume = smoothstep(0.62, 0.0, uv.y);
+  float topPlume = smoothstep(0.42, 1.0, uv.y) * 0.86;
+  float centerCorridor = exp(-pow((uv.x - 0.46) / 0.24, 2.0)) * 0.88;
+  float spatial = max(max(leftWing, rightWing), max(max(bottomPlume * 0.94, topPlume), max(centerCorridor, 0.80)));
+  float alpha = clamp(clamp(smoke * spatial * 1.58, 0.0, 1.0) * u_maxAlpha, 0.0, u_maxAlpha);
+  vec3 tinted = mix(u_color, u_warmTint, u_warmMix * smoothstep(0.20, 0.84, filament));
   gl_FragColor = vec4(tinted * alpha, alpha);
 }
 `;
@@ -109,10 +92,12 @@ const AQI_MODERATE = 100;
 const AQI_POOR = 220;
 const DARK_ALPHA_BASE = 0.44;
 const DARK_ALPHA_SEVERE = 0.5;
-const LIGHT_ALPHA_BASE = 0.14;
-const WARM_LOW = 0.18;
-const WARM_MED = 0.44;
-const WARM_HIGH = 0.66;
+const LIGHT_ALPHA_BASE = 0.54;
+const LIGHT_ALPHA_MOD = 0.6;
+const LIGHT_ALPHA_SEVERE = 0.66;
+const WARM_LOW = 0.24;
+const WARM_MED = 0.52;
+const WARM_HIGH = 0.72;
 const QUAD_VERTS = 6;
 const QUAD_POSITIONS = new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]);
 
@@ -132,8 +117,9 @@ function makePalette(
   return { baseRgb: hexToRgb(baseHex), warmRgb: hexToRgb(warmHex), warmMix, maxAlpha };
 }
 
-const PALETTE_LIGHT_LOW = makePalette('485460', '94663a', WARM_LOW, LIGHT_ALPHA_BASE);
-const PALETTE_LIGHT_MOD = makePalette('485460', '94663a', WARM_MED, LIGHT_ALPHA_BASE);
+const PALETTE_LIGHT_LOW = makePalette('263646', '4a6b5d', WARM_LOW, LIGHT_ALPHA_BASE);
+const PALETTE_LIGHT_MOD = makePalette('223040', '9a5218', WARM_MED, LIGHT_ALPHA_MOD);
+const PALETTE_LIGHT_SEVERE = makePalette('1c2836', 'b45309', WARM_HIGH, LIGHT_ALPHA_SEVERE);
 const PALETTE_DARK_SEVERE = makePalette('ccd4da', 'ecb672', WARM_HIGH, DARK_ALPHA_SEVERE);
 const PALETTE_DARK_MOD = makePalette('c6d4de', 'e4bc80', WARM_MED, DARK_ALPHA_BASE);
 const PALETTE_DARK_GOOD = makePalette('bcd6e2', '8eccd4', WARM_LOW, DARK_ALPHA_BASE);
@@ -141,6 +127,9 @@ const PALETTE_DARK_GOOD = makePalette('bcd6e2', '8eccd4', WARM_LOW, DARK_ALPHA_B
 /** Resolves AQI-reactive atmospheric smog palette tailored for dark and light workbench modes. */
 export function resolveConsoleSmokePalette(aqi: number, isDark: boolean): ConsoleSmokePalette {
   if (!isDark) {
+    if (aqi >= AQI_POOR) {
+      return PALETTE_LIGHT_SEVERE;
+    }
     return aqi >= AQI_MODERATE ? PALETTE_LIGHT_MOD : PALETTE_LIGHT_LOW;
   }
   if (aqi >= AQI_POOR) {

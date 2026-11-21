@@ -473,8 +473,8 @@ const Globe: React.FC = () => {
   }, []);
 
   const palette = isDark ? DARK_PARTICLE_COLORS : LIGHT_PARTICLE_COLORS;
-  const haloModeAlpha = isDark ? 1 : 0.6;
-  const particleModeAlpha = isDark ? 1 : 0.7;
+  const haloModeAlpha = isDark ? 1 : 0.92;
+  const particleModeAlpha = isDark ? 1 : 0.95;
   const isResting = orbState === 'resting';
   const showIntroRipple = orbState === 'intro' || orbState === 'frozen';
 

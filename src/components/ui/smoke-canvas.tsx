@@ -8,14 +8,16 @@ import {
 } from '@/components/ui/globe';
 
 // Tunable constants
-export const SMOKE_MAX_ALPHA = { dark: 0.4, light: 0.1 } as const;
-export const TEXT_ALPHA_CAP = { dark: 0.08, light: 0.03 } as const;
-export const SMOKE_INTENSITY_BY_SECTION = [1.0, 0.2, 0.2, 0.2] as const;
+export const SMOKE_MAX_ALPHA = { dark: 0.44, light: 0.56 } as const;
+export const TEXT_ALPHA_CAP = { dark: 0.14, light: 0.24 } as const;
+export const SMOKE_INTENSITY_BY_SECTION = [1.0, 0.72, 0.72, 0.68] as const;
 export const INTRO_DURATION = ORB_INTRO_DURATION;
 
 const SMOKE_COLOR_DARK: readonly [number, number, number] = [205 / 255, 215 / 255, 220 / 255];
-const SMOKE_COLOR_LIGHT: readonly [number, number, number] = [70 / 255, 80 / 255, 90 / 255];
-const TEXT_FEATHER_PX = 60;
+const SMOKE_WARM_DARK: readonly [number, number, number] = [235 / 255, 178 / 255, 108 / 255];
+const SMOKE_COLOR_LIGHT: readonly [number, number, number] = [34 / 255, 48 / 255, 62 / 255];
+const SMOKE_WARM_LIGHT: readonly [number, number, number] = [146 / 255, 82 / 255, 24 / 255];
+const TEXT_FEATHER_PX = 44;
 const SECTION_EASE_MS = 1400;
 const DPR_CAP = 1.5;
 const RESOLUTION_STEPS = [0.5, 0.35, 0.25] as const;
@@ -50,6 +52,8 @@ uniform float u_sectionIntensity;
 uniform float u_maxAlpha;
 uniform float u_textCap;
 uniform vec3 u_color;
+uniform vec3 u_warmColor;
+uniform float u_warmMix;
 uniform vec4 u_textRect;
 uniform float u_hasTextRect;
 uniform float u_feather;
@@ -159,51 +163,53 @@ void main() {
   float wisps = ridgedFbm5(pSwirl * 3.35 - 1.35 * q - adv3 * 1.18 + vec2(9.4, 1.7));
 
   // Crisp bright filament crests with deep dark gaps (never flat fog)
-  float body = smoothstep(0.36, 0.94, primary);
-  float filament = pow(smoothstep(0.40, 0.92, secondary), 1.45);
-  float edgeGlow = pow(smoothstep(0.48, 0.96, wisps), 1.75);
+  float body = smoothstep(0.26, 0.88, primary);
+  float filament = pow(smoothstep(0.32, 0.88, secondary), 1.35);
+  float edgeGlow = pow(smoothstep(0.40, 0.92, wisps), 1.55);
 
-  float smoke = body * 0.64 + filament * 0.66 + edgeGlow * 0.44;
-  smoke *= smoothstep(0.20, 0.64, primary * 0.68 + secondary * 0.38);
+  float smoke = body * 0.68 + filament * 0.70 + edgeGlow * 0.48;
+  smoke *= smoothstep(0.15, 0.58, primary * 0.68 + secondary * 0.40);
 
-  // Spatial mask: billowing plumes along left edge, bottom-left, top-left curl, and wrapping the orb
-  float leftMask = smoothstep(0.88, 0.04, uv.x);
-  float bottomMask = smoothstep(0.78, 0.02, uv.y);
-  float topLeftCurl = smoothstep(0.50, 0.0, uv.x) * smoothstep(0.54, 0.96, uv.y);
-  float orbApproach = exp(-pow((orbDist - 0.32) / 0.26, 2.0)) * smoothstep(0.20, 0.60, uv.x);
+  // Spatial mask: billowing plumes across left, right, bottom, top, and wrapping the orb on both desktop and mobile
+  float leftMask = smoothstep(0.92, 0.04, uv.x);
+  float rightMask = smoothstep(0.18, 0.98, uv.x) * 0.82;
+  float bottomMask = smoothstep(0.84, 0.02, uv.y);
+  float topLeftCurl = smoothstep(0.58, 0.0, uv.x) * smoothstep(0.46, 0.96, uv.y);
+  float topRightCurl = smoothstep(0.36, 0.98, uv.x) * smoothstep(0.44, 0.96, uv.y) * 0.84;
+  float orbApproach = exp(-pow((orbDist - 0.32) / 0.26, 2.0)) * smoothstep(0.16, 0.64, uv.x);
   float orbCoreCarve = smoothstep(0.11, 0.23, orbDist);
 
   float spatial = max(
-    max(leftMask * 0.98, bottomMask * 0.95),
-    max(topLeftCurl * 0.92, orbApproach * 0.86)
+    max(max(leftMask * 0.98, rightMask), bottomMask * 0.96),
+    max(max(topLeftCurl * 0.94, topRightCurl), max(orbApproach * 0.88, 0.72))
   );
-  spatial *= smoothstep(1.05, 0.82, uv.x);
-  spatial *= mix(0.22, 1.0, orbCoreCarve);
+  spatial *= mix(0.26, 1.0, orbCoreCarve);
 
   // Organic intro reach: wisps emerge cleanly on the left/bottom by 0.8s and curl across toward the orb
   float reachEdge = mix(0.28, 1.24, smoothstep(0.05, 0.82, u_intro));
   float introReach = smoothstep(reachEdge + 0.28, reachEdge - 0.28, uv.x * 0.85 + uv.y * 0.12);
-  float density = clamp(smoke * spatial * mix(0.64, 1.0, introReach) * 1.56, 0.0, 1.0);
+  float density = clamp(smoke * spatial * mix(0.68, 1.0, introReach) * 1.62, 0.0, 1.0);
 
   // Final alpha = density * sectionIntensity * intro * MAX_ALPHA
   float rawAlpha = clamp(density * u_sectionIntensity * u_intro * u_maxAlpha, 0.0, u_maxAlpha);
 
-  // Soft organic elliptical clear-zone around hero text (eliminates any visible rectangular shadow)
+  // Soft organic elliptical clear-zone around hero text (tightened so mobile screens retain rich edge & background plumes)
   vec2 cssPx = vec2(uv.x, 1.0 - uv.y) * u_viewport;
   vec2 rectCenter = 0.5 * (u_textRect.xy + u_textRect.zw);
   vec2 rectHalf = max(0.5 * (u_textRect.zw - u_textRect.xy), vec2(1.0));
-  vec2 normPos = (cssPx - rectCenter) / (rectHalf * 1.38 + vec2(u_feather * 0.5));
+  vec2 normPos = (cssPx - rectCenter) / (rectHalf * 0.92 + vec2(u_feather * 0.28));
   float radial = length(normPos);
   float edgeNoise = (q.x - 0.5) * 0.28 + (q.y - 0.5) * 0.18;
   float organicDist = radial + smoothstep(0.75, 1.4, radial) * edgeNoise;
-  float textWeight = u_hasTextRect * (1.0 - smoothstep(0.85, 2.05, organicDist));
+  float textWeight = u_hasTextRect * (1.0 - smoothstep(0.75, 1.85, organicDist));
 
   // Proportional attenuation preserves wispy contours and dark gaps (no flat grey box clipping)
   float capRatio = clamp(u_textCap / max(u_maxAlpha, 0.001), 0.0, 1.0);
   float finalAlpha = rawAlpha * mix(1.0, capRatio, textWeight);
 
-  // Premultiplied alpha output for standard normal alpha blending
-  gl_FragColor = vec4(u_color * finalAlpha, finalAlpha);
+  // Dual-tone slate + warm amber winter smog blend with premultiplied alpha output
+  vec3 tintedColor = mix(u_color, u_warmColor, u_warmMix * smoothstep(0.22, 0.86, filament));
+  gl_FragColor = vec4(tintedColor * finalAlpha, finalAlpha);
 }
 `;
 
@@ -450,6 +456,8 @@ export function SmokeCanvas({ activeSection, scrollProgress, heroTextRef }: Smok
     const uMaxAlpha = gl.getUniformLocation(program, 'u_maxAlpha');
     const uTextCap = gl.getUniformLocation(program, 'u_textCap');
     const uColor = gl.getUniformLocation(program, 'u_color');
+    const uWarmColor = gl.getUniformLocation(program, 'u_warmColor');
+    const uWarmMix = gl.getUniformLocation(program, 'u_warmMix');
     const uTextRect = gl.getUniformLocation(program, 'u_textRect');
     const uHasTextRect = gl.getUniformLocation(program, 'u_hasTextRect');
     const uFeather = gl.getUniformLocation(program, 'u_feather');
@@ -528,6 +536,8 @@ export function SmokeCanvas({ activeSection, scrollProgress, heroTextRef }: Smok
       currentIntensityRef.current = intensity;
 
       const color = isDark ? SMOKE_COLOR_DARK : SMOKE_COLOR_LIGHT;
+      const warmColor = isDark ? SMOKE_WARM_DARK : SMOKE_WARM_LIGHT;
+      const warmMix = isDark ? 0.36 : 0.52;
       const maxAlpha = isDark ? SMOKE_MAX_ALPHA.dark : SMOKE_MAX_ALPHA.light;
       const textCap = isDark ? TEXT_ALPHA_CAP.dark : TEXT_ALPHA_CAP.light;
       const rect = textRectRef.current;
@@ -541,6 +551,8 @@ export function SmokeCanvas({ activeSection, scrollProgress, heroTextRef }: Smok
       gl.uniform1f(uMaxAlpha, maxAlpha);
       gl.uniform1f(uTextCap, textCap);
       gl.uniform3f(uColor, color[0], color[1], color[2]);
+      gl.uniform3f(uWarmColor, warmColor[0], warmColor[1], warmColor[2]);
+      gl.uniform1f(uWarmMix, warmMix);
       gl.uniform4f(uTextRect, rect[0], rect[1], rect[2], rect[3]);
       gl.uniform1f(uHasTextRect, rect[4]);
       gl.uniform1f(uFeather, TEXT_FEATHER_PX);
@@ -781,11 +793,13 @@ export function SmokeCanvas({ activeSection, scrollProgress, heroTextRef }: Smok
   }
 
   return (
-    <canvas
-      ref={canvasRef}
-      aria-hidden="true"
-      className="fixed inset-0 z-[1] h-full w-full pointer-events-none"
-    />
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[1] overflow-hidden">
+      <div className="console-smog-plume console-smog-plume-left" />
+      <div className="console-smog-plume console-smog-plume-right" />
+      <div className="console-smog-plume console-smog-plume-center" />
+      <canvas ref={canvasRef} className="relative z-[1] h-full w-full" />
+      <div className="console-smog-vignette absolute inset-0 z-[2]" />
+    </div>
   );
 }
 

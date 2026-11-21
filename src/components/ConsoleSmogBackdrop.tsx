@@ -173,8 +173,11 @@ export const ConsoleSmogBackdrop = memo(function ConsoleSmogBackdrop({
 
   return (
     <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-      <canvas ref={canvasRef} className="h-full w-full" />
-      <div className="console-smog-vignette absolute inset-0" />
+      <div className="console-smog-plume console-smog-plume-left" />
+      <div className="console-smog-plume console-smog-plume-right" />
+      <div className="console-smog-plume console-smog-plume-center" />
+      <canvas ref={canvasRef} className="relative z-[1] h-full w-full" />
+      <div className="console-smog-vignette absolute inset-0 z-[2]" />
     </div>
   );
 });
