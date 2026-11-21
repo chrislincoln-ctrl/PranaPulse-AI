@@ -64,7 +64,7 @@ test.describe('PranaPulse AI live E2E, WCAG 2.2 AA & Hallmark viewport verificat
     await page.getByRole('tab', { name: /Commute & Route/i }).click();
     await expect(page.getByRole('img', { name: /Dijkstra clean-corridor network/i })).toBeVisible();
 
-    await page.getByRole('tab', { name: /RWA & Advisor/i }).click();
+    await page.getByRole('tab', { name: /^RWA$/i }).click();
     await expect(page.getByRole('button', { name: /Copy RWA bulletin/i })).toBeVisible();
 
     await page.getByLabel(/Language/i).selectOption('hi');
@@ -97,8 +97,8 @@ test.describe('PranaPulse AI live E2E, WCAG 2.2 AA & Hallmark viewport verificat
     await page.getByRole('button', { name: /Next: Indoor & CADR/i }).click();
     await expect(page.getByRole('heading', { level: 1, name: /Indoor & CADR/i })).toBeVisible();
 
-    await page.getByRole('tab', { name: /RWA & Advisor/i }).click();
-    await expect(page.getByRole('heading', { level: 1, name: /RWA & Advisor/i })).toBeVisible();
+    await page.getByRole('tab', { name: /^RWA$/i }).click();
+    await expect(page.getByRole('heading', { level: 1, name: /^RWA$/i })).toBeVisible();
 
     const buttonOverflows = await page.evaluate(() =>
       Array.from(document.querySelectorAll('.btn-primary, .btn-secondary'))

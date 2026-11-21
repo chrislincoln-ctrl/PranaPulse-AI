@@ -1,10 +1,10 @@
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock, HeartPulse, SlidersHorizontal } from 'lucide-react';
 import { memo, useState, type ReactElement } from 'react';
 import { resolveMemberArchetype } from '../domain/memberScheduleBuilder.js';
-import type { CommuteModeId, FamilyMemberInput, MemberRoutineArchetype } from '../domain/types.js';
+import type { FamilyMemberInput } from '../domain/types.js';
 import type { LocaleDictionary } from '../i18n/translations.js';
 import type { SupportedLanguage } from '../validators/schemas.js';
-import { SelectField } from './FormFields.js';
+import { HabitEditorDrawer } from './MemberHabitDrawer.js';
 
 export interface MemberHabitEditorProps {
   readonly member: FamilyMemberInput;
@@ -16,182 +16,101 @@ export interface MemberHabitEditorProps {
   readonly t: LocaleDictionary;
 }
 
-const ARCHETYPE_KEYS: readonly MemberRoutineArchetype[] = [
-  'school-student',
-  'senior-homebound',
-  'office-commuter',
-  'outdoor-active',
-  'home-caregiver',
-];
-
-const COMMUTE_KEYS: readonly CommuteModeId[] = [
-  'metro',
-  'electric-bus',
-  'ev-car',
-  'petrol-car',
-  'two-wheeler',
-  'cycling',
-  'walking',
-];
-
-const MAX_HEALTH_NOTE_LEN = 160;
-const MAX_HABIT_NOTE_LEN = 200;
-
-function HabitTimeInputs({
-  member,
-  onChange,
-  t,
+function HabitTriggerBadges({
+  timingSummary,
+  open,
 }: {
-  readonly member: FamilyMemberInput;
-  readonly onChange: (patch: Partial<FamilyMemberInput>) => void;
-  readonly t: LocaleDictionary;
+  readonly timingSummary: string;
+  readonly open: boolean;
+}): ReactElement {
+  const ArrowIcon = open ? ChevronUp : ChevronDown;
+  return (
+    <span className="flex shrink-0 items-center gap-2">
+      <span className="measured inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-paper-3 px-2.5 py-1 text-[11px] font-semibold text-accent">
+        <Clock className="h-3 w-3 shrink-0" aria-hidden="true" />
+        <span>{timingSummary}</span>
+      </span>
+      <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-[11px] font-semibold text-accent-ink">
+        <span>{open ? 'Done' : 'Edit'}</span>
+        <ArrowIcon className="h-3.5 w-3.5" aria-hidden="true" />
+      </span>
+    </span>
+  );
+}
+
+function HabitTriggerMeta({
+  title,
+  archetypeLabel,
+  commuteLabel,
+  hasHealthNote,
+}: {
+  readonly title: string;
+  readonly archetypeLabel: string;
+  readonly commuteLabel: string | null;
+  readonly hasHealthNote: boolean;
 }): ReactElement {
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <div>
-        <label htmlFor={`leave-${member.id}`} className="mb-1 block text-xs text-muted">
-          {t.memberLeaveTimeLabel}
-        </label>
-        <input
-          id={`leave-${member.id}`}
-          type="time"
-          value={member.leaveHomeTime ?? ''}
-          onChange={(e) => {
-            onChange({ leaveHomeTime: e.target.value || undefined });
-          }}
-          className="field-control measured text-sm"
-        />
-      </div>
-      <div>
-        <label htmlFor={`return-${member.id}`} className="mb-1 block text-xs text-muted">
-          {t.memberReturnTimeLabel}
-        </label>
-        <input
-          id={`return-${member.id}`}
-          type="time"
-          value={member.returnHomeTime ?? ''}
-          onChange={(e) => {
-            onChange({ returnHomeTime: e.target.value || undefined });
-          }}
-          className="field-control measured text-sm"
-        />
-      </div>
-    </div>
+    <span className="flex min-w-0 items-center gap-2.5">
+      <span
+        aria-hidden="true"
+        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-accent/45 bg-accent-soft text-accent transition-transform group-hover:scale-105"
+      >
+        <SlidersHorizontal className="h-4 w-4" />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-xs font-semibold text-ink sm:text-[13px]">{title}</span>
+        <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-2">
+          <span>{archetypeLabel}</span>
+          {commuteLabel && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span>{commuteLabel}</span>
+            </>
+          )}
+          {hasHealthNote && (
+            <span className="inline-flex items-center gap-1 text-bad">
+              <HeartPulse className="h-3 w-3 shrink-0" aria-hidden="true" />
+              <span>Health note</span>
+            </span>
+          )}
+        </span>
+      </span>
+    </span>
   );
 }
 
-function HabitNotesInputs({
-  member,
-  onChange,
-  t,
-}: {
-  readonly member: FamilyMemberInput;
-  readonly onChange: (patch: Partial<FamilyMemberInput>) => void;
-  readonly t: LocaleDictionary;
-}): ReactElement {
-  return (
-    <div className="grid grid-cols-1 gap-3">
-      <div>
-        <label htmlFor={`health-${member.id}`} className="mb-1 block text-xs text-muted">
-          {t.memberHealthNotesLabel}
-        </label>
-        <input
-          id={`health-${member.id}`}
-          type="text"
-          maxLength={MAX_HEALTH_NOTE_LEN}
-          value={member.healthNotes ?? ''}
-          onChange={(e) => {
-            onChange({ healthNotes: e.target.value || undefined });
-          }}
-          className="field-control text-sm"
-        />
-      </div>
-      <div>
-        <label htmlFor={`habits-${member.id}`} className="mb-1 block text-xs text-muted">
-          {t.memberHabitsNoteLabel}
-        </label>
-        <input
-          id={`habits-${member.id}`}
-          type="text"
-          maxLength={MAX_HABIT_NOTE_LEN}
-          value={member.dailyHabitsNote ?? ''}
-          onChange={(e) => {
-            onChange({ dailyHabitsNote: e.target.value || undefined });
-          }}
-          className="field-control text-sm"
-        />
-      </div>
-    </div>
-  );
-}
-
-function HabitEditorDrawer(props: MemberHabitEditorProps): ReactElement {
-  const { member, onChange, t } = props;
-  const archetype = resolveMemberArchetype(member);
-  return (
-    <div className="surface-recessed mt-2 space-y-3 p-3.5">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <SelectField
-          id={`arch-${member.id}`}
-          label={t.memberArchetypeLabel}
-          labelClassName="mb-1 block text-xs text-muted"
-          value={archetype}
-          options={ARCHETYPE_KEYS.map((ak) => ({ value: ak, label: t.archetypeOptions[ak] }))}
-          onChangeValue={(nextArch) => {
-            onChange({ archetype: nextArch });
-          }}
-        />
-        <SelectField
-          id={`commute-${member.id}`}
-          label={t.memberCommuteLabel}
-          labelClassName="mb-1 block text-xs text-muted"
-          value={member.commuteMode ?? 'metro'}
-          options={COMMUTE_KEYS.map((ck) => ({ value: ck, label: t.commuteModes[ck] }))}
-          onChangeValue={(nextMode) => {
-            onChange({ commuteMode: nextMode });
-          }}
-        />
-      </div>
-      <HabitTimeInputs member={member} onChange={onChange} t={t} />
-      <HabitNotesInputs member={member} onChange={onChange} t={t} />
-    </div>
-  );
-}
-
-/** Expandable per-member daily habit, commute timing, and respiratory health note panel. */
+/** High-visibility expandable per-member daily habit, commute timing, and respiratory note editor. */
 export const MemberHabitEditor = memo(function MemberHabitEditor(
   props: MemberHabitEditorProps,
 ): ReactElement {
-  const { member, t } = props;
+  const { member, onChange, t } = props;
   const [open, setOpen] = useState(false);
   const archetype = resolveMemberArchetype(member);
+  const archetypeLabel = t.archetypeOptions[archetype];
+  const commuteLabel = member.commuteMode ? t.commuteModes[member.commuteMode] : null;
   const timingSummary = member.leaveHomeTime
     ? `${member.leaveHomeTime} - ${member.returnHomeTime ?? ''}`.trim()
-    : t.archetypeOptions[archetype];
+    : archetypeLabel;
 
   return (
-    <div className="mt-3">
+    <div className="mt-3.5">
       <button
         type="button"
         aria-expanded={open}
         onClick={() => {
           setOpen((prev) => !prev);
         }}
-        className="flex w-full items-center justify-between gap-2 rounded border border-rule bg-paper-2 px-3 py-2 text-left text-xs text-ink-2 transition-colors hover:border-accent hover:text-ink"
+        className="habit-trigger-card group flex w-full flex-wrap items-center justify-between gap-2.5 rounded-lg px-3.5 py-2.5 text-left"
       >
-        <span className="font-medium">{t.memberHabitsToggle}</span>
-        <span className="flex items-center gap-2">
-          <span className="measured rounded bg-paper-3 px-2 py-0.5 text-[11px] text-accent">
-            {timingSummary}
-          </span>
-          {open ? (
-            <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
-          ) : (
-            <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-          )}
-        </span>
+        <HabitTriggerMeta
+          title={t.memberHabitsToggle}
+          archetypeLabel={archetypeLabel}
+          commuteLabel={commuteLabel}
+          hasHealthNote={Boolean(member.healthNotes)}
+        />
+        <HabitTriggerBadges timingSummary={timingSummary} open={open} />
       </button>
-      {open && <HabitEditorDrawer {...props} />}
+      {open && <HabitEditorDrawer member={member} onChange={onChange} t={t} />}
     </div>
   );
 });

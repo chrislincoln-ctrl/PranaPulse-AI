@@ -147,7 +147,8 @@ td.num {
   .orb-particle,
   .orb-particle::after,
   .smoke-fallback-blob-a,
-  .smoke-fallback-blob-b {
+  .smoke-fallback-blob-b,
+  .console-smog-plume {
     animation: none !important;
   }
 

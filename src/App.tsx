@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useState, type ReactElement } from 'react
 import { ActiveSectionStrip } from './components/ActiveSectionStrip.js';
 import { AppHeaderBar, type ThemeMode } from './components/AppHeaderBar.js';
 import { AuthModal } from './components/AuthModal.js';
+import { ConsoleSmogBackdrop } from './components/ConsoleSmogBackdrop.js';
 import { LandingPageView } from './components/LandingPageView.js';
 import { SectionStepperFooter } from './components/SectionStepperFooter.js';
 import { SegmentedTabs } from './components/SegmentedTabs.js';
@@ -30,7 +31,7 @@ function AppMainContent({
   readonly t: LocaleDictionary;
 }): ReactElement {
   return (
-    <main id="main-content" className="container flex-1 pb-12">
+    <main id="main-content" className="container relative z-[2] flex-1 pb-12">
       <div className="pt-3 pb-3 sm:pt-4 sm:pb-4">
         <SegmentedTabs activeTab={activeTab} onSelectTab={onSelectTab} t={t} />
       </div>
@@ -55,7 +56,7 @@ function AppMainContent({
 
 function AppFooter({ notice }: { readonly notice: string }): ReactElement {
   return (
-    <footer className="relative z-[2] border-t border-rule bg-paper-3 px-4 py-4 text-center text-xs text-muted">
+    <footer className="relative z-[2] border-t border-rule/80 bg-paper-3/85 px-4 py-4 text-center text-xs text-muted backdrop-blur-md">
       <div className="container">
         {APP_META.DISPLAY_NAME} v{APP_META.VERSION}: {notice}
       </div>
@@ -97,13 +98,10 @@ function getInitialThemeMode(): ThemeMode {
   }
   try {
     const saved = localStorage.getItem(THEME_KEY);
-    if (saved === 'light' || saved === 'dark') {
-      return saved;
-    }
+    return saved === 'light' || saved === 'dark' ? saved : 'dark';
   } catch {
-    // ignore storage restrictions
+    return 'dark';
   }
-  return 'dark';
 }
 
 function useDocumentThemeMode(): readonly [ThemeMode, () => void] {
@@ -176,7 +174,12 @@ function AppViewBody(p: AppShellProps): ReactElement {
 /** Stateless shell rendering the header, body, footer and auth modal. */
 function AppShell(p: AppShellProps): ReactElement {
   return (
-    <div className="flex min-h-dvh flex-col bg-paper text-ink">
+    <div className="relative flex min-h-dvh flex-col bg-paper text-ink">
+      {p.viewMode === 'workbench' && (
+        <ConsoleSmogBackdrop
+          aqi={p.workspace.bundle.telemetry.stationCrossCheck.effectiveSafetyAqi}
+        />
+      )}
       <SkipToMainLink label={p.t.skipLink} />
       <AppHeaderBar
         language={p.workspace.input.language}

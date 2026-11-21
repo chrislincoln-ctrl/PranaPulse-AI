@@ -251,7 +251,7 @@ describe('Phase 4 full Console UI, hooks & accessibility verification', () => {
     axeRes = await axe.run(container, { rules: { 'color-contrast': { enabled: false } } });
     expect(axeRes.violations).toHaveLength(0);
 
-    // End key -> RWA & Advisor
+    // End key -> RWA
     const gearTab = screen.getByRole('tab', { name: /Masks & Purifiers/i });
     gearTab.focus();
     fireEvent.keyDown(gearTab, { key: 'End' });
@@ -259,10 +259,7 @@ describe('Phase 4 full Console UI, hooks & accessibility verification', () => {
     expect(
       await screen.findByRole('heading', { name: /RWA neighborhood collective simulator/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /RWA & Advisor/i })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
+    expect(screen.getByRole('tab', { name: /^RWA$/i })).toHaveAttribute('aria-selected', 'true');
 
     fireEvent.change(screen.getByLabelText(/Participating homes/i), { target: { value: '300' } });
     fireEvent.click(screen.getByRole('button', { name: /Copy RWA bulletin/i }));

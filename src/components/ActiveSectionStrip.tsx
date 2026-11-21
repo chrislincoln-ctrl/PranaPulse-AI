@@ -29,10 +29,13 @@ export const ActiveSectionStrip = memo(function ActiveSectionStrip({
   const categoryLabel = t.cpcbCategories[telemetry.assessment.cpcbCategory];
 
   return (
-    <div className="mb-4 flex flex-wrap items-center justify-between gap-2.5 border-b border-rule pb-3">
-      <h1 className="text-xl font-bold tracking-tight text-ink sm:text-2xl">
-        {getWorkbenchTabLabel(activeTab, t)}
-      </h1>
+    <div className="surface-hairline mb-5 flex flex-wrap items-center justify-between gap-2.5 px-4 py-3 sm:px-5">
+      <div className="flex items-center gap-3">
+        <span aria-hidden="true" className="h-6 w-1 rounded-full bg-accent" />
+        <h1 className="text-xl font-bold tracking-tight text-ink sm:text-2xl">
+          {getWorkbenchTabLabel(activeTab, t)}
+        </h1>
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         <span className="status-pill text-ink-2">
           <Activity className="h-3.5 w-3.5 shrink-0 text-cool" aria-hidden="true" />

@@ -137,7 +137,13 @@ function ParetoMatrixRow({
   );
 
   return (
-    <tr className={isSelected ? 'bg-paper-3' : undefined}>
+    <tr
+      className={
+        isSelected
+          ? 'border-l-2 border-accent bg-accent-soft/25 transition-colors'
+          : 'transition-colors hover:bg-paper-3/60'
+      }
+    >
       <td className="py-2.5 pr-3 font-medium text-ink">{t.commuteModes[opt.mode]}</td>
       <td className="measured py-2.5 pr-3 text-ink-2">
         {opt.durationMinutes} {t.unitMin}

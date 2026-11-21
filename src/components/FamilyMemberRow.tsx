@@ -204,7 +204,7 @@ export const FamilyMemberRow = memo(function FamilyMemberRow(
   props: FamilyMemberRowProps,
 ): ReactElement {
   return (
-    <li className="py-4">
+    <li className="surface-recessed p-4 transition-colors hover:border-rule-2">
       <MemberBadgeHeader memberNumber={props.memberNumber} prefix={props.t.newMemberPrefix} />
       <MemberIdentityRow {...props} />
       <MemberExposureRow {...props} />

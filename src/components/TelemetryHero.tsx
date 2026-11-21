@@ -1,4 +1,4 @@
-import { Activity, Flame, Wind } from 'lucide-react';
+import { Activity, Clock, Droplets, Flame, ShieldCheck, Wind } from 'lucide-react';
 import { memo, type ReactElement } from 'react';
 import { PRECISION_DISPLAY, RADIAL_GAUGE_GEOMETRY } from '../config/uiConstants.js';
 import type { TelemetrySnapshot } from '../domain/localBaseline.js';
@@ -139,6 +139,80 @@ function AtmosphericStatusPanels({
   );
 }
 
+const DEFAULT_WINDOW_HOUR = 13;
+
+function formatBestWindowLabel(hours: readonly number[]): string {
+  if (hours.length === 0) {
+    return '13:00 - 15:00';
+  }
+  const first = hours[0] ?? DEFAULT_WINDOW_HOUR;
+  const last = hours[hours.length - 1] ?? first;
+  return `${String(first).padStart(2, '0')}:00 - ${String(last).padStart(2, '0')}:59`;
+}
+
+function DispersionBriefCell({
+  icon,
+  label,
+  value,
+  valueTone,
+  sub,
+}: {
+  readonly icon: ReactElement;
+  readonly label: string;
+  readonly value: string;
+  readonly valueTone: string;
+  readonly sub: string;
+}): ReactElement {
+  return (
+    <div className="surface-recessed flex items-start gap-2.5 p-3">
+      {icon}
+      <div className="min-w-0">
+        <div className="text-[11px] font-medium text-muted">{label}</div>
+        <div className={`measured mt-0.5 text-sm font-semibold ${valueTone}`}>{value}</div>
+        <div className="mt-0.5 text-[11px] text-ink-2">{sub}</div>
+      </div>
+    </div>
+  );
+}
+
+function AtmosphericDispersionBrief({
+  telemetry,
+  t,
+}: {
+  readonly telemetry: TelemetrySnapshot;
+  readonly t: LocaleDictionary;
+}): ReactElement {
+  const cur = telemetry.hourlySeries[0];
+  const wind = Math.round(cur?.windKmh ?? 0);
+  const rh = Math.round(cur?.rhPercent ?? 0);
+  const windowLabel = formatBestWindowLabel(telemetry.inversion.bestWindowHours);
+  return (
+    <div className="surface-hairline mt-4 grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
+      <DispersionBriefCell
+        icon={<Clock className="mt-0.5 h-4 w-4 shrink-0 text-ok" aria-hidden="true" />}
+        label="Safest Airing Window"
+        value={windowLabel}
+        valueTone="text-ok"
+        sub={telemetry.inversion.openWindowsNow ? t.openWindowsYes : t.openWindowsNo}
+      />
+      <DispersionBriefCell
+        icon={<Droplets className="mt-0.5 h-4 w-4 shrink-0 text-cool" aria-hidden="true" />}
+        label="Surface Dispersion"
+        value={`${String(wind)} km/h · ${String(rh)}% RH`}
+        valueTone="text-ink"
+        sub={`${telemetry.inversion.currentSeverity} inversion layer`}
+      />
+      <DispersionBriefCell
+        icon={<ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden="true" />}
+        label="Dominant Pollutant"
+        value={telemetry.assessment.dominantCpcbPollutant}
+        valueTone="text-accent uppercase"
+        sub={telemetry.isSimulatedFallback ? 'Seasonal baseline' : 'Live sensor cross-check'}
+      />
+    </div>
+  );
+}
+
 /**
  * Console atmospheric telemetry hero fitting cleanly above 1280x800 fold with severe-AQI
  * assertive alerts, 21st.dev concentric multi-ring radial gauge, 6-band CPCB spectrum, and 24h chart.
@@ -180,6 +254,7 @@ export const TelemetryHero = memo(function TelemetryHero({
             bestWindowHours={telemetry.inversion.bestWindowHours}
             t={t}
           />
+          <AtmosphericDispersionBrief telemetry={telemetry} t={t} />
         </div>
       </div>
     </section>

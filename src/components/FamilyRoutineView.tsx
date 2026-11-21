@@ -46,7 +46,7 @@ function RosterMemberList({ input, advisories, onUpdateInput, t }: RosterSlicePr
   const { members, language, city, lat, lon } = input;
   const advisoryMap = new Map(advisories.map((a) => [a.id, a]));
   return (
-    <ul className="divide-y divide-rule">
+    <ul className="space-y-4">
       {members.map((member, index) => (
         <FamilyMemberRow
           key={member.id}
