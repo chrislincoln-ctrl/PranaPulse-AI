@@ -13,7 +13,8 @@ export interface ScrollGlobeProps {
     subtitle?: string;
     description: string;
     align?: 'left' | 'center' | 'right';
-    features?: { title: string; description: string }[];
+    highlights?: readonly string[];
+    features?: { title: string; description: string; tag?: string }[];
     actions?: { label: string; variant: 'primary' | 'secondary'; onClick?: () => void }[];
   }[];
   globeConfig?: {
@@ -242,6 +243,21 @@ export function ScrollGlobe({
               'opacity-100 translate-y-0',
             )}
           >
+            {section.badge && (
+              <div
+                className={cn(
+                  'mb-4 flex',
+                  section.align === 'center' && 'justify-center',
+                  section.align === 'right' && 'justify-end',
+                )}
+              >
+                <span className="measured inline-flex items-center gap-2 rounded-full border border-primary/45 bg-card/80 px-3.5 py-1 text-xs font-semibold tracking-wider text-primary uppercase backdrop-blur-md">
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                  <span>{section.badge}</span>
+                </span>
+              </div>
+            )}
+
             {index === 0 ? (
               <h1 className="font-bold mb-6 sm:mb-8 leading-[1.1] tracking-tight text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl 2xl:text-8xl">
                 {section.subtitle ? (
@@ -299,49 +315,65 @@ export function ScrollGlobe({
 
             <div
               className={cn(
-                'leading-relaxed mb-8 sm:mb-10 text-base sm:text-lg lg:text-xl',
+                'leading-relaxed mb-6 sm:mb-8 text-base sm:text-lg lg:text-xl',
                 section.align === 'center'
-                  ? 'max-w-full mx-auto text-center text-foreground/95 font-normal landing-orb-contrast'
-                  : 'max-w-full text-muted-foreground/80 font-light',
+                  ? 'max-w-3xl mx-auto text-center text-foreground/95 font-normal landing-orb-contrast'
+                  : 'max-w-3xl text-muted-foreground/90 font-light',
               )}
             >
               <p className="mb-3 sm:mb-4">{section.description}</p>
-              {index === 0 && (
-                <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground/60 mt-4 sm:mt-6">
-                  <div className="flex items-center gap-1.5 sm:gap-2">
-                    <div className="w-1 h-1 rounded-full bg-primary animate-pulse" />
-                    <span>Interactive Experience</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 sm:gap-2">
-                    <div
-                      className="w-1 h-1 rounded-full bg-primary animate-pulse"
-                      style={{ animationDelay: '0.5s' }}
-                    />
-                    <span>Scroll to Explore</span>
-                  </div>
+              {section.highlights && section.highlights.length > 0 && (
+                <div
+                  className={cn(
+                    'mt-4 flex flex-wrap items-center gap-2 text-xs',
+                    section.align === 'center' && 'justify-center',
+                    section.align === 'right' && 'justify-end',
+                  )}
+                >
+                  {section.highlights.map((chip) => (
+                    <span
+                      key={chip}
+                      className="measured inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-card/80 px-3 py-1 font-medium text-foreground/95 backdrop-blur-md"
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
+                      <span>{chip}</span>
+                    </span>
+                  ))}
                 </div>
               )}
             </div>
 
-            {/* Enhanced Features - Responsive grid */}
+            {/* Enhanced Features - Responsive 2-column Bento grid */}
             {section.features && (
-              <div className="grid gap-3 sm:gap-4 mb-8 sm:mb-10">
+              <div
+                className={cn(
+                  'grid gap-3 sm:gap-4 mb-6 sm:mb-8 text-left',
+                  section.features.length > 1 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1',
+                )}
+              >
                 {section.features.map((feature, featureIndex) => (
                   <div
                     key={feature.title}
                     className={cn(
-                      'group p-4 sm:p-5 lg:p-6 rounded-lg sm:rounded-xl border bg-card/50 backdrop-blur-sm hover:bg-card/80 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5',
-                      'hover:border-primary/20 hover:-translate-y-1',
+                      'group p-4 sm:p-5 rounded-xl border border-border/75 bg-card/78 backdrop-blur-md hover:bg-card/92 transition-all duration-300 hover:shadow-xl hover:shadow-primary/10',
+                      'hover:border-primary/45 hover:-translate-y-0.5',
                     )}
-                    style={{ animationDelay: `${featureIndex * 0.1}s` }}
+                    style={{ animationDelay: `${featureIndex * 0.08}s` }}
                   >
-                    <div className="flex items-start gap-3 sm:gap-4">
-                      <div className="w-1.5 sm:w-2 h-1.5 sm:h-2 rounded-full bg-primary/60 mt-1.5 sm:mt-2 group-hover:bg-primary transition-colors flex-shrink-0" />
-                      <div className="flex-1 space-y-1.5 sm:space-y-2 min-w-0">
-                        <h3 className="font-semibold text-card-foreground text-base sm:text-lg">
-                          {feature.title}
-                        </h3>
-                        <p className="text-muted-foreground/80 leading-relaxed text-sm sm:text-base">
+                    <div className="flex items-start gap-3">
+                      <div className="w-2 h-2 rounded-full bg-primary/80 mt-2 group-hover:bg-primary transition-colors flex-shrink-0" />
+                      <div className="flex-1 space-y-1.5 min-w-0">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <h3 className="font-semibold text-card-foreground text-sm sm:text-base">
+                            {feature.title}
+                          </h3>
+                          {feature.tag && (
+                            <span className="measured rounded-full border border-primary/35 bg-background/70 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
+                              {feature.tag}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-muted-foreground/90 leading-relaxed text-xs sm:text-sm">
                           {feature.description}
                         </p>
                       </div>
