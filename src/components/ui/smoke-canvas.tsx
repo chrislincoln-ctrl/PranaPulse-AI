@@ -188,16 +188,19 @@ void main() {
   // Final alpha = density * sectionIntensity * intro * MAX_ALPHA
   float rawAlpha = clamp(density * u_sectionIntensity * u_intro * u_maxAlpha, 0.0, u_maxAlpha);
 
-  // Apply TEXT_ALPHA_CAP over the hero text bounding rect with a 60px soft feather
+  // Soft organic elliptical clear-zone around hero text (eliminates any visible rectangular shadow)
   vec2 cssPx = vec2(uv.x, 1.0 - uv.y) * u_viewport;
   vec2 rectCenter = 0.5 * (u_textRect.xy + u_textRect.zw);
   vec2 rectHalf = max(0.5 * (u_textRect.zw - u_textRect.xy), vec2(1.0));
-  vec2 dBox = abs(cssPx - rectCenter) - rectHalf;
-  float distOutside = length(max(dBox, vec2(0.0)));
-  float textWeight = u_hasTextRect * (1.0 - smoothstep(0.0, u_feather, distOutside));
+  vec2 normPos = (cssPx - rectCenter) / (rectHalf * 1.38 + vec2(u_feather * 0.5));
+  float radial = length(normPos);
+  float edgeNoise = (q.x - 0.5) * 0.28 + (q.y - 0.5) * 0.18;
+  float organicDist = radial + smoothstep(0.75, 1.4, radial) * edgeNoise;
+  float textWeight = u_hasTextRect * (1.0 - smoothstep(0.85, 2.05, organicDist));
 
-  float cappedAlpha = min(rawAlpha, u_textCap);
-  float finalAlpha = mix(rawAlpha, cappedAlpha, textWeight);
+  // Proportional attenuation preserves wispy contours and dark gaps (no flat grey box clipping)
+  float capRatio = clamp(u_textCap / max(u_maxAlpha, 0.001), 0.0, 1.0);
+  float finalAlpha = rawAlpha * mix(1.0, capRatio, textWeight);
 
   // Premultiplied alpha output for standard normal alpha blending
   gl_FragColor = vec4(u_color * finalAlpha, finalAlpha);
