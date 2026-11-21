@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { FamilyCompanionChat } from '../../src/components/FamilyCompanionChat.js';
 import { FamilyRoutineView } from '../../src/components/FamilyRoutineView.js';
 import { DEFAULT_WORKSPACE_INPUT } from '../../src/config/uiConstants.js';
 import { buildInitialWorkspaceBundle } from '../../src/domain/localBaseline.js';
@@ -56,23 +57,37 @@ describe('Per-member Family Routine UI, WhatsApp share & Companion Chat', () => 
     );
 
     render(
-      <FamilyRoutineView
-        input={DEFAULT_WORKSPACE_INPUT}
-        advisories={bundle.memberAdvisories}
-        aiPlan={bundle.aiPlan}
-        aiIsFallback={true}
-        isLoadingPlan={false}
-        onUpdateInput={onUpdateInput}
-        onRefreshPlan={vi.fn()}
-        t={TRANSLATIONS.en}
-      />,
+      <>
+        <FamilyRoutineView
+          input={DEFAULT_WORKSPACE_INPUT}
+          advisories={bundle.memberAdvisories}
+          aiPlan={bundle.aiPlan}
+          aiIsFallback={true}
+          isLoadingPlan={false}
+          onUpdateInput={onUpdateInput}
+          onRefreshPlan={vi.fn()}
+          t={TRANSLATIONS.en}
+        />
+        <FamilyCompanionChat
+          input={DEFAULT_WORKSPACE_INPUT}
+          memberSchedules={bundle.aiPlan.memberSchedules ?? []}
+          onApplyMemberPatch={(memberId, patch) => {
+            onUpdateInput({
+              members: DEFAULT_WORKSPACE_INPUT.members.map((m) =>
+                m.id === memberId ? { ...m, ...patch } : m,
+              ),
+            });
+          }}
+          t={TRANSLATIONS.en}
+        />
+      </>,
     );
 
     // 1. Switch to Aarav's personal schedule tab and verify School steps + WhatsApp links
     fireEvent.click(screen.getByRole('tab', { name: /Aarav \(School\)/i }));
     expect(screen.getByText(/School Departure & Fitted Mask Check/i)).toBeInTheDocument();
     const waLinks = screen.getAllByRole('link', { name: /Share on WhatsApp/i });
-    expect(waLinks.length).toBeGreaterThanOrEqual(2);
+    expect(waLinks.length).toBeGreaterThanOrEqual(1);
     expect(waLinks[0]?.getAttribute('href')).toMatch(/^https:\/\/wa\.me\/\?text=/);
 
     // 2. Switch to Meera's personal schedule tab and confirm distinct Senior asthma schedule
@@ -93,7 +108,8 @@ describe('Per-member Family Routine UI, WhatsApp share & Companion Chat', () => 
       );
     });
 
-    // 4. Send a Family Companion Chat query and verify live reply + automatic schedule patch
+    // 4. Open floating bottom-right Family Companion Chat launcher and send a query
+    fireEvent.click(screen.getByRole('button', { name: /Family Daily Companion Chat/i }));
     const chatInput = screen.getByLabelText(/Ask e\.g\./i);
     fireEvent.change(chatInput, { target: { value: 'Near Salt Lake, mild asthma today' } });
     fireEvent.click(screen.getByRole('button', { name: /Ask Companion/i }));

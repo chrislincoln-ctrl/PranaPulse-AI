@@ -4,7 +4,6 @@ import { VALIDATION_BOUNDS } from '../config/constants.js';
 import type { FamilyMemberAdvisory, FamilyMemberInput } from '../domain/types.js';
 import type { LocaleDictionary } from '../i18n/translations.js';
 import type { AiPlanOutput, PlanRequestPayload } from '../validators/schemas.js';
-import { FamilyCompanionChat } from './FamilyCompanionChat.js';
 import { FamilyMemberRow } from './FamilyMemberRow.js';
 import { HousingEnvelopeSelects } from './FormFields.js';
 import { ScheduleLedger } from './ScheduleLedger.js';
@@ -157,37 +156,23 @@ export const FamilyRoutineView = memo(function FamilyRoutineView({
   onRefreshPlan,
   t,
 }: FamilyRoutineViewProps): ReactElement {
-  const applyMemberPatch = (memberId: string, patch: Partial<FamilyMemberInput>): void => {
-    onUpdateInput({
-      members: input.members.map((m) => (m.id === memberId ? { ...m, ...patch } : m)),
-    });
-  };
-
   return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-        <FamilyRosterSection
-          input={input}
-          advisories={advisories}
-          onUpdateInput={onUpdateInput}
-          t={t}
-        />
-        <section aria-label={t.routineHeading} className="min-w-0 lg:col-span-6">
-          <ScheduleLedger
-            aiPlan={aiPlan}
-            aiIsFallback={aiIsFallback}
-            isLoadingPlan={isLoadingPlan}
-            onRefreshPlan={onRefreshPlan}
-            t={t}
-          />
-        </section>
-      </div>
-      <FamilyCompanionChat
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+      <FamilyRosterSection
         input={input}
-        memberSchedules={aiPlan.memberSchedules ?? []}
-        onApplyMemberPatch={applyMemberPatch}
+        advisories={advisories}
+        onUpdateInput={onUpdateInput}
         t={t}
       />
+      <section aria-label={t.routineHeading} className="min-w-0 lg:col-span-6">
+        <ScheduleLedger
+          aiPlan={aiPlan}
+          aiIsFallback={aiIsFallback}
+          isLoadingPlan={isLoadingPlan}
+          onRefreshPlan={onRefreshPlan}
+          t={t}
+        />
+      </section>
     </div>
   );
 });
