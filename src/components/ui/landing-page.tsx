@@ -260,15 +260,34 @@ export function ScrollGlobe({ sections, globeConfig = defaultGlobeConfig, classN
               <h2 className="font-bold mb-6 sm:mb-8 leading-[1.1] tracking-tight text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl 2xl:text-7xl">
                 {section.subtitle ? (
                   <div className="space-y-1 sm:space-y-2">
-                    <div className="bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
+                    <div
+                      className={cn(
+                        section.align === 'center'
+                          ? "text-foreground landing-orb-contrast"
+                          : "bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent"
+                      )}
+                    >
                       {section.title}
                     </div>
-                    <div className="text-muted-foreground/90 text-[0.6em] sm:text-[0.7em] font-medium tracking-wider">
+                    <div
+                      className={cn(
+                        "text-[0.6em] sm:text-[0.7em] tracking-wider",
+                        section.align === 'center'
+                          ? "text-foreground font-semibold landing-orb-contrast"
+                          : "text-muted-foreground/90 font-medium"
+                      )}
+                    >
                       {section.subtitle}
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-gradient-to-r from-foreground via-foreground to-foreground/80 bg-clip-text text-transparent">
+                  <div
+                    className={cn(
+                      section.align === 'center'
+                        ? "text-foreground landing-orb-contrast"
+                        : "bg-gradient-to-r from-foreground via-foreground to-foreground/80 bg-clip-text text-transparent"
+                    )}
+                  >
                     {section.title}
                   </div>
                 )}
@@ -276,8 +295,10 @@ export function ScrollGlobe({ sections, globeConfig = defaultGlobeConfig, classN
             )}
             
             <div className={cn(
-              "text-muted-foreground/80 leading-relaxed mb-8 sm:mb-10 text-base sm:text-lg lg:text-xl font-light",
-              section.align === 'center' ? "max-w-full mx-auto text-center" : "max-w-full"
+              "leading-relaxed mb-8 sm:mb-10 text-base sm:text-lg lg:text-xl",
+              section.align === 'center'
+                ? "max-w-full mx-auto text-center text-foreground/95 font-normal landing-orb-contrast"
+                : "max-w-full text-muted-foreground/80 font-light"
             )}>
               <p className="mb-3 sm:mb-4">{section.description}</p>
               {index === 0 && (
