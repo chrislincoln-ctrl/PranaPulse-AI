@@ -206,17 +206,17 @@ function generateParticles(count: number): readonly ParticleSpec[] {
     const xPct = 50 + Math.cos(baseAngle) * rMult * orbRadiusPct;
     const yPct = 50 + Math.sin(baseAngle) * rMult * orbRadiusPct;
 
-    const sizePx = 1.7 + rand() * 2.3; // 1.7–4px
+    const sizePx = 2.2 + rand() * 2.8; // 2.2–5.0px glowing bokeh motes
     const colorIndex = (i % 3) as 0 | 1 | 2;
     // Staggered fade-in from 0.4s to 1.6s (fade window 0.35s, starts distributed in [0.4, 1.25])
     const fadeStart = 0.4 + ((i * 7) % count) / Math.max(1, count - 1) * 0.78 + rand() * 0.07;
-    // Slow upward drift 4–12 px/s over 7–11s cycle
-    const speedPxPerSec = 4 + rand() * 8;
-    const driftDur = 7 + rand() * 4;
+    // Lively upward drift 6–12 px/s over 6–9s cycle
+    const speedPxPerSec = 6 + rand() * 6;
+    const driftDur = 6 + rand() * 3;
     const risePx = -(speedPxPerSec * driftDur);
-    const swayPx = (rand() > 0.5 ? 1 : -1) * (4 + rand() * 6); // +/-10px max
+    const swayPx = (rand() > 0.5 ? 1 : -1) * (5 + rand() * 5); // +/-10px max
     const driftDelay = -(rand() * driftDur);
-    const twinkleDur = 2 + rand() * 3; // 2–5s
+    const twinkleDur = 2 + rand() * 2.6; // 2–4.6s
     const twinkleDelay = -(rand() * twinkleDur);
 
     items.push({
@@ -253,10 +253,13 @@ const RIPPLE_RING_GRADIENT =
   "conic-gradient(from 15deg, #34d399 0deg, var(--color-accent) 52deg, #fbbf24 96deg, #34d399 156deg, #22d3ee 225deg, #22d3ee 288deg, #34d399 360deg)";
 
 const THIN_RING_MASK =
-  "radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px), #000 100%)";
+  "radial-gradient(farthest-side, transparent calc(100% - 4.5px), #000 calc(100% - 3px), #000 100%)";
 
 const RIPPLE_RING_MASK =
-  "radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px), #000 100%)";
+  "radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 2px), #000 100%)";
+
+const RIPPLE_AURA_MASK =
+  "radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 3px), #000 100%)";
 
 // Ring mask placed INSIDE the blurred parent so blur feathers outward freely with ZERO hard edge
 const HALO_RING_SOURCE_MASK =
@@ -736,23 +739,23 @@ const Globe: React.FC = () => {
               }}
             />
 
-            {/* Layer 5 (front): Second thin ripple ring (2–3px, conic emerald > cyan > gold, offset <=3%) */}
+            {/* Layer 5 (front): Luminous pulsing halo ripple waves (emerald > cyan > gold, offset <=3%) */}
             {showIntroRipple && (
               <div
                 className="pointer-events-none absolute -inset-[3%]"
                 style={{
-                  transform: "translate3d(1.5%, -1.5%, 0) scale(var(--orb-ripple-scale, 1))",
+                  transform: "translate3d(1.8%, -1.6%, 0) scale(var(--orb-ripple-scale, 1))",
                   opacity: "calc(var(--orb-ripple-opacity, 0) * var(--orb-halo-mode-alpha, 1))",
                   willChange: "transform, opacity",
                 }}
               >
-                <div className="absolute -inset-[8px]" style={{ filter: "blur(5px)", opacity: 0.8 }}>
+                <div className="absolute -inset-[12px]" style={{ filter: "blur(10px)", opacity: 0.9 }}>
                   <div
-                    className="absolute inset-[8px] rounded-full"
+                    className="absolute inset-[12px] rounded-full"
                     style={{
                       background: RIPPLE_RING_GRADIENT,
-                      WebkitMaskImage: RIPPLE_RING_MASK,
-                      maskImage: RIPPLE_RING_MASK,
+                      WebkitMaskImage: RIPPLE_AURA_MASK,
+                      maskImage: RIPPLE_AURA_MASK,
                     }}
                   />
                 </div>
@@ -768,38 +771,69 @@ const Globe: React.FC = () => {
             )}
 
             {isResting && (
-              <div
-                className="orb-ripple-idle pointer-events-none absolute -inset-[3%]"
-                style={{
-                  opacity: 0,
-                }}
-              >
+              <>
                 <div
-                  className="absolute -inset-[8px]"
-                  style={{
-                    filter: "blur(5px)",
-                    opacity: "calc(0.75 * var(--orb-halo-mode-alpha, 1))",
-                  }}
+                  className="orb-ripple-idle pointer-events-none absolute -inset-[3%]"
+                  style={{ opacity: 0 }}
                 >
                   <div
-                    className="absolute inset-[8px] rounded-full"
+                    className="absolute -inset-[14px]"
+                    style={{
+                      filter: "blur(11px)",
+                      opacity: "calc(0.88 * var(--orb-halo-mode-alpha, 1))",
+                    }}
+                  >
+                    <div
+                      className="absolute inset-[14px] rounded-full"
+                      style={{
+                        background: RIPPLE_RING_GRADIENT,
+                        WebkitMaskImage: RIPPLE_AURA_MASK,
+                        maskImage: RIPPLE_AURA_MASK,
+                      }}
+                    />
+                  </div>
+                  <div
+                    className="absolute inset-0 rounded-full"
                     style={{
                       background: RIPPLE_RING_GRADIENT,
                       WebkitMaskImage: RIPPLE_RING_MASK,
                       maskImage: RIPPLE_RING_MASK,
+                      opacity: "var(--orb-halo-mode-alpha, 1)",
                     }}
                   />
                 </div>
+
                 <div
-                  className="absolute inset-0 rounded-full"
-                  style={{
-                    background: RIPPLE_RING_GRADIENT,
-                    WebkitMaskImage: RIPPLE_RING_MASK,
-                    maskImage: RIPPLE_RING_MASK,
-                    opacity: "var(--orb-halo-mode-alpha, 1)",
-                  }}
-                />
-              </div>
+                  className="orb-ripple-idle-b pointer-events-none absolute -inset-[3%]"
+                  style={{ opacity: 0 }}
+                >
+                  <div
+                    className="absolute -inset-[14px]"
+                    style={{
+                      filter: "blur(12px)",
+                      opacity: "calc(0.75 * var(--orb-halo-mode-alpha, 1))",
+                    }}
+                  >
+                    <div
+                      className="absolute inset-[14px] rounded-full"
+                      style={{
+                        background: RIPPLE_RING_GRADIENT,
+                        WebkitMaskImage: RIPPLE_AURA_MASK,
+                        maskImage: RIPPLE_AURA_MASK,
+                      }}
+                    />
+                  </div>
+                  <div
+                    className="absolute inset-0 rounded-full"
+                    style={{
+                      background: RIPPLE_RING_GRADIENT,
+                      WebkitMaskImage: RIPPLE_RING_MASK,
+                      maskImage: RIPPLE_RING_MASK,
+                      opacity: "calc(0.85 * var(--orb-halo-mode-alpha, 1))",
+                    }}
+                  />
+                </div>
+              </>
             )}
           </div>
         </div>

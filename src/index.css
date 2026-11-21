@@ -53,19 +53,46 @@
 
 @keyframes orbRippleIdle {
   0% {
-    transform: translate3d(1.5%, -1.5%, 0) scale(1);
+    transform: translate3d(1.8%, -1.6%, 0) scale(1);
     opacity: 0;
   }
-  4% {
-    transform: translate3d(1.5%, -1.5%, 0) scale(1.015);
-    opacity: 0.85;
+  14% {
+    transform: translate3d(1.8%, -1.6%, 0) scale(1.04);
+    opacity: 0.92;
   }
-  24% {
-    transform: translate3d(1.5%, -1.5%, 0) scale(1.18);
+  58% {
+    transform: translate3d(1.8%, -1.6%, 0) scale(1.16);
+    opacity: 0.48;
+  }
+  88% {
+    transform: translate3d(1.8%, -1.6%, 0) scale(1.23);
     opacity: 0;
   }
   100% {
-    transform: translate3d(1.5%, -1.5%, 0) scale(1.18);
+    transform: translate3d(1.8%, -1.6%, 0) scale(1.23);
+    opacity: 0;
+  }
+}
+
+@keyframes orbRippleIdleSecondary {
+  0% {
+    transform: translate3d(-1.8%, 1.5%, 0) scale(1);
+    opacity: 0;
+  }
+  16% {
+    transform: translate3d(-1.8%, 1.5%, 0) scale(1.05);
+    opacity: 0.72;
+  }
+  62% {
+    transform: translate3d(-1.8%, 1.5%, 0) scale(1.18);
+    opacity: 0.34;
+  }
+  92% {
+    transform: translate3d(-1.8%, 1.5%, 0) scale(1.25);
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(-1.8%, 1.5%, 0) scale(1.25);
     opacity: 0;
   }
 }
@@ -75,26 +102,28 @@
     transform: translate3d(0, 0, 0);
   }
   25% {
-    transform: translate3d(var(--p-sway, 8px), calc(var(--p-rise, -56px) * 0.25), 0);
+    transform: translate3d(var(--p-sway, 9px), calc(var(--p-rise, -68px) * 0.25), 0);
   }
   50% {
-    transform: translate3d(calc(var(--p-sway, 8px) * -0.7), calc(var(--p-rise, -56px) * 0.5), 0);
+    transform: translate3d(calc(var(--p-sway, 9px) * -0.75), calc(var(--p-rise, -68px) * 0.5), 0);
   }
   75% {
-    transform: translate3d(calc(var(--p-sway, 8px) * 0.85), calc(var(--p-rise, -56px) * 0.75), 0);
+    transform: translate3d(calc(var(--p-sway, 9px) * 0.85), calc(var(--p-rise, -68px) * 0.75), 0);
   }
   100% {
-    transform: translate3d(0, var(--p-rise, -56px), 0);
+    transform: translate3d(0, var(--p-rise, -68px), 0);
   }
 }
 
 @keyframes orbParticleTwinkle {
   0%,
   100% {
-    opacity: 0.2;
+    opacity: 0.28;
+    transform: scale(0.85);
   }
   50% {
     opacity: 1;
+    transform: scale(1.18);
   }
 }
 
@@ -118,18 +147,6 @@
   }
 }
 
-@keyframes heroSparkleTwinkle {
-  0%,
-  100% {
-    opacity: 0.28;
-    transform: scale(0.92);
-  }
-  50% {
-    opacity: 0.65;
-    transform: scale(1.06);
-  }
-}
-
 .orb-float {
   animation: orbFloat 6s ease-in-out infinite;
   will-change: transform;
@@ -150,6 +167,11 @@
   will-change: transform, opacity;
 }
 
+.orb-ripple-idle-b {
+  animation: orbRippleIdleSecondary 3.6s cubic-bezier(0.16, 1, 0.3, 1) -1.8s infinite;
+  will-change: transform, opacity;
+}
+
 .orb-particle {
   position: absolute;
   left: var(--p-x);
@@ -160,7 +182,7 @@
     clamp(0, (var(--orb-p-time, 3.8) - var(--p-fade-start, 0.4)) / 0.35, 1) *
       var(--orb-particle-mode-alpha, 1)
   );
-  animation: orbParticleDrift var(--p-drift-dur, 9s) linear var(--p-drift-delay, 0s) infinite;
+  animation: orbParticleDrift var(--p-drift-dur, 7.5s) linear var(--p-drift-delay, 0s) infinite;
   will-change: transform, opacity;
 }
 
@@ -171,10 +193,17 @@
   height: 100%;
   border-radius: 9999px;
   background: var(--p-color);
-  box-shadow: 0 0 calc(var(--p-size) * 2.4) var(--p-color);
-  animation: orbParticleTwinkle var(--p-twinkle-dur, 3s) ease-in-out var(--p-twinkle-delay, 0s)
+  box-shadow: 0 0 calc(var(--p-size) * 1.8) var(--p-color);
+  animation: orbParticleTwinkle var(--p-twinkle-dur, 2.8s) ease-in-out var(--p-twinkle-delay, 0s)
     infinite;
-  will-change: opacity;
+  will-change: transform, opacity;
+}
+
+:root[data-mode='dark'] .orb-particle::after {
+  background: radial-gradient(circle, #ffffff 0%, var(--p-color) 52%, transparent 100%);
+  box-shadow:
+    0 0 calc(var(--p-size) * 2.2) var(--p-color),
+    0 0 calc(var(--p-size) * 4.2) var(--p-color);
 }
 
 [data-orb-state='frozen'] .orb-float,
@@ -189,13 +218,14 @@
 [data-orb-state='reduced'] .orb-halo-spin,
 [data-orb-state='reduced'] .orb-image-kenburns,
 [data-orb-state='reduced'] .orb-ripple-idle,
+[data-orb-state='reduced'] .orb-ripple-idle-b,
 [data-orb-state='reduced'] .orb-particle,
 [data-orb-state='reduced'] .orb-particle::after {
   animation: none !important;
 }
 
 [data-orb-state='reduced'] .orb-particle::after {
-  opacity: 0.65;
+  opacity: 0.72;
 }
 
 .smoke-fallback-blob-a {
@@ -206,11 +236,6 @@
 .smoke-fallback-blob-b {
   animation: smokeFallbackDriftB 28s ease-in-out infinite;
   will-change: transform;
-}
-
-.hero-sparkle {
-  animation: heroSparkleTwinkle 5s ease-in-out infinite;
-  will-change: transform, opacity;
 }
 
 @layer components {

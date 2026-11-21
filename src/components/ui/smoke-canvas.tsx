@@ -119,68 +119,71 @@ void main() {
   float aspect = u_viewport.x / max(u_viewport.y, 1.0);
   vec2 p = vec2(uv.x * aspect, uv.y);
 
-  // Subtle tangential curl around the hero orb at (0.75, 0.50)
+  // Tangential curl + gentle living vortex around the hero orb at (0.75, 0.50)
   vec2 orbCenter = vec2(0.75 * aspect, 0.50);
   vec2 toOrb = p - orbCenter;
   float orbDist = length(toOrb);
-  float swirlStrength = exp(-pow((orbDist - 0.26) / 0.24, 2.0)) * 0.28;
+  float t = u_time + 3.4;
+  float swirlPulse = 0.30 + 0.06 * sin(t * 0.55);
+  float swirlStrength = exp(-pow((orbDist - 0.27) / 0.24, 2.0)) * swirlPulse;
   vec2 tangent = vec2(-toOrb.y, toOrb.x) / max(orbDist, 0.08);
   vec2 pSwirl = p + tangent * swirlStrength;
 
-  // Slow endless advection upward (+y) and to the right (+x)
-  float t = u_time + 3.4;
-  vec2 adv1 = vec2(0.068, 0.048) * t;
-  vec2 adv2 = vec2(0.095, 0.065) * t;
-  vec2 adv3 = vec2(0.13, 0.088) * t;
+  // Fluid, visibly billowing advection upward (+y) and rightward (+x) toward the orb
+  vec2 adv1 = vec2(0.165, 0.115) * t;
+  vec2 adv2 = vec2(0.245, 0.165) * t;
+  vec2 adv3 = vec2(0.335, 0.220) * t;
 
-  // Layer 1: broad domain-warped curling plumes
-  vec2 baseP = pSwirl * 1.45;
+  // Time-evolving fluid curl phase so smoke ribbons actively unfurl & roll organically
+  float curlPhase = t * 0.18;
+  vec2 curlDriftA = vec2(cos(curlPhase) * 0.24, sin(curlPhase * 0.85) * 0.22);
+  vec2 curlDriftB = vec2(-sin(curlPhase * 0.72) * 0.28, cos(curlPhase * 0.9) * 0.24);
+
+  // Layer 1: broad domain-warped billowing plumes
+  vec2 baseP = pSwirl * 1.40;
   vec2 q = vec2(
-    fbm5(baseP - adv1 + vec2(0.4, 1.1)),
-    fbm5(baseP - adv1 * 0.82 + vec2(4.7, 2.3))
+    fbm5(baseP - adv1 + curlDriftA + vec2(0.4, 1.1)),
+    fbm5(baseP - adv1 * 0.84 - curlDriftB + vec2(4.7, 2.3))
   );
   vec2 r = vec2(
-    fbm5(baseP + 2.35 * q - adv2 + vec2(1.8, 7.4)),
-    fbm5(baseP + 2.35 * q - adv2 * 0.9 + vec2(8.1, 3.2))
+    fbm5(baseP + 2.55 * q - adv2 + curlDriftB + vec2(1.8, 7.4)),
+    fbm5(baseP + 2.55 * q - adv2 * 0.88 + curlDriftA + vec2(8.1, 3.2))
   );
 
-  float primary = ridgedFbm6(baseP + 2.15 * r - adv2 * 0.72);
+  float primary = ridgedFbm6(baseP + 2.35 * r - adv2 * 0.76);
 
-  // Layer 2: finer luminous silk filaments
-  float secondary = ridgedFbm5(pSwirl * 2.55 + 1.65 * r.yx - adv3 + vec2(3.1, 6.2));
+  // Layer 2: silky luminous ribbon filaments
+  float secondary = ridgedFbm5(pSwirl * 2.45 + 1.85 * r.yx - adv3 + vec2(3.1, 6.2));
 
-  // Layer 3: gossamer curls wrapping toward the orb
-  float wisps = ridgedFbm5(pSwirl * 3.4 - 1.2 * q - adv3 * 1.15 + vec2(9.4, 1.7));
+  // Layer 3: bright gossamer edge tendrils curling toward & around the orb
+  float wisps = ridgedFbm5(pSwirl * 3.35 - 1.35 * q - adv3 * 1.18 + vec2(9.4, 1.7));
 
-  // Raise contrast and carve out dark valleys so it never reads as flat fog
-  float body = smoothstep(0.42, 0.98, primary);
-  float filament = pow(smoothstep(0.46, 0.96, secondary), 1.65);
-  float edgeGlow = pow(smoothstep(0.54, 0.98, wisps), 2.1);
+  // Crisp bright filament crests with deep dark gaps (never flat fog)
+  float body = smoothstep(0.36, 0.94, primary);
+  float filament = pow(smoothstep(0.40, 0.92, secondary), 1.45);
+  float edgeGlow = pow(smoothstep(0.48, 0.96, wisps), 1.75);
 
-  float smoke = body * 0.62 + filament * 0.56 + edgeGlow * 0.34;
-  smoke *= smoothstep(0.24, 0.68, primary * 0.7 + secondary * 0.35);
+  float smoke = body * 0.64 + filament * 0.66 + edgeGlow * 0.44;
+  smoke *= smoothstep(0.20, 0.64, primary * 0.68 + secondary * 0.38);
 
-  // Spatial mask: denser on left, bottom-left, top-left band, and curling toward/around the orb;
-  // fades toward the far right and preserves open dark pockets in upper-center.
-  float leftMask = smoothstep(0.84, 0.04, uv.x);
-  float bottomMask = smoothstep(0.76, 0.02, uv.y);
-  float topLeftCurl = smoothstep(0.48, 0.0, uv.x) * smoothstep(0.55, 0.96, uv.y);
-  float orbApproach = exp(-pow((orbDist - 0.31) / 0.25, 2.0)) * smoothstep(0.22, 0.62, uv.x);
+  // Spatial mask: billowing plumes along left edge, bottom-left, top-left curl, and wrapping the orb
+  float leftMask = smoothstep(0.88, 0.04, uv.x);
+  float bottomMask = smoothstep(0.78, 0.02, uv.y);
+  float topLeftCurl = smoothstep(0.50, 0.0, uv.x) * smoothstep(0.54, 0.96, uv.y);
+  float orbApproach = exp(-pow((orbDist - 0.32) / 0.26, 2.0)) * smoothstep(0.20, 0.60, uv.x);
   float orbCoreCarve = smoothstep(0.11, 0.23, orbDist);
 
   float spatial = max(
-    max(leftMask * 0.95, bottomMask * 0.92),
-    max(topLeftCurl * 0.88, orbApproach * 0.78)
+    max(leftMask * 0.98, bottomMask * 0.95),
+    max(topLeftCurl * 0.92, orbApproach * 0.86)
   );
-  // Gently fade far right edge so canvas never terminates abruptly
-  spatial *= smoothstep(1.04, 0.80, uv.x);
-  // Keep orb interior clean while plumes curl right up to its rim
-  spatial *= mix(0.25, 1.0, orbCoreCarve);
+  spatial *= smoothstep(1.05, 0.82, uv.x);
+  spatial *= mix(0.22, 1.0, orbCoreCarve);
 
   // Organic intro reach: wisps emerge cleanly on the left/bottom by 0.8s and curl across toward the orb
   float reachEdge = mix(0.28, 1.24, smoothstep(0.05, 0.82, u_intro));
   float introReach = smoothstep(reachEdge + 0.28, reachEdge - 0.28, uv.x * 0.85 + uv.y * 0.12);
-  float density = clamp(smoke * spatial * mix(0.62, 1.0, introReach) * 1.48, 0.0, 1.0);
+  float density = clamp(smoke * spatial * mix(0.64, 1.0, introReach) * 1.56, 0.0, 1.0);
 
   // Final alpha = density * sectionIntensity * intro * MAX_ALPHA
   float rawAlpha = clamp(density * u_sectionIntensity * u_intro * u_maxAlpha, 0.0, u_maxAlpha);

@@ -143,11 +143,11 @@ td.num {
   .orb-halo-spin,
   .orb-image-kenburns,
   .orb-ripple-idle,
+  .orb-ripple-idle-b,
   .orb-particle,
   .orb-particle::after,
   .smoke-fallback-blob-a,
-  .smoke-fallback-blob-b,
-  .hero-sparkle {
+  .smoke-fallback-blob-b {
     animation: none !important;
   }
 
@@ -160,7 +160,8 @@ td.num {
     opacity: 0.85 !important;
   }
 
-  .orb-ripple-idle {
+  .orb-ripple-idle,
+  .orb-ripple-idle-b {
     opacity: 0 !important;
   }
 }

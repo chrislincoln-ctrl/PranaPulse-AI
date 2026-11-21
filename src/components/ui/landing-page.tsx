@@ -1,6 +1,5 @@
 /* eslint-disable */
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { Sparkle } from "lucide-react";
 import Globe from "@/components/ui/globe";
 import { SmokeCanvas } from "@/components/ui/smoke-canvas";
 import { cn } from "@/lib/utils";
@@ -215,14 +214,6 @@ export function ScrollGlobe({ sections, globeConfig = defaultGlobeConfig, classN
         <div className="scale-75 sm:scale-90 lg:scale-100">
           <Globe />
         </div>
-      </div>
-
-      {/* Subtle twinkling corner sparkle */}
-      <div
-        aria-hidden="true"
-        className="hero-sparkle fixed right-4 bottom-4 sm:right-6 sm:bottom-6 z-[15] pointer-events-none text-foreground/45 print:hidden"
-      >
-        <Sparkle className="h-7 w-7 fill-current stroke-[1.25]" />
       </div>
 
       {/* Dynamic sections - fully responsive */}
