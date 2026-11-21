@@ -7,7 +7,7 @@ import { LandingPageView } from './components/LandingPageView.js';
 import { SectionStepperFooter } from './components/SectionStepperFooter.js';
 import { SegmentedTabs } from './components/SegmentedTabs.js';
 import { SevereAlertBanner } from './components/SevereAlertBanner.js';
-import { WorkbenchTabPanel } from './components/WorkbenchTabPanel.js';
+import { WorkbenchCompanionOverlay, WorkbenchTabPanel } from './components/WorkbenchTabPanel.js';
 import { APP_META } from './config/constants.js';
 import type { WorkbenchTabId } from './config/uiConstants.js';
 import { useAirQualityWorkspace } from './hooks/useAirQualityWorkspace.js';
@@ -31,7 +31,7 @@ function AppMainContent({
   readonly t: LocaleDictionary;
 }): ReactElement {
   return (
-    <main id="main-content" className="container relative z-[2] flex-1 pb-12">
+    <main id="main-content" className="container relative z-[2] flex-1 pb-36 sm:pb-40">
       <div className="pt-3 pb-3 sm:pt-4 sm:pb-4">
         <SegmentedTabs activeTab={activeTab} onSelectTab={onSelectTab} t={t} />
       </div>
@@ -201,6 +201,7 @@ function AppShell(p: AppShellProps): ReactElement {
       />
       <AppViewBody {...p} />
       <AppFooter notice={p.t.footerNotice} />
+      {p.viewMode === 'workbench' && <WorkbenchCompanionOverlay workspace={p.workspace} t={p.t} />}
       <AuthModal
         isOpen={p.authModalOpen}
         auth={p.auth}

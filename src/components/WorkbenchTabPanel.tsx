@@ -77,13 +77,8 @@ export const WorkbenchTabPanel = memo(function WorkbenchTabPanel({
   workspace,
   t,
 }: WorkbenchTabPanelProps): ReactElement {
-  const applyMemberPatch = (memberId: string, patch: Partial<FamilyMemberInput>): void => {
-    workspace.updateInput({
-      members: workspace.input.members.map((m) => (m.id === memberId ? { ...m, ...patch } : m)),
-    });
-  };
-  const activeView =
-    activeTab === 'dashboard' ? (
+  if (activeTab === 'dashboard') {
+    return (
       <TelemetryHero
         telemetry={workspace.bundle.telemetry}
         gpsStatus={workspace.gpsStatus}
@@ -92,22 +87,32 @@ export const WorkbenchTabPanel = memo(function WorkbenchTabPanel({
         onRequestGps={workspace.requestGeolocation}
         t={t}
       />
-    ) : (
-      renderWorkbenchModule(activeTab, workspace, t)
     );
+  }
+  return renderWorkbenchModule(activeTab, workspace, t);
+});
 
+/** Top-level floating Telegram + Family Companion Chat dock rendered outside `<main>` stacking contexts. */
+export const WorkbenchCompanionOverlay = memo(function WorkbenchCompanionOverlay({
+  workspace,
+  t,
+}: {
+  readonly workspace: ReturnType<typeof useAirQualityWorkspace>;
+  readonly t: LocaleDictionary;
+}): ReactElement {
   return (
-    <>
-      {activeView}
-      <FamilyCompanionChat
-        input={workspace.input}
-        memberSchedules={workspace.bundle.aiPlan.memberSchedules ?? []}
-        workspaceKey={workspace.workspaceKey}
-        telegramLinked={workspace.telegramLinked}
-        syncedFromTelegram={workspace.syncedFromTelegram}
-        onApplyMemberPatch={applyMemberPatch}
-        t={t}
-      />
-    </>
+    <FamilyCompanionChat
+      input={workspace.input}
+      memberSchedules={workspace.bundle.aiPlan.memberSchedules ?? []}
+      workspaceKey={workspace.workspaceKey}
+      telegramLinked={workspace.telegramLinked}
+      syncedFromTelegram={workspace.syncedFromTelegram}
+      onApplyMemberPatch={(memberId: string, patch: Partial<FamilyMemberInput>) => {
+        workspace.updateInput({
+          members: workspace.input.members.map((m) => (m.id === memberId ? { ...m, ...patch } : m)),
+        });
+      }}
+      t={t}
+    />
   );
 });
