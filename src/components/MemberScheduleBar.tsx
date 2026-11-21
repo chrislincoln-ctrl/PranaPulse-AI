@@ -1,4 +1,4 @@
-import { Check, Copy, Share2 } from 'lucide-react';
+import { Check, Copy, Eye, EyeOff, Share2 } from 'lucide-react';
 import { memo, useState, type ReactElement } from 'react';
 import type { MemberDailySchedule } from '../domain/types.js';
 import type { LocaleDictionary } from '../i18n/translations.js';
@@ -65,6 +65,51 @@ function MemberTabsStrip({
   );
 }
 
+function ShareActionButtons(p: {
+  readonly waUrl: string;
+  readonly copied: boolean;
+  readonly showPreview: boolean;
+  readonly onCopy: () => void;
+  readonly onTogglePreview: () => void;
+  readonly t: LocaleDictionary;
+}): ReactElement {
+  const CopyIcon = p.copied ? Check : Copy;
+  const PreviewIcon = p.showPreview ? EyeOff : Eye;
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <a
+        href={p.waUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="btn-secondary inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-ok"
+      >
+        <Share2 className="h-3.5 w-3.5" aria-hidden="true" />
+        <span>{p.t.shareWhatsAppButton}</span>
+      </a>
+      <button
+        type="button"
+        onClick={p.onCopy}
+        className="btn-secondary inline-flex items-center gap-1.5 px-2.5 py-1 text-xs"
+      >
+        <CopyIcon
+          className={`h-3.5 w-3.5 ${p.copied ? 'text-ok' : 'text-muted'}`}
+          aria-hidden="true"
+        />
+        <span>{p.copied ? p.t.copiedBriefButton : p.t.copyBriefButton}</span>
+      </button>
+      <button
+        type="button"
+        aria-expanded={p.showPreview}
+        onClick={p.onTogglePreview}
+        className="btn-secondary inline-flex items-center gap-1 px-2.5 py-1 text-xs text-ink-2"
+      >
+        <PreviewIcon className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+        <span>WhatsApp Brief</span>
+      </button>
+    </div>
+  );
+}
+
 function MemberShareBar({
   schedule,
   t,
@@ -73,6 +118,7 @@ function MemberShareBar({
   readonly t: LocaleDictionary;
 }): ReactElement {
   const [copied, setCopied] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const waUrl = `https://wa.me/?text=${encodeURIComponent(schedule.shareBriefText)}`;
 
   const handleCopy = (): void => {
@@ -84,40 +130,36 @@ function MemberShareBar({
   };
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-rule bg-paper-2 px-3 py-2">
-      <span className="text-xs font-medium text-ink-2">{schedule.summaryHeadline}</span>
-      <div className="flex items-center gap-2">
-        <a
-          href={waUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn-secondary inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-ok"
-        >
-          <Share2 className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>{t.shareWhatsAppButton}</span>
-        </a>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="btn-secondary inline-flex items-center gap-1.5 px-2.5 py-1 text-xs"
-        >
-          {copied ? (
-            <Check className="h-3.5 w-3.5 text-ok" aria-hidden="true" />
-          ) : (
-            <Copy className="h-3.5 w-3.5 text-muted" aria-hidden="true" />
-          )}
-          <span>{copied ? t.copiedBriefButton : t.copyBriefButton}</span>
-        </button>
+    <div className="space-y-2 rounded border border-rule bg-paper-2 px-3 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs font-medium text-ink-2">{schedule.summaryHeadline}</span>
+        <ShareActionButtons
+          waUrl={waUrl}
+          copied={copied}
+          showPreview={showPreview}
+          onCopy={handleCopy}
+          onTogglePreview={() => {
+            setShowPreview((prev) => !prev);
+          }}
+          t={t}
+        />
       </div>
+      {showPreview && (
+        <pre className="measured overflow-x-auto rounded border border-rule bg-paper-3 p-2.5 text-xs whitespace-pre-wrap text-ink-2">
+          {schedule.shareBriefText}
+        </pre>
+      )}
     </div>
   );
 }
 
-/** Per-member schedule pill selector paired with 1-click WhatsApp sharing and brief copy controls. */
+/** Per-member schedule pill selector paired with 1-click WhatsApp sharing and brief preview controls. */
 export const MemberScheduleBar = memo(function MemberScheduleBar(
   props: MemberScheduleBarProps,
 ): ReactElement | null {
-  if (props.memberSchedules.length === 0) {
+  const firstSchedule = props.memberSchedules[0] ?? null;
+  const shareTarget = props.activeSchedule ?? firstSchedule;
+  if (!shareTarget) {
     return null;
   }
   return (
@@ -128,7 +170,7 @@ export const MemberScheduleBar = memo(function MemberScheduleBar(
         onSelectMemberId={props.onSelectMemberId}
         t={props.t}
       />
-      {props.activeSchedule && <MemberShareBar schedule={props.activeSchedule} t={props.t} />}
+      <MemberShareBar schedule={shareTarget} t={props.t} />
     </div>
   );
 });

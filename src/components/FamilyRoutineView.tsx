@@ -182,7 +182,12 @@ export const FamilyRoutineView = memo(function FamilyRoutineView({
           />
         </section>
       </div>
-      <FamilyCompanionChat input={input} onApplyMemberPatch={applyMemberPatch} t={t} />
+      <FamilyCompanionChat
+        input={input}
+        memberSchedules={aiPlan.memberSchedules ?? []}
+        onApplyMemberPatch={applyMemberPatch}
+        t={t}
+      />
     </div>
   );
 });

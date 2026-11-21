@@ -1,6 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
-import { SECURITY_LIMITS, VALIDATION_BOUNDS } from '../../src/config/constants.js';
-import { FAMILY_RISK_WEIGHTS } from '../../src/config/physicsConstants.js';
 import { DEFAULT_WORKSPACE_INPUT } from '../../src/config/uiConstants.js';
 import { computePlanPhysics } from '../../src/domain/localBaseline.js';
 import {
@@ -14,9 +11,9 @@ import type {
 } from '../../src/domain/types.js';
 import type { PlanRequestPayload, SupportedLanguage } from '../../src/validators/schemas.js';
 import type { ServerEnv } from '../env.js';
-import { withTimeout } from './cacheAndLimiter.js';
 import type { ProfileHabitPatch } from './companionDbMapper.js';
-import { extractHabitUpdates, extractLocationMention, hasHabitPatch } from './habitExtractor.js';
+import { generateCompanionReply } from './companionLlmClient.js';
+import { extractHabitUpdates, extractLocationMention } from './habitExtractor.js';
 import { reverseGeocodeCoords } from './reverseGeocoder.js';
 import {
   getUrbanTelemetryBundle,
@@ -55,9 +52,6 @@ export interface CompanionCheckinResult {
   readonly aiEnhanced: boolean;
 }
 
-const HIGH_AQI = FAMILY_RISK_WEIGHTS.HIGH_RISK_CPCB_THRESHOLD;
-const MODERATE_AQI = 120;
-
 const ZERO_COMMUTE: CommuteOptionEvaluation = {
   mode: 'metro',
   mask: 'n95-ffp2',
@@ -77,6 +71,23 @@ function mergeMemberWithPatch(
   return { ...member, ...patch };
 }
 
+async function resolveMentionedPlace(
+  mentioned: string,
+  baseCity: string,
+): Promise<{ readonly city: string; readonly lat: number; readonly lon: number } | null> {
+  const parentCity = baseCity.split(',')[0]?.trim() ?? '';
+  if (parentCity.length > 0 && !mentioned.toLowerCase().includes(parentCity.toLowerCase())) {
+    const scopedMatches = await searchUrbanLocations(`${mentioned} ${parentCity}`);
+    const scopedTop = scopedMatches[0];
+    if (scopedTop) {
+      return { city: scopedTop.name, lat: scopedTop.lat, lon: scopedTop.lon };
+    }
+  }
+  const directMatches = await searchUrbanLocations(mentioned);
+  const directTop = directMatches[0];
+  return directTop ? { city: directTop.name, lat: directTop.lat, lon: directTop.lon } : null;
+}
+
 async function resolveCheckinLocation(
   input: CompanionCheckinInput,
 ): Promise<{ readonly city: string; readonly lat: number; readonly lon: number }> {
@@ -86,9 +97,9 @@ async function resolveCheckinLocation(
   }
   const mentioned = extractLocationMention(input.message);
   if (mentioned) {
-    const [top] = await searchUrbanLocations(mentioned);
-    if (top) {
-      return { city: top.name, lat: top.lat, lon: top.lon };
+    const resolved = await resolveMentionedPlace(mentioned, input.city);
+    if (resolved) {
+      return resolved;
     }
   }
   return { city: input.city, lat: input.lat, lon: input.lon };
@@ -140,79 +151,6 @@ export function buildMemberScheduleSnapshot(params: {
   );
 }
 
-function buildRoleGuidance(member: FamilyMemberInput, effectiveAqi: number): string {
-  const archetype = resolveMemberArchetype(member);
-  const isHigh = effectiveAqi >= HIGH_AQI;
-  if (archetype === 'senior-homebound' || member.role === 'senior-respiratory') {
-    return isHigh
-      ? 'Senior respiratory alert: stay indoors with HEPA running, keep reliever inhaler close, and avoid outdoor walks.'
-      : 'Keep any outing brief during midday solar breakup and wear a fitted N95 if air feels hazy.';
-  }
-  if (archetype === 'school-student' || member.role === 'child') {
-    return isHigh
-      ? 'Keep recess/sports indoors and wear a fitted N95/FFP2 on the school commute.'
-      : 'Wear your mask during transit and wash hands/face upon returning home.';
-  }
-  return effectiveAqi >= MODERATE_AQI
-    ? 'Wear a fitted N95/FFP2 outdoors, prefer metro/closed transit, and avoid idling traffic junctions.'
-    : 'Conditions are moderate right now; normal masked travel is safe.';
-}
-
-function buildDeterministicReply(
-  member: FamilyMemberInput,
-  city: string,
-  telemetry: TelemetryBundle,
-  habitPatch: ProfileHabitPatch,
-): string {
-  const aqi = telemetry.stationCrossCheck.effectiveSafetyAqi;
-  const cur = telemetry.hourlySeries[0];
-  const win = telemetry.inversion.openWindowsNow
-    ? 'Mixing is favorable right now for a short 20-min cross-ventilation.'
-    : 'Keep windows sealed until the afternoon solar breakup lifts the inversion.';
-  const updated = hasHabitPatch(habitPatch)
-    ? ` Updated ${member.label}'s daily schedule with your latest routine details.`
-    : '';
-  return (
-    `${member.label} (${city}): Live CPCB NAQI ${String(aqi)} (${telemetry.assessment.cpcbCategory}), ` +
-    `PM2.5 ${String(Math.round(telemetry.currentPollutants.pm25UgM3))} ug/m3, PBL ${String(telemetry.inversion.currentPblMeters)}m, ` +
-    `wind ${String(Math.round(cur?.windKmh ?? 0))} km/h, humidity ${String(Math.round(cur?.rhPercent ?? 0))}%. ` +
-    `${buildRoleGuidance(member, aqi)} ${win}${updated}`
-  );
-}
-
-async function tryGeminiCompanionReply(
-  baseReply: string,
-  input: CompanionCheckinInput,
-  city: string,
-  env: ServerEnv,
-): Promise<string | null> {
-  if (!env.GEMINI_API_KEY) {
-    return null;
-  }
-  try {
-    const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
-    const prompt = [
-      `Member: ${input.member.label} (${resolveMemberArchetype(input.member)}, mask=${input.member.mask})`,
-      `Health: ${input.member.healthNotes ?? 'none'}; Habits: ${input.member.dailyHabitsNote ?? 'none'}`,
-      `Verified telemetry (${city}): ${baseReply}`,
-      `Message: "${input.message}"`,
-      `Reply concisely (<90 words) in "${input.language}" using ONLY these verified numbers.`,
-    ].join('\n');
-    const response = await withTimeout(
-      ai.models.generateContent({
-        model: env.GEMINI_MODEL,
-        contents: prompt,
-        config: { temperature: VALIDATION_BOUNDS.GEMINI_TEMPERATURE },
-      }),
-      SECURITY_LIMITS.UPSTREAM_TIMEOUT_MS,
-    );
-    const text = response.text?.trim();
-    return text && text.length > 0 ? text : null;
-  } catch {
-    return null;
-  }
-}
-
 /** Shared channel-agnostic Family Companion Brain powering in-app chat and Telegram. */
 export async function handleCompanionCheckin(
   input: CompanionCheckinInput,
@@ -220,29 +158,29 @@ export async function handleCompanionCheckin(
 ): Promise<CompanionCheckinResult> {
   const loc = await resolveCheckinLocation(input);
   const habitPatch = extractHabitUpdates(input.message);
-  const mergedMember = mergeMemberWithPatch(input.member, habitPatch);
+  const member = mergeMemberWithPatch(input.member, habitPatch);
   const telemetry = await getUrbanTelemetryBundle({
     lat: loc.lat,
     lon: loc.lon,
     cityLabel: loc.city,
     env,
   });
-  const updatedSchedule = buildMemberScheduleSnapshot({
-    member: mergedMember,
-    city: loc.city,
-    lat: loc.lat,
-    lon: loc.lon,
-    language: input.language,
-    telemetry,
-    areaM2: input.areaM2,
-    cadrM3Hr: input.cadrM3Hr,
-  });
-  const deterministic = buildDeterministicReply(mergedMember, loc.city, telemetry, habitPatch);
-  const aiText = await tryGeminiCompanionReply(deterministic, input, loc.city, env);
+  const updatedSchedule = buildMemberScheduleSnapshot({ ...input, ...loc, member, telemetry });
+  const { reply, aiEnhanced } = await generateCompanionReply(
+    {
+      member,
+      message: input.message,
+      language: input.language,
+      city: loc.city,
+      telemetry,
+      habitPatch,
+      updatedSchedule,
+    },
+    env,
+  );
   const cur = telemetry.hourlySeries[0];
-
   return {
-    reply: aiText ?? deterministic,
+    reply,
     resolvedCity: loc.city,
     resolvedLat: loc.lat,
     resolvedLon: loc.lon,
@@ -255,6 +193,6 @@ export async function handleCompanionCheckin(
     openWindowsNow: telemetry.inversion.openWindowsNow,
     habitPatch,
     updatedSchedule,
-    aiEnhanced: Boolean(aiText),
+    aiEnhanced,
   };
 }

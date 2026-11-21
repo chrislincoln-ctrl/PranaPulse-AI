@@ -68,11 +68,12 @@ describe('Per-member Family Routine UI, WhatsApp share & Companion Chat', () => 
       />,
     );
 
-    // 1. Switch to Aarav's personal schedule tab and verify School steps + WhatsApp link
+    // 1. Switch to Aarav's personal schedule tab and verify School steps + WhatsApp links
     fireEvent.click(screen.getByRole('tab', { name: /Aarav \(School\)/i }));
     expect(screen.getByText(/School Departure & Fitted Mask Check/i)).toBeInTheDocument();
-    const waLink = screen.getByRole('link', { name: /Share on WhatsApp/i });
-    expect(waLink.getAttribute('href')).toMatch(/^https:\/\/wa\.me\/\?text=/);
+    const waLinks = screen.getAllByRole('link', { name: /Share on WhatsApp/i });
+    expect(waLinks.length).toBeGreaterThanOrEqual(2);
+    expect(waLinks[0]?.getAttribute('href')).toMatch(/^https:\/\/wa\.me\/\?text=/);
 
     // 2. Switch to Meera's personal schedule tab and confirm distinct Senior asthma schedule
     fireEvent.click(screen.getByRole('tab', { name: /Meera \(Senior\)/i }));
