@@ -45,67 +45,66 @@ function formatCleanHours(hours: readonly number[]): string {
   return `${String(first).padStart(2, '0')}:00 - ${String(last).padStart(2, '0')}:59`;
 }
 
+function firstNameOf(label: string): string {
+  const head = label.split('(')[0]?.trim();
+  return head && head.length > 0 ? head : label;
+}
+
 function buildIndoorNightReply(ctx: CompanionReplyContext): string {
   const { member, city, telemetry } = ctx;
+  const name = firstNameOf(member.label);
   const aqi = telemetry.stationCrossCheck.effectiveSafetyAqi;
-  const pm25 = Math.round(telemetry.currentPollutants.pm25UgM3);
   const pbl = telemetry.inversion.currentPblMeters;
   const cleanWin = formatCleanHours(telemetry.inversion.bestWindowHours);
   return (
-    `You're doing the right thing staying indoors with doors and windows closed in ${city}, ${member.label}. ` +
-    `Right now the boundary layer ceiling is only ${String(pbl)}m (CPCB NAQI ${String(aqi)}, outdoor PM2.5 ${String(pm25)} ug/m3), ` +
-    `which traps surface pollutants outside overnight. Keep the room sealed, run your HEPA purifier on quiet/medium mode if available, ` +
-    `and wait until tomorrow's solar breakup window (${cleanWin}) before airing out the house.`
+    `Hi ${name}! You're doing the right thing staying indoors with windows closed in ${city} while the ${String(pbl)}m inversion traps NAQI ${String(aqi)} outside. ` +
+    `Keep your HEPA purifier on low and wait until ${cleanWin} before airing out.`
   );
 }
 
 function buildSymptomReply(ctx: CompanionReplyContext): string {
   const { member, city, telemetry } = ctx;
+  const name = firstNameOf(member.label);
   const aqi = telemetry.stationCrossCheck.effectiveSafetyAqi;
   const pm25 = Math.round(telemetry.currentPollutants.pm25UgM3);
-  const pbl = telemetry.inversion.currentPblMeters;
   return (
-    `Please take it easy indoors in ${city}, ${member.label}. Outdoor CPCB NAQI is ${String(aqi)} ` +
-    `with ${String(pm25)} ug/m3 PM2.5 under a ${String(pbl)}m mixing layer. Keep windows shut, run indoor HEPA filtration, ` +
-    `avoid any outdoor exertion or smoky kitchen fumes, and keep your reliever inhaler or prescribed medication handy.`
+    `Hi ${name}, please rest indoors in ${city} right now (NAQI ${String(aqi)}, PM2.5 ${String(pm25)} ug/m3). ` +
+    `Keep windows sealed, run your HEPA purifier, and keep your reliever inhaler nearby.`
   );
 }
 
 function buildWindowReply(ctx: CompanionReplyContext): string {
   const { member, city, telemetry } = ctx;
+  const name = firstNameOf(member.label);
   const aqi = telemetry.stationCrossCheck.effectiveSafetyAqi;
   const pbl = telemetry.inversion.currentPblMeters;
   const cleanWin = formatCleanHours(telemetry.inversion.bestWindowHours);
   if (telemetry.inversion.openWindowsNow) {
     return (
-      `Yes, ${member.label} — in ${city} (NAQI ${String(aqi)}, PBL ${String(pbl)}m), atmospheric dispersion is open right now. ` +
-      `You can cross-ventilate for about 15-20 minutes to clear indoor CO2, then close windows again before evening trapping.`
+      `Hi ${name}! Dispersion is open in ${city} right now (NAQI ${String(aqi)}, PBL ${String(pbl)}m). ` +
+      `You can cross-ventilate for 15-20 minutes, then close up before evening.`
     );
   }
   return (
-    `Hold off on opening windows right now in ${city}, ${member.label}. The mixing layer is shallow (${String(pbl)}m, NAQI ${String(aqi)}), ` +
-    `so outdoor smog will infiltrate indoors. The safest ventilation window is ${cleanWin} when solar heating lifts the boundary layer.`
+    `Hi ${name}, hold off on opening windows in ${city} right now (shallow ${String(pbl)}m mixing layer, NAQI ${String(aqi)}). ` +
+    `The cleanest ventilation window today is ${cleanWin}.`
   );
 }
 
 function buildGeneralReply(ctx: CompanionReplyContext): string {
   const { member, city, telemetry } = ctx;
+  const name = firstNameOf(member.label);
   const aqi = telemetry.stationCrossCheck.effectiveSafetyAqi;
-  const cur = telemetry.hourlySeries[0];
   const pm25 = Math.round(telemetry.currentPollutants.pm25UgM3);
-  const pbl = telemetry.inversion.currentPblMeters;
-  const wind = Math.round(cur?.windKmh ?? 0);
-  const rh = Math.round(cur?.rhPercent ?? 0);
   const cleanWin = formatCleanHours(telemetry.inversion.bestWindowHours);
   const maskTip =
     member.role === 'senior-respiratory'
-      ? 'Keep outdoor time brief and carry your inhaler.'
-      : `Use your ${member.mask} mask if stepping out into traffic.`;
+      ? 'Keep the outing brief and carry your inhaler.'
+      : `Wear your ${member.mask} mask outdoors.`;
 
   return (
-    `For ${member.label} in ${city}: live CPCB NAQI is ${String(aqi)} (${telemetry.assessment.cpcbCategory}) ` +
-    `with PM2.5 at ${String(pm25)} ug/m3, PBL ceiling ${String(pbl)}m, wind ${String(wind)} km/h, and humidity ${String(rh)}%. ` +
-    `${maskTip} Best low-exposure window today is ${cleanWin}.`
+    `Hi ${name}! In ${city}, NAQI is ${String(aqi)} (${telemetry.assessment.cpcbCategory}, PM2.5 ${String(pm25)} ug/m3) and the best window to head out is ${cleanWin}. ` +
+    maskTip
   );
 }
 
@@ -113,7 +112,7 @@ function buildGeneralReply(ctx: CompanionReplyContext): string {
 export function buildContextAwareCompanionReply(ctx: CompanionReplyContext): string {
   const { member, message, habitPatch } = ctx;
   const updateSuffix = hasHabitPatch(habitPatch)
-    ? ` I have also updated ${member.label}'s daily schedule with your latest routine details.`
+    ? ` Schedule updated for ${firstNameOf(member.label)}.`
     : '';
   let body = buildGeneralReply(ctx);
   if (SYMPTOM_RE.test(message)) {
@@ -128,6 +127,7 @@ export function buildContextAwareCompanionReply(ctx: CompanionReplyContext): str
 
 function buildCompanionPrompt(ctx: CompanionReplyContext): string {
   const { member, message, language, city, telemetry, habitPatch, updatedSchedule } = ctx;
+  const name = firstNameOf(member.label);
   const cur = telemetry.hourlySeries[0];
   const aqi = telemetry.stationCrossCheck.effectiveSafetyAqi;
   const cleanWin = formatCleanHours(telemetry.inversion.bestWindowHours);
@@ -136,13 +136,12 @@ function buildCompanionPrompt(ctx: CompanionReplyContext): string {
     .join(' | ');
 
   return [
-    `You are PranaPulse Family Companion chatting directly with ${member.label} (role=${member.role}, archetype=${resolveMemberArchetype(member)}, mask=${member.mask}).`,
-    `Member health notes: ${member.healthNotes ?? 'none'}. Member daily habits: ${member.dailyHabitsNote ?? 'none'}.`,
-    `Verified live telemetry for ${city}: CPCB_NAQI=${String(aqi)} (${telemetry.assessment.cpcbCategory}), PM2.5=${String(Math.round(telemetry.currentPollutants.pm25UgM3))} ug/m3, PBL_height=${String(telemetry.inversion.currentPblMeters)}m, inversion=${telemetry.inversion.currentSeverity}, wind=${String(Math.round(cur?.windKmh ?? 0))} km/h, humidity=${String(Math.round(cur?.rhPercent ?? 0))}%, openWindowsNow=${String(telemetry.inversion.openWindowsNow)}, bestVentilationWindow=${cleanWin}.`,
-    `Member's personalized schedule today: ${stepsText}.`,
-    `Schedule updated from this message: ${String(hasHabitPatch(habitPatch))}.`,
-    `User message from ${member.label}: "${message}"`,
-    `Instructions: Respond warmly and conversationally in language "${language}" (60-110 words). Directly acknowledge their exact situation (e.g. if they are indoors at night with doors/windows closed, affirm that and give indoor comfort/purifier/sleep advice rather than telling them to wear a mask in transit!). Weave in 2-3 relevant live numbers from the verified telemetry above. Do not use markdown headings or bullet lists.`,
+    `You are PranaPulse Family Companion chatting with ${name} (${member.label}, role=${member.role}, archetype=${resolveMemberArchetype(member)}, mask=${member.mask}).`,
+    `Health notes: ${member.healthNotes ?? 'none'}. Daily habits: ${member.dailyHabitsNote ?? 'none'}.`,
+    `Live telemetry for ${city}: CPCB_NAQI=${String(aqi)} (${telemetry.assessment.cpcbCategory}), PM2.5=${String(Math.round(telemetry.currentPollutants.pm25UgM3))} ug/m3, PBL=${String(telemetry.inversion.currentPblMeters)}m, inversion=${telemetry.inversion.currentSeverity}, wind=${String(Math.round(cur?.windKmh ?? 0))} km/h, humidity=${String(Math.round(cur?.rhPercent ?? 0))}%, openWindowsNow=${String(telemetry.inversion.openWindowsNow)}, bestWindow=${cleanWin}.`,
+    `Schedule today: ${stepsText}. Schedule updated: ${String(hasHabitPatch(habitPatch))}.`,
+    `User message: "${message}"`,
+    `Instructions: Reply in language "${language}" in 2 short, crisp sentences (STRICTLY 25-40 words maximum). Start with a brief warm greeting ("Hi ${name}!"), directly answer their question to the point with 1-2 key live numbers (like NAQI ${String(aqi)} or best window ${cleanWin}), and give one clear next step. No fluff, no long paragraphs, no bullet lists.`,
   ].join('\n');
 }
 
