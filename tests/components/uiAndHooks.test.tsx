@@ -270,12 +270,10 @@ describe('Phase 4 full Console UI, hooks & accessibility verification', () => {
       expect(writeText).toHaveBeenCalledWith(expect.stringContaining('CPCB NAQI'));
     });
 
-    const advisorInput = screen.getByPlaceholderText(/Ask about school commute/i);
-    fireEvent.change(advisorInput, { target: { value: 'Safe for COPD walking?' } });
-    fireEvent.click(screen.getByRole('button', { name: /Ask advisor/i }));
-    await waitFor(() => {
-      expect(screen.getByText(/keep windows sealed until solar breakup/i)).toBeInTheDocument();
-    });
+    expect(screen.getByRole('link', { name: /Share on WhatsApp/i })).toHaveAttribute(
+      'href',
+      expect.stringContaining('https://wa.me/?text='),
+    );
 
     axeRes = await axe.run(container, { rules: { 'color-contrast': { enabled: false } } });
     expect(axeRes.violations).toHaveLength(0);

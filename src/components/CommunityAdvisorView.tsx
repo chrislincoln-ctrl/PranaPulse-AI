@@ -1,4 +1,4 @@
-import { Check, Copy, Printer } from 'lucide-react';
+import { Check, Copy, Printer, Share2 } from 'lucide-react';
 import { memo, useState, type ReactElement } from 'react';
 import {
   PRECISION_DISPLAY,
@@ -10,7 +10,6 @@ import type { TelemetrySnapshot } from '../domain/localBaseline.js';
 import type { RwaCollectiveImpact } from '../domain/types.js';
 import type { LocaleDictionary } from '../i18n/translations.js';
 import type { PlanRequestPayload } from '../validators/schemas.js';
-import { AdvisorPanel } from './AdvisorPanel.js';
 import { RangeField } from './FormFields.js';
 import { RadialGaugeSvg } from './RadialGaugeSvg.js';
 
@@ -159,64 +158,74 @@ function RwaMetricsStrip({
   );
 }
 
-function RwaImpactActions({
-  rwa,
-  transitShiftShare,
-  bulletinPreview,
-  copied,
-  onCopy,
-  t,
-}: {
-  readonly rwa: RwaCollectiveImpact;
-  readonly transitShiftShare: number;
+interface RwaBulletinCardProps {
   readonly bulletinPreview: string;
   readonly copied: boolean;
   readonly onCopy: () => void;
   readonly t: LocaleDictionary;
-}): ReactElement {
+}
+
+function handlePrint(): void {
+  window.print();
+}
+
+function RwaBulletinCard({
+  bulletinPreview,
+  copied,
+  onCopy,
+  t,
+}: RwaBulletinCardProps): ReactElement {
+  const waHref = `https://wa.me/?text=${encodeURIComponent(bulletinPreview)}`;
+  const CopyIcon = copied ? Check : Copy;
   return (
-    <>
-      <RwaMetricsStrip rwa={rwa} transitShiftShare={transitShiftShare} t={t} />
-      <pre className="surface-recessed measured mt-4 overflow-x-auto p-3 text-xs break-words whitespace-pre-wrap text-ink-2">
-        {bulletinPreview}
-      </pre>
+    <section
+      aria-label={t.copyBulletinButton}
+      className="surface-hairline flex min-w-0 flex-col justify-between p-4 sm:p-6 lg:col-span-6"
+    >
+      <div>
+        <h3 className="text-ink">{t.copyBulletinButton}</h3>
+        <pre className="surface-recessed measured mt-4 overflow-x-auto p-4 text-xs break-words whitespace-pre-wrap text-ink-2">
+          {bulletinPreview}
+        </pre>
+      </div>
       <div className="mt-4 flex flex-wrap gap-2">
         <button
           type="button"
           onClick={onCopy}
           className="btn-primary touch-target inline-flex items-center gap-2 text-sm"
         >
-          {copied ? (
-            <Check className="h-4 w-4" aria-hidden="true" />
-          ) : (
-            <Copy className="h-4 w-4" aria-hidden="true" />
-          )}
+          <CopyIcon className="h-4 w-4" aria-hidden="true" />
           <span>{copied ? t.copiedBulletinButton : t.copyBulletinButton}</span>
         </button>
+        <a
+          href={waHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-secondary touch-target inline-flex items-center gap-2 text-sm font-semibold text-ok"
+        >
+          <Share2 className="h-4 w-4" aria-hidden="true" />
+          <span>{t.shareWhatsAppButton}</span>
+        </a>
         <button
           type="button"
-          onClick={() => {
-            window.print();
-          }}
+          onClick={handlePrint}
           className="btn-secondary touch-target inline-flex items-center gap-2 text-sm"
         >
           <Printer className="h-4 w-4" aria-hidden="true" />
           <span>{t.printBulletinButton}</span>
         </button>
       </div>
-    </>
+    </section>
   );
 }
 
 /**
- * Neighborhood RWA collective impact simulator, clipboard/print bulletin generator,
- * and telemetry-grounded streaming SSE conversational advisor.
+ * Neighborhood RWA collective impact simulator and clipboard/WhatsApp/print bulletin generator.
  */
 export const CommunityAdvisorView = memo(function CommunityAdvisorView({
   input,
   telemetry,
   rwa,
-  groqConfigured = false,
   onUpdateInput,
   t,
 }: CommunityAdvisorViewProps): ReactElement {
@@ -227,29 +236,27 @@ export const CommunityAdvisorView = memo(function CommunityAdvisorView({
     <div className="grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-12">
       <section
         aria-labelledby="rwa-heading"
-        className="surface-hairline min-w-0 p-4 sm:p-6 lg:col-span-5"
+        className="surface-hairline min-w-0 p-4 sm:p-6 lg:col-span-6"
       >
         <h2 id="rwa-heading" className="text-ink">
           {t.rwaSectionHeading}
         </h2>
         <RwaControlsBlock input={input} onUpdateInput={onUpdateInput} t={t} />
-        <RwaImpactActions
-          rwa={rwa}
-          transitShiftShare={input.transitShiftShare}
-          bulletinPreview={bulletinText}
-          copied={copied}
-          onCopy={() => {
-            void navigator.clipboard.writeText(bulletinText).then(() => {
-              setCopied(true);
-              setTimeout(() => {
-                setCopied(false);
-              }, UI_TIMINGS.COPY_RESET_MS);
-            });
-          }}
-          t={t}
-        />
+        <RwaMetricsStrip rwa={rwa} transitShiftShare={input.transitShiftShare} t={t} />
       </section>
-      <AdvisorPanel input={input} telemetry={telemetry} groqConfigured={groqConfigured} t={t} />
+      <RwaBulletinCard
+        bulletinPreview={bulletinText}
+        copied={copied}
+        onCopy={() => {
+          void navigator.clipboard.writeText(bulletinText).then(() => {
+            setCopied(true);
+            setTimeout(() => {
+              setCopied(false);
+            }, UI_TIMINGS.COPY_RESET_MS);
+          });
+        }}
+        t={t}
+      />
     </div>
   );
 });

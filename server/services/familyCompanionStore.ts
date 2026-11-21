@@ -41,9 +41,14 @@ function findInMemoryByOwnerKey(
 
 function buildFallbackProfileForMemberKey(memberKey?: string): StoredMemberProfile {
   const cleanedKey = memberKey?.toLowerCase().split('_')[0] ?? 'm1';
-  const matched =
-    DEFAULT_WORKSPACE_INPUT.members.find((m) => m.id.toLowerCase() === cleanedKey) ??
-    DEFAULT_WORKSPACE_INPUT.members[0];
+  const matched = DEFAULT_WORKSPACE_INPUT.members.find((m) => m.id.toLowerCase() === cleanedKey) ??
+    DEFAULT_WORKSPACE_INPUT.members[0] ?? {
+      id: 'm1',
+      label: 'Aarav (School)',
+      role: 'child',
+      mask: 'n95-ffp2',
+      dailyOutdoorHours: 1,
+    };
   const { city, lat, lon } = DEFAULT_WORKSPACE_INPUT;
   const profile = buildProfileFromUpsert(
     { member: matched, city, lat, lon, language: 'en' },

@@ -65,11 +65,7 @@ test.describe('PranaPulse AI live E2E, WCAG 2.2 AA & Hallmark viewport verificat
     await expect(page.getByRole('img', { name: /Dijkstra clean-corridor network/i })).toBeVisible();
 
     await page.getByRole('tab', { name: /RWA & Advisor/i }).click();
-    await expect(page.getByRole('button', { name: /Ask advisor/i })).toBeDisabled();
-    const input = page.getByPlaceholder(/Ask about school commute/i);
-    await input.fill('Window schedule check');
-    await page.getByRole('button', { name: /Ask advisor/i }).click();
-    await expect(page.locator('[aria-live="polite"]')).toContainText(/ug\/m3|windows/i);
+    await expect(page.getByRole('button', { name: /Copy RWA bulletin/i })).toBeVisible();
 
     await page.getByLabel(/Language/i).selectOption('hi');
     await expect(page.locator('html')).toHaveAttribute('lang', 'hi');
