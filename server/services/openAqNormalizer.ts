@@ -134,18 +134,23 @@ export function mapLocationSensors(
   return mapped;
 }
 
+/** Checks whether an ISO UTC timestamp is finite and within the 3-hour freshness window. */
+export function isWithinFreshnessWindow(utc: string | undefined, nowMs: number): boolean {
+  if (!utc) {
+    return false;
+  }
+  const tsMs = Date.parse(utc);
+  return Number.isFinite(tsMs) && nowMs - tsMs <= MAX_READING_AGE_MS;
+}
+
 function parseFreshTimestamp(
   utc: string | undefined,
   nowMs: number,
 ): { readonly tsMs: number; readonly utc: string } | null {
-  if (!utc) {
+  if (!utc || !isWithinFreshnessWindow(utc, nowMs)) {
     return null;
   }
-  const tsMs = Date.parse(utc);
-  if (!Number.isFinite(tsMs) || nowMs - tsMs > MAX_READING_AGE_MS) {
-    return null;
-  }
-  return { tsMs, utc };
+  return { tsMs: Date.parse(utc), utc };
 }
 
 function parseFreshMeasurement(

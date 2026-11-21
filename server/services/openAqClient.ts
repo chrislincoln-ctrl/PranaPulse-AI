@@ -8,6 +8,7 @@ import type { PollutantReadingInput } from '../../src/domain/types.js';
 import { fetchJsonWithTimeout } from './cacheAndLimiter.js';
 import {
   extractFreshReadings,
+  isWithinFreshnessWindow,
   mapLocationSensors,
   type OpenAqLatestItem,
   type OpenAqSensorItem,
@@ -25,6 +26,7 @@ interface OpenAqLocationItem {
   readonly locality?: string | null;
   readonly isMonitor?: boolean;
   readonly distance?: number | null;
+  readonly datetimeLast?: { readonly utc?: string } | null;
   readonly sensors?: readonly OpenAqSensorItem[];
 }
 
@@ -57,8 +59,13 @@ function parseDistanceMeters(rawDist: number | null | undefined): number {
     : Number.POSITIVE_INFINITY;
 }
 
-function toCandidateStation(loc: OpenAqLocationItem): CandidateStation | null {
-  if (typeof loc.id !== 'number' || !Number.isFinite(loc.id)) {
+function hasStaleLastTimestamp(loc: OpenAqLocationItem, nowMs: number): boolean {
+  const lastUtc = loc.datetimeLast?.utc;
+  return typeof lastUtc === 'string' && !isWithinFreshnessWindow(lastUtc, nowMs);
+}
+
+function toCandidateStation(loc: OpenAqLocationItem, nowMs: number): CandidateStation | null {
+  if (typeof loc.id !== 'number' || !Number.isFinite(loc.id) || hasStaleLastTimestamp(loc, nowMs)) {
     return null;
   }
   const sensors = mapLocationSensors(loc.sensors);
@@ -85,10 +92,11 @@ function compareCandidates(a: CandidateStation, b: CandidateStation): number {
 
 function buildSortedCandidates(
   results: readonly OpenAqLocationItem[] | undefined,
+  nowMs: number,
 ): readonly CandidateStation[] {
   const candidates: CandidateStation[] = [];
   for (const loc of results ?? []) {
-    const candidate = toCandidateStation(loc);
+    const candidate = toCandidateStation(loc, nowMs);
     if (candidate) {
       candidates.push(candidate);
     }
@@ -152,7 +160,7 @@ export async function fetchOpenAqStation(
     const locData = await fetchJsonWithTimeout<{
       readonly results?: readonly OpenAqLocationItem[];
     }>(locationsUrl, SECURITY_LIMITS.UPSTREAM_TIMEOUT_MS, headers);
-    candidates = buildSortedCandidates(locData.results);
+    candidates = buildSortedCandidates(locData.results, nowMs);
   } catch {
     return null;
   }
