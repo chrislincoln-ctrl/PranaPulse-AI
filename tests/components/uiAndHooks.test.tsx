@@ -186,11 +186,17 @@ describe('Phase 4 full Console UI, hooks & accessibility verification', () => {
 
     const { container } = render(<App />);
 
-    // 0. Starts on dedicated Dashboard tab; step forward via bottom Next button
+    // 0. Starts on dedicated Dashboard tab; hovering section info icon opens judge explanation tooltip
     expect(screen.getByRole('tab', { name: /Dashboard/i })).toHaveAttribute(
       'aria-selected',
       'true',
     );
+    const dashInfoBtn = screen.getByRole('button', { name: /What Dashboard does/i });
+    fireEvent.mouseEnter(dashInfoBtn);
+    expect(screen.getByRole('tooltip')).toHaveTextContent(/OpenAQ v3 & WAQI/i);
+    fireEvent.mouseLeave(dashInfoBtn);
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+
     fireEvent.click(screen.getByRole('button', { name: /Next: Family Routine/i }));
 
     // 1. Routine tab interactions: verify Member 1..3 labels, add Member 4 & switch fuel
@@ -281,7 +287,7 @@ describe('Phase 4 full Console UI, hooks & accessibility verification', () => {
       'aria-selected',
       'true',
     );
-  });
+  }, 15_000);
 
   it('handles GPS location denials gracefully and recovers cleanly when granted', async () => {
     vi.stubGlobal('fetch', setupMockFetch());

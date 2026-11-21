@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useRef, type KeyboardEvent, type ReactElement } from 'react';
 import { WORKBENCH_TABS, type WorkbenchTabId } from '../config/uiConstants.js';
 import type { LocaleDictionary } from '../i18n/translations.js';
+import { TabInfoIcon } from './SectionInfoTooltip.js';
 
 export interface SegmentedTabsProps {
   readonly activeTab: WorkbenchTabId;
@@ -69,9 +70,10 @@ function TabButton({
       tabIndex={selected ? 0 : -1}
       onClick={onSelect}
       onKeyDown={onKeyDown}
-      className="segmented-tab touch-target text-sm"
+      className="segmented-tab touch-target inline-flex items-center gap-1.5 text-sm"
     >
-      {label}
+      <span>{label}</span>
+      <TabInfoIcon tabId={tabId} />
     </button>
   );
 }

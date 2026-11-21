@@ -4,6 +4,7 @@ import { AQI_SPECTRUM_BANDS } from '../config/uiConstants.js';
 import type { TelemetrySnapshot } from '../domain/localBaseline.js';
 import type { CpcbCategory } from '../domain/types.js';
 import type { LocaleDictionary } from '../i18n/translations.js';
+import { SectionInfoButton } from './SectionInfoTooltip.js';
 
 export interface HeroMastheadProps {
   readonly telemetry: TelemetrySnapshot;
@@ -100,7 +101,10 @@ export function HeroMasthead({ telemetry, gpsCity, t }: HeroMastheadProps): Reac
     <div className="hero-masthead">
       <CornerReticles />
       <div className="relative z-10">
-        <LiveTelemetryHudBadge telemetry={telemetry} t={t} />
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <LiveTelemetryHudBadge telemetry={telemetry} t={t} />
+          <SectionInfoButton tabId="dashboard" sectionLabel={t.tabDashboard} />
+        </div>
         <h1 id="hero-heading" className="hero-headline mt-3 text-ink">
           {leading && <span>{leading} </span>}
           <span className="hero-light-leak">{accent}</span>

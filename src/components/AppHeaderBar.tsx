@@ -111,7 +111,7 @@ function BrandLogoButton({
  */
 export const AppHeaderBar = memo(function AppHeaderBar(props: AppHeaderBarProps): ReactElement {
   return (
-    <header className="sticky top-0 z-[20] border-b border-rule/80 bg-paper-3/85 backdrop-blur-md">
+    <header className="sticky top-0 z-[300] border-b border-rule/80 bg-paper-3/95 shadow-sm backdrop-blur-lg">
       <div className="container flex flex-wrap items-center justify-between gap-2.5 py-2.5 sm:gap-4 sm:py-3">
         <BrandLogoButton
           onReturnLanding={() => {

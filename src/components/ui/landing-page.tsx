@@ -154,30 +154,14 @@ export function ScrollGlobe({
         />
       </div>
 
-      {/* Enhanced Navigation with auto-hiding labels - Fully Responsive */}
-      <div className="hidden sm:flex fixed right-2 sm:right-4 lg:right-8 top-1/2 -translate-y-1/2 z-40">
+      {/* Minimalist vertical section progress dots */}
+      <div className="hidden sm:flex fixed right-2 sm:right-4 lg:right-8 top-1/2 -translate-y-1/2 z-30">
         <div className="space-y-3 sm:space-y-4 lg:space-y-6">
           {sections.map((section, index) => (
             <div key={index} className="relative group">
-              {/* Auto-hiding section label - Always visible but with responsive sizing */}
-              <div
-                className={cn(
-                  'nav-label absolute right-5 sm:right-6 lg:right-8 top-1/2 -translate-y-1/2',
-                  'px-2 sm:px-3 lg:px-4 py-1 sm:py-1.5 lg:py-2 rounded-md sm:rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap',
-                  'bg-background/95 backdrop-blur-md border border-border/60 shadow-xl z-50',
-                  activeSection === index ? 'animate-fadeOut' : 'opacity-0',
-                )}
-              >
-                <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-2">
-                  <div className="w-1 sm:w-1.5 lg:w-2 h-1 sm:h-1.5 lg:h-2 rounded-full bg-primary animate-pulse" />
-                  <span className="text-xs sm:text-sm lg:text-base">
-                    {section.badge || `Section ${index + 1}`}
-                  </span>
-                </div>
-              </div>
-
               <button
                 type="button"
+                title={section.badge || section.title}
                 onClick={() => {
                   sectionRefs.current[index]?.scrollIntoView({
                     behavior: 'smooth',
@@ -229,7 +213,7 @@ export function ScrollGlobe({
             sectionRefs.current[index] = el;
           }}
           className={cn(
-            'relative min-h-screen flex flex-col justify-center px-4 sm:px-6 md:px-8 lg:px-12 z-20 py-12 sm:py-16 lg:py-20',
+            'relative min-h-screen flex flex-col justify-center px-4 sm:px-6 md:px-8 lg:px-12 z-20 pt-24 pb-16 sm:pt-28 sm:pb-20',
             'w-full max-w-full overflow-hidden',
             section.align === 'center' && 'items-center text-center',
             section.align === 'right' && 'items-end text-right',

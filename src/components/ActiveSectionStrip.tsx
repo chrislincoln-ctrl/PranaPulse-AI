@@ -3,6 +3,7 @@ import { memo, type ReactElement } from 'react';
 import type { WorkbenchTabId } from '../config/uiConstants.js';
 import type { TelemetrySnapshot } from '../domain/localBaseline.js';
 import type { LocaleDictionary } from '../i18n/translations.js';
+import { SectionInfoButton } from './SectionInfoTooltip.js';
 import { getWorkbenchTabLabel } from './SegmentedTabs.js';
 import { getAqiToneClass } from './TelemetryHero.js';
 
@@ -30,11 +31,12 @@ export const ActiveSectionStrip = memo(function ActiveSectionStrip({
 
   return (
     <div className="surface-hairline mb-5 flex flex-wrap items-center justify-between gap-2.5 px-4 py-3 sm:px-5">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
         <span aria-hidden="true" className="h-6 w-1 rounded-full bg-accent" />
         <h1 className="text-xl font-bold tracking-tight text-ink sm:text-2xl">
           {getWorkbenchTabLabel(activeTab, t)}
         </h1>
+        <SectionInfoButton tabId={activeTab} sectionLabel={getWorkbenchTabLabel(activeTab, t)} />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <span className="status-pill text-ink-2">

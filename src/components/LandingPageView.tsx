@@ -183,7 +183,7 @@ export const LandingPageView = memo(function LandingPageView({
   );
 
   return (
-    <main id="main-content" className="relative w-full">
+    <main id="main-content" className="relative z-10 w-full">
       <ScrollGlobe sections={sections} className="bg-paper" />
     </main>
   );
