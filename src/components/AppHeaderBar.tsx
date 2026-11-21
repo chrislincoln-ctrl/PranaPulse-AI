@@ -40,14 +40,14 @@ function ThemeToggleButton({
       onClick={onToggleTheme}
       aria-pressed={isDark}
       aria-label={nextLabel}
-      className="btn-secondary touch-target inline-flex items-center gap-2 text-sm"
+      className="btn-secondary touch-target inline-flex items-center justify-center gap-2 px-2.5 text-xs sm:px-3.5 sm:text-sm"
     >
       {isDark ? (
-        <Sun className="h-4 w-4 text-accent" aria-hidden="true" />
+        <Sun className="h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
       ) : (
-        <Moon className="h-4 w-4 text-cool" aria-hidden="true" />
+        <Moon className="h-4 w-4 shrink-0 text-cool" aria-hidden="true" />
       )}
-      <span>{nextLabel}</span>
+      <span className="hidden sm:inline">{nextLabel}</span>
     </button>
   );
 }
@@ -62,8 +62,8 @@ function LanguageSelectControl({
   readonly t: LocaleDictionary;
 }): ReactElement {
   return (
-    <div className="flex items-center gap-2">
-      <label htmlFor="language-select" className="text-xs text-muted">
+    <div className="flex items-center gap-1.5 sm:gap-2">
+      <label htmlFor="language-select" className="sr-only text-xs text-muted sm:not-sr-only">
         {t.languageLabel}
       </label>
       <select
@@ -72,7 +72,7 @@ function LanguageSelectControl({
         onChange={(e) => {
           onChangeLanguage(e.target.value as SupportedLanguage);
         }}
-        className="field-control w-auto text-sm"
+        className="field-control w-auto px-2 text-xs sm:px-3 sm:text-sm"
       >
         {SUPPORTED_LANGUAGES.map((code) => (
           <option key={code} value={code}>
@@ -93,14 +93,16 @@ function BrandLogoButton({
     <button
       type="button"
       onClick={onReturnLanding}
-      className="group flex cursor-pointer items-center gap-2.5 text-left transition-opacity hover:opacity-85 focus:outline-hidden sm:gap-3"
+      className="group flex min-w-0 cursor-pointer items-center gap-2 text-left transition-opacity hover:opacity-85 focus:outline-hidden sm:gap-3"
       aria-label={`${APP_META.DISPLAY_NAME} - Return to landing page`}
     >
       <Wind
-        className="h-6 w-6 shrink-0 text-cool transition-transform group-hover:scale-105"
+        className="h-5 w-5 shrink-0 text-cool transition-transform group-hover:scale-105 sm:h-6 sm:w-6"
         aria-hidden="true"
       />
-      <span className="text-base font-semibold text-ink sm:text-lg">{APP_META.DISPLAY_NAME}</span>
+      <span className="truncate text-sm font-semibold text-ink sm:text-lg">
+        {APP_META.DISPLAY_NAME}
+      </span>
     </button>
   );
 }
@@ -112,14 +114,14 @@ function BrandLogoButton({
 export const AppHeaderBar = memo(function AppHeaderBar(props: AppHeaderBarProps): ReactElement {
   return (
     <header className="sticky top-0 z-[300] border-b border-rule/80 bg-paper-3/95 shadow-sm backdrop-blur-lg">
-      <div className="container flex flex-wrap items-center justify-between gap-2.5 py-2.5 sm:gap-4 sm:py-3">
+      <div className="container flex items-center justify-between gap-2 py-2 sm:gap-4 sm:py-3">
         <BrandLogoButton
           onReturnLanding={() => {
             props.onToggleViewMode('landing');
           }}
         />
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <span className="status-pill text-ink-2">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+          <span className="status-pill hidden text-ink-2 lg:inline-flex">
             <ShieldCheck className="h-4 w-4 text-ok" aria-hidden="true" />
             <span>
               {props.liveGeminiConfigured

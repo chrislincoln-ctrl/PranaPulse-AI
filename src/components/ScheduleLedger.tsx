@@ -223,7 +223,7 @@ export const ScheduleLedger = memo(function ScheduleLedger({
   const activeSchedule = memberSchedules.find((s) => s.memberId === selectedMemberId) ?? null;
 
   return (
-    <div className="surface-hairline p-6">
+    <div className="surface-hairline p-4 sm:p-6">
       <ScheduleHeaderBar
         aiIsFallback={aiIsFallback}
         isLoadingPlan={isLoadingPlan}

@@ -16,6 +16,7 @@ export default tseslint.config(
       'playwright-report/**',
       'test-results/**',
       'node_modules/**',
+      'public/**',
       'scripts/**',
       '*.config.ts',
       '*.config.mjs',
@@ -66,10 +67,7 @@ export default tseslint.config(
       'max-params': ['error', 4],
       'max-nested-callbacks': ['error', 3],
       'max-lines': ['error', { max: 250, skipBlankLines: true, skipComments: true }],
-      'max-lines-per-function': [
-        'error',
-        { max: 50, skipBlankLines: true, skipComments: true },
-      ],
+      'max-lines-per-function': ['error', { max: 50, skipBlankLines: true, skipComments: true }],
       '@typescript-eslint/no-magic-numbers': [
         'error',
         {
@@ -93,4 +91,3 @@ export default tseslint.config(
     },
   },
 );
-

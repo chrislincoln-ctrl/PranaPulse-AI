@@ -51,7 +51,7 @@ function MemberSelectField(p: {
   readonly t: LocaleDictionary;
 }): ReactElement {
   return (
-    <div className="min-w-[175px] flex-1">
+    <div className="w-full min-w-0 flex-1 sm:w-auto sm:min-w-[175px]">
       <label htmlFor="companion-member-select" className="mb-1 block text-[11px] text-muted">
         {p.t.companionChatMemberLabel}
       </label>

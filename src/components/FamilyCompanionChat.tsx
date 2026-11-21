@@ -59,7 +59,7 @@ function CompanionFloatingDrawer(p: {
     <section
       id="family-companion-drawer"
       aria-labelledby="companion-chat-title"
-      className="fixed right-4 bottom-36 z-[90] w-[calc(100vw-2rem)] max-w-md rounded-xl border border-rule-2 bg-paper-2 p-4 shadow-2xl sm:right-6 sm:bottom-40 sm:w-[440px]"
+      className="fixed right-4 bottom-32 z-[90] max-h-[calc(100dvh-10rem)] w-[calc(100vw-2rem)] max-w-md overflow-y-auto rounded-xl border border-rule-2 bg-paper-2 p-4 shadow-2xl sm:right-6 sm:bottom-40 sm:w-[440px]"
     >
       <CompanionDrawerHeader
         heading={p.t.companionChatHeading}

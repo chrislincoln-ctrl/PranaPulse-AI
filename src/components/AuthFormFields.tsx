@@ -35,22 +35,29 @@ export function AuthModeSwitcher({
     <div
       role="tablist"
       aria-label="Authentication mode"
-      className="segmented-rail grid grid-cols-3"
+      className="grid w-full grid-cols-3 gap-1 rounded-lg border border-rule-2/60 bg-paper-3/85 p-1"
     >
-      {AUTH_MODES.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          role="tab"
-          aria-selected={mode === item.id}
-          onClick={() => {
-            onSelect(item.id);
-          }}
-          className="segmented-tab text-center text-xs sm:text-sm"
-        >
-          {item.label}
-        </button>
-      ))}
+      {AUTH_MODES.map((item) => {
+        const active = mode === item.id;
+        return (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => {
+              onSelect(item.id);
+            }}
+            className={`min-h-[40px] cursor-pointer rounded-md px-2 py-1.5 text-center text-xs font-medium transition-colors sm:text-sm ${
+              active
+                ? 'border border-accent/55 bg-paper-2 font-semibold text-ink shadow-xs'
+                : 'border border-transparent text-ink-2 hover:bg-paper-2/50 hover:text-ink'
+            }`}
+          >
+            {item.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

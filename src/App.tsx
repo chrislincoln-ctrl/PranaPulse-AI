@@ -79,17 +79,6 @@ function useCloudWorkspaceRestore(
   return useSupabaseAuth(onRestore);
 }
 
-function SkipToMainLink({ label }: { readonly label: string }): ReactElement {
-  return (
-    <a
-      href="#main-content"
-      className="sr-only touch-target focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[60] focus:rounded focus:bg-accent focus:px-4 focus:py-2 focus:text-accent-ink"
-    >
-      {label}
-    </a>
-  );
-}
-
 const THEME_KEY = 'pranapulse_theme_mode';
 
 function getInitialThemeMode(): ThemeMode {
@@ -173,14 +162,23 @@ function AppViewBody(p: AppShellProps): ReactElement {
 
 /** Stateless shell rendering the header, body, footer and auth modal. */
 function AppShell(p: AppShellProps): ReactElement {
+  const openWorkbench = (): void => {
+    p.onToggleViewMode('workbench');
+  };
+  const openAuth = (): void => {
+    p.auth.clearMessages();
+    p.setAuthModalOpen(true);
+  };
+  const safeAqi = p.workspace.bundle.telemetry.stationCrossCheck.effectiveSafetyAqi;
   return (
     <div className="relative flex min-h-dvh flex-col bg-paper text-ink">
-      {p.viewMode === 'workbench' && (
-        <ConsoleSmogBackdrop
-          aqi={p.workspace.bundle.telemetry.stationCrossCheck.effectiveSafetyAqi}
-        />
-      )}
-      <SkipToMainLink label={p.t.skipLink} />
+      {p.viewMode === 'workbench' && <ConsoleSmogBackdrop aqi={safeAqi} />}
+      <a
+        href="#main-content"
+        className="sr-only touch-target focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[350] focus:rounded focus:bg-accent focus:px-4 focus:py-2 focus:text-accent-ink"
+      >
+        {p.t.skipLink}
+      </a>
       <AppHeaderBar
         language={p.workspace.input.language}
         themeMode={p.themeMode}
@@ -193,10 +191,7 @@ function AppShell(p: AppShellProps): ReactElement {
           p.workspace.updateInput({ language });
         }}
         onToggleTheme={p.toggleTheme}
-        onOpenAuthModal={() => {
-          p.auth.clearMessages();
-          p.setAuthModalOpen(true);
-        }}
+        onOpenAuthModal={openAuth}
         t={p.t}
       />
       <AppViewBody {...p} />
@@ -209,9 +204,8 @@ function AppShell(p: AppShellProps): ReactElement {
         onClose={() => {
           p.setAuthModalOpen(false);
         }}
-        onSignedInSuccess={() => {
-          p.onToggleViewMode('workbench');
-        }}
+        onSignedInSuccess={openWorkbench}
+        onContinueAsGuest={openWorkbench}
       />
     </div>
   );
@@ -231,12 +225,10 @@ export const App = memo(function App(): ReactElement {
   const workspace = useAirQualityWorkspace();
   const auth = useCloudWorkspaceRestore(workspace.selectCity, workspace.updateInput);
   const t = TRANSLATIONS[workspace.input.language];
-
   const handleStepTab = useCallback((nextTab: WorkbenchTabId): void => {
     setActiveTab(nextTab);
     scrollToMainTop();
   }, []);
-
   const handleToggleViewMode = useCallback((mode: 'landing' | 'workbench'): void => {
     setViewMode(mode);
     if (mode === 'workbench') {
@@ -245,12 +237,14 @@ export const App = memo(function App(): ReactElement {
   }, []);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const hasOAuth =
-        window.location.hash.includes('access_token=') || window.location.search.includes('code=');
-      if (hasOAuth) {
-        setViewMode('workbench');
-      }
+    if (typeof window === 'undefined') {
+      return;
+    }
+    if (
+      window.location.hash.includes('access_token=') ||
+      window.location.search.includes('code=')
+    ) {
+      setViewMode('workbench');
     }
   }, []);
 

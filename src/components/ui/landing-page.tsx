@@ -192,12 +192,12 @@ export function ScrollGlobe({
         heroTextRef={heroTextRef}
       />
 
-      {/* Ultra-smooth Globe with responsive scaling */}
+      {/* Ultra-smooth Globe with responsive scaling & contrast-safe mode/mobile opacity */}
       <div
-        className="fixed z-10 pointer-events-none will-change-transform transition-all duration-[1400ms] ease-[cubic-bezier(0.23,1,0.32,1)]"
+        data-dim={activeSection === 3 ? 'true' : undefined}
+        className="landing-globe-backdrop fixed z-10 pointer-events-none will-change-transform transition-all duration-[1400ms] ease-[cubic-bezier(0.23,1,0.32,1)]"
         style={{
           transform: globeTransform,
-          filter: `opacity(${activeSection === 3 ? 0.4 : 0.85})`, // Subtle opacity for backdrop effect
         }}
       >
         <div className="scale-75 sm:scale-90 lg:scale-100">
@@ -213,7 +213,10 @@ export function ScrollGlobe({
             sectionRefs.current[index] = el;
           }}
           className={cn(
-            'relative min-h-screen flex flex-col justify-center px-4 sm:px-6 md:px-8 lg:px-12 z-20 pt-24 pb-16 sm:pt-28 sm:pb-20',
+            'relative flex flex-col justify-center px-4 sm:px-6 md:px-8 lg:px-12 z-20',
+            index === 0
+              ? 'min-h-[calc(100svh-4rem)] pt-5 pb-10 sm:pt-14 sm:pb-16'
+              : 'min-h-screen pt-16 pb-14 sm:pt-24 sm:pb-20',
             'w-full max-w-full overflow-hidden',
             section.align === 'center' && 'items-center text-center',
             section.align === 'right' && 'items-end text-right',
@@ -230,86 +233,59 @@ export function ScrollGlobe({
             {section.badge && (
               <div
                 className={cn(
-                  'mb-4 flex',
+                  'mb-3 flex sm:mb-4',
                   section.align === 'center' && 'justify-center',
                   section.align === 'right' && 'justify-end',
                 )}
               >
-                <span className="measured inline-flex items-center gap-2 rounded-full border border-primary/45 bg-card/80 px-3.5 py-1 text-xs font-semibold tracking-wider text-primary uppercase backdrop-blur-md">
-                  <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                <span className="measured inline-flex items-center gap-2 rounded-full border border-primary/45 bg-card/85 px-3.5 py-1 text-xs font-semibold tracking-wider text-primary uppercase backdrop-blur-md">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary animate-pulse" />
                   <span>{section.badge}</span>
                 </span>
               </div>
             )}
 
             {index === 0 ? (
-              <h1 className="font-bold mb-6 sm:mb-8 leading-[1.1] tracking-tight text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl 2xl:text-8xl">
+              <h1 className="font-bold mb-4 sm:mb-7 leading-[1.08] tracking-tight text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl 2xl:text-8xl">
                 {section.subtitle ? (
                   <div className="space-y-1 sm:space-y-2">
-                    <div className="bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
-                      {section.title}
-                    </div>
-                    <div className="text-muted-foreground/90 text-[0.6em] sm:text-[0.7em] font-medium tracking-wider">
+                    <div className="text-foreground landing-orb-contrast">{section.title}</div>
+                    <div className="text-foreground/90 text-[0.58em] sm:text-[0.68em] font-semibold tracking-wider landing-orb-contrast">
                       {section.subtitle}
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-gradient-to-r from-foreground via-foreground to-foreground/80 bg-clip-text text-transparent">
-                    {section.title}
-                  </div>
+                  <div className="text-foreground landing-orb-contrast">{section.title}</div>
                 )}
               </h1>
             ) : (
-              <h2 className="font-bold mb-6 sm:mb-8 leading-[1.1] tracking-tight text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl 2xl:text-7xl">
+              <h2 className="font-bold mb-4 sm:mb-7 leading-[1.1] tracking-tight text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl 2xl:text-7xl">
                 {section.subtitle ? (
                   <div className="space-y-1 sm:space-y-2">
-                    <div
-                      className={cn(
-                        section.align === 'center'
-                          ? 'text-foreground landing-orb-contrast'
-                          : 'bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent',
-                      )}
-                    >
-                      {section.title}
-                    </div>
-                    <div
-                      className={cn(
-                        'text-[0.6em] sm:text-[0.7em] tracking-wider',
-                        section.align === 'center'
-                          ? 'text-foreground font-semibold landing-orb-contrast'
-                          : 'text-muted-foreground/90 font-medium',
-                      )}
-                    >
+                    <div className="text-foreground landing-orb-contrast">{section.title}</div>
+                    <div className="text-foreground/90 text-[0.58em] sm:text-[0.68em] font-semibold tracking-wider landing-orb-contrast">
                       {section.subtitle}
                     </div>
                   </div>
                 ) : (
-                  <div
-                    className={cn(
-                      section.align === 'center'
-                        ? 'text-foreground landing-orb-contrast'
-                        : 'bg-gradient-to-r from-foreground via-foreground to-foreground/80 bg-clip-text text-transparent',
-                    )}
-                  >
-                    {section.title}
-                  </div>
+                  <div className="text-foreground landing-orb-contrast">{section.title}</div>
                 )}
               </h2>
             )}
 
             <div
               className={cn(
-                'leading-relaxed mb-6 sm:mb-8 text-base sm:text-lg lg:text-xl',
+                'leading-relaxed mb-5 sm:mb-8 text-sm sm:text-lg lg:text-xl',
                 section.align === 'center'
-                  ? 'max-w-3xl mx-auto text-center text-foreground/95 font-normal landing-orb-contrast'
-                  : 'max-w-3xl text-muted-foreground/90 font-light',
+                  ? 'max-w-3xl mx-auto text-center text-foreground font-normal'
+                  : 'max-w-3xl text-foreground/95 font-normal',
               )}
             >
-              <p className="mb-3 sm:mb-4">{section.description}</p>
+              <p className="landing-copy-plate mb-3 sm:mb-4">{section.description}</p>
               {section.highlights && section.highlights.length > 0 && (
                 <div
                   className={cn(
-                    'mt-4 flex flex-wrap items-center gap-2 text-xs',
+                    'mt-3 flex flex-wrap items-center gap-1.5 text-xs sm:mt-4 sm:gap-2',
                     section.align === 'center' && 'justify-center',
                     section.align === 'right' && 'justify-end',
                   )}
@@ -317,9 +293,12 @@ export function ScrollGlobe({
                   {section.highlights.map((chip) => (
                     <span
                       key={chip}
-                      className="measured inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-card/80 px-3 py-1 font-medium text-foreground/95 backdrop-blur-md"
+                      className="measured inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-card/90 px-3 py-1 font-medium text-foreground backdrop-blur-md"
                     >
-                      <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
+                      <span
+                        className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
+                        aria-hidden="true"
+                      />
                       <span>{chip}</span>
                     </span>
                   ))}

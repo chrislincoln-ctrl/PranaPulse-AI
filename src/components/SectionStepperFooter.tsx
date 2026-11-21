@@ -25,7 +25,7 @@ function StepperButton({
     <button
       type="button"
       onClick={onClick}
-      className="btn-secondary touch-target inline-flex items-center gap-2 text-sm"
+      className="btn-secondary touch-target inline-flex items-center gap-1.5 px-3 text-xs sm:gap-2 sm:px-4 sm:text-sm"
     >
       {direction === 'prev' && <ChevronLeft className="h-4 w-4 text-ink-2" aria-hidden="true" />}
       <span>

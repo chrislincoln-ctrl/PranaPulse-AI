@@ -17,6 +17,7 @@ export interface AuthFormSectionProps {
   readonly mode: AuthMode;
   readonly onChangeMode: (nextMode: AuthMode) => void;
   readonly onSignedInSuccess: () => void;
+  readonly onContinueAsGuest?: (() => void) | undefined;
 }
 
 interface SubmitContext {
@@ -181,6 +182,30 @@ function useAuthCredentials() {
   };
 }
 
+function GuestFallbackFooter({
+  onContinueAsGuest,
+}: {
+  readonly onContinueAsGuest?: (() => void) | undefined;
+}): ReactElement {
+  return (
+    <>
+      {onContinueAsGuest && (
+        <button
+          type="button"
+          onClick={onContinueAsGuest}
+          className="btn-secondary touch-target inline-flex w-full items-center justify-center text-sm"
+        >
+          Continue as Guest (Open Console)
+        </button>
+      )}
+      <p className="text-xs leading-relaxed text-muted">
+        Guest telemetry stays available without an account. Sign in to sync your monitored city,
+        room CADR, and commute mask profile across devices.
+      </p>
+    </>
+  );
+}
+
 /**
  * Email + password Sign In, Account Creation, and Password Reset form backed by Supabase Auth.
  */
@@ -189,6 +214,7 @@ export const AuthFormSection = memo(function AuthFormSection({
   mode,
   onChangeMode,
   onSignedInSuccess,
+  onContinueAsGuest,
 }: AuthFormSectionProps): ReactElement {
   const creds = useAuthCredentials();
   const handleSubmit = (event: SyntheticEvent<HTMLFormElement>): void => {
@@ -221,10 +247,7 @@ export const AuthFormSection = memo(function AuthFormSection({
         onTogglePassword={creds.togglePassword}
         onSubmit={handleSubmit}
       />
-      <p className="text-xs leading-relaxed text-muted">
-        Guest telemetry stays available without an account. Sign in to sync your monitored city,
-        room CADR, and commute mask profile across devices.
-      </p>
+      <GuestFallbackFooter onContinueAsGuest={onContinueAsGuest} />
     </div>
   );
 });

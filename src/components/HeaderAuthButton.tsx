@@ -32,13 +32,15 @@ export const HeaderAuthButton = memo(function HeaderAuthButton({
         type="button"
         onClick={onOpenModal}
         aria-label={`Open cloud account settings for ${displayName}`}
-        className="btn-secondary touch-target inline-flex items-center gap-2 text-sm"
+        className="btn-secondary touch-target inline-flex items-center gap-1.5 px-2.5 text-xs sm:gap-2 sm:px-3.5 sm:text-sm"
       >
         <span className="auth-avatar-badge" aria-hidden="true">
           {initial}
         </span>
-        <span className="font-medium text-ink">{formatCompactName(displayName)}</span>
-        <span className="h-2 w-2 rounded-full bg-ok" aria-hidden="true" />
+        <span className="hidden font-medium text-ink sm:inline">
+          {formatCompactName(displayName)}
+        </span>
+        <span className="h-2 w-2 shrink-0 rounded-full bg-ok" aria-hidden="true" />
       </button>
     );
   }
@@ -49,9 +51,9 @@ export const HeaderAuthButton = memo(function HeaderAuthButton({
       onClick={onOpenModal}
       disabled={isInitializing}
       aria-label="Sign in to PranaPulse AI"
-      className="btn-primary touch-target inline-flex items-center gap-2 text-sm"
+      className="btn-primary touch-target inline-flex items-center gap-1.5 px-3 text-xs whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm"
     >
-      <LogIn className="h-4 w-4" aria-hidden="true" />
+      <LogIn className="h-4 w-4 shrink-0" aria-hidden="true" />
       <span>Sign in</span>
     </button>
   );
