@@ -11,6 +11,7 @@ import { quantizeCoord } from '../../src/validators/schemas.js';
 import type { ServerEnv } from '../env.js';
 import { BoundedTtlCache, fetchJsonWithTimeout } from './cacheAndLimiter.js';
 import { clearGeocodeCache } from './geocodingClient.js';
+import { fetchOpenAqStation, type OpenAqStationReading } from './openAqClient.js';
 import { fetchFirePlume, fetchWaqiStation, type FirePlumeSummary } from './waqiFirmsClient.js';
 
 export { searchUrbanLocations, type GeocodedLocation } from './geocodingClient.js';
@@ -54,6 +55,7 @@ interface UpstreamTelemetryStreams {
   readonly aqData: OpenMeteoAqResponse | null;
   readonly wxData: OpenMeteoWxResponse | null;
   readonly waqi: { readonly aqi: number | null; readonly name: string | null };
+  readonly openAq: OpenAqStationReading | null;
   readonly firePlume: FirePlumeSummary;
 }
 
@@ -117,6 +119,34 @@ function extractPollutantSnapshot(
   };
 }
 
+function mergeOpenAqPollutants(
+  base: PollutantReadingInput,
+  openAq: OpenAqStationReading | null,
+): PollutantReadingInput {
+  if (!openAq) {
+    return base;
+  }
+  return {
+    pm25UgM3: openAq.pollutants.pm25UgM3 ?? base.pm25UgM3,
+    pm10UgM3: openAq.pollutants.pm10UgM3 ?? base.pm10UgM3,
+    no2UgM3: openAq.pollutants.no2UgM3 ?? base.no2UgM3,
+    o3UgM3: openAq.pollutants.o3UgM3 ?? base.o3UgM3,
+    so2UgM3: openAq.pollutants.so2UgM3 ?? base.so2UgM3,
+    coUgM3: openAq.pollutants.coUgM3 ?? base.coUgM3,
+  };
+}
+
+function patchCurrentHourPm25(
+  series: readonly HourlyAtmosPoint[],
+  currentIdx: number,
+  openAqPm25: number | undefined,
+): readonly HourlyAtmosPoint[] {
+  if (openAqPm25 === undefined) {
+    return series;
+  }
+  return series.map((pt, idx) => (idx === currentIdx ? { ...pt, pm25UgM3: openAqPm25 } : pt));
+}
+
 async function fetchAllTelemetryStreams(
   lat: number,
   lon: number,
@@ -125,17 +155,21 @@ async function fetchAllTelemetryStreams(
   const aqUrl = `${UPSTREAM_ENDPOINTS.OPEN_METEO_AIR_QUALITY}?latitude=${String(lat)}&longitude=${String(lon)}&hourly=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone,dust,us_aqi,european_aqi&timezone=auto&forecast_days=2`;
   const wxUrl = `${UPSTREAM_ENDPOINTS.OPEN_METEO_WEATHER}?latitude=${String(lat)}&longitude=${String(lon)}&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,boundary_layer_height,surface_pressure&timezone=auto&forecast_days=2`;
 
-  const [aqSettled, wxSettled, waqiSettled, firmsSettled] = await Promise.allSettled([
-    fetchJsonWithTimeout<OpenMeteoAqResponse>(aqUrl),
-    fetchJsonWithTimeout<OpenMeteoWxResponse>(wxUrl),
-    fetchWaqiStation(lat, lon, env.WAQI_API_TOKEN),
-    fetchFirePlume(lat, lon, env.NASA_FIRMS_MAP_KEY),
-  ]);
+  const [aqSettled, wxSettled, waqiSettled, openAqSettled, firmsSettled] = await Promise.allSettled(
+    [
+      fetchJsonWithTimeout<OpenMeteoAqResponse>(aqUrl),
+      fetchJsonWithTimeout<OpenMeteoWxResponse>(wxUrl),
+      fetchWaqiStation(lat, lon, env.WAQI_API_TOKEN),
+      fetchOpenAqStation(lat, lon, env.OPENAQ_API_KEY),
+      fetchFirePlume(lat, lon, env.NASA_FIRMS_MAP_KEY),
+    ],
+  );
 
   return {
     aqData: aqSettled.status === 'fulfilled' ? aqSettled.value : null,
     wxData: wxSettled.status === 'fulfilled' ? wxSettled.value : null,
     waqi: waqiSettled.status === 'fulfilled' ? waqiSettled.value : { aqi: null, name: null },
+    openAq: openAqSettled.status === 'fulfilled' ? openAqSettled.value : null,
     firePlume:
       firmsSettled.status === 'fulfilled'
         ? firmsSettled.value
@@ -147,23 +181,40 @@ async function fetchAllTelemetryStreams(
   };
 }
 
+function resolveBaseSeries(streams: UpstreamTelemetryStreams): {
+  readonly isLive: boolean;
+  readonly rawSeries: readonly HourlyAtmosPoint[];
+  readonly currentIdx: number;
+  readonly currentPm25: number;
+} {
+  const hasOpenMeteo = streams.aqData !== null && streams.wxData !== null;
+  const rawSeries =
+    streams.aqData && streams.wxData
+      ? buildLiveHourlySeries(streams.aqData, streams.wxData)
+      : buildSeasonalHourlySeries(DEFAULT_PM25);
+  const currentIdx = Math.min(new Date().getHours(), rawSeries.length - 1);
+  const currentPm25 = rawSeries[currentIdx]?.pm25UgM3 ?? DEFAULT_PM25;
+  return {
+    isLive: hasOpenMeteo || streams.openAq !== null,
+    rawSeries,
+    currentIdx,
+    currentPm25,
+  };
+}
+
 function assembleTelemetryBundle(
   lat: number,
   lon: number,
   cityLabel: string | undefined,
   streams: UpstreamTelemetryStreams,
 ): TelemetryBundle {
-  const isLive = Boolean(streams.aqData && streams.wxData);
-  const hourlySeries =
-    streams.aqData && streams.wxData
-      ? buildLiveHourlySeries(streams.aqData, streams.wxData)
-      : buildSeasonalHourlySeries(DEFAULT_PM25);
-  const currentIdx = Math.min(new Date().getHours(), hourlySeries.length - 1);
-  const currentPm25 = hourlySeries[currentIdx]?.pm25UgM3 ?? DEFAULT_PM25;
-  const currentPollutants = extractPollutantSnapshot(
-    streams.aqData?.hourly,
+  const { isLive, rawSeries, currentIdx, currentPm25 } = resolveBaseSeries(streams);
+  const modelPollutants = extractPollutantSnapshot(streams.aqData?.hourly, currentIdx, currentPm25);
+  const currentPollutants = mergeOpenAqPollutants(modelPollutants, streams.openAq);
+  const hourlySeries = patchCurrentHourPm25(
+    rawSeries,
     currentIdx,
-    currentPm25,
+    streams.openAq?.pollutants.pm25UgM3,
   );
   const assessment = evaluatePollutantStandards(currentPollutants);
 
@@ -175,7 +226,7 @@ function assembleTelemetryBundle(
     currentPollutants,
     assessment,
     stationCrossCheck: evaluateStationCrossCheck(assessment.cpcbNaqi, streams.waqi.aqi),
-    stationName: streams.waqi.name,
+    stationName: streams.waqi.name ?? streams.openAq?.stationName ?? null,
     inversion: analyzeInversionSchedule(hourlySeries, currentIdx),
     firePlume: streams.firePlume,
     hourlySeries,

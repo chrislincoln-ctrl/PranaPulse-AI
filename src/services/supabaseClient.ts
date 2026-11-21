@@ -143,6 +143,22 @@ export async function supabaseSignIn(
   return { ok: true, notice: 'Signed in. Cloud workspace sync is ready.' };
 }
 
+/** Initiates Supabase OAuth sign-in with Google, redirecting back to current origin. */
+export async function supabaseSignInWithGoogle(
+  client: SupabaseClient,
+): Promise<AuthActionResult> {
+  const { error } = await client.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin,
+    },
+  });
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+  return { ok: true, notice: 'Redirecting to Google sign-in...' };
+}
+
 /** Registers a new Supabase email account and reports confirmation requirements cleanly. */
 export async function supabaseSignUp(
   client: SupabaseClient,

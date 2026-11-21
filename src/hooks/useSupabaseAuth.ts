@@ -7,6 +7,7 @@ import {
   supabaseResetPassword,
   supabaseSavePreferences,
   supabaseSignIn,
+  supabaseSignInWithGoogle,
   supabaseSignUp,
   type AuthActionResult,
   type SavedWorkspacePreferences,
@@ -26,6 +27,7 @@ export interface SupabaseAuthController {
   readonly lastSavedAt: string | null;
   readonly clearMessages: () => void;
   readonly signIn: (email: string, password: string) => Promise<boolean>;
+  readonly signInWithGoogle: () => Promise<boolean>;
   readonly signUp: (email: string, password: string, fullName: string) => Promise<boolean>;
   readonly resetPassword: (email: string) => Promise<boolean>;
   readonly signOut: () => Promise<void>;
@@ -126,6 +128,11 @@ function useAuthActions(
     [runAuthTask],
   );
 
+  const signInWithGoogle = useCallback(
+    () => runAuthTask((c) => supabaseSignInWithGoogle(c)),
+    [runAuthTask],
+  );
+
   const signUp = useCallback(
     (email: string, password: string, fullName: string) =>
       runAuthTask((c) => supabaseSignUp(c, email, password, fullName)),
@@ -154,7 +161,7 @@ function useAuthActions(
     [runAuthTask, setSyncStatus],
   );
 
-  return { signIn, signUp, resetPassword, signOut, savePreferences };
+  return { signIn, signInWithGoogle, signUp, resetPassword, signOut, savePreferences };
 }
 
 /**

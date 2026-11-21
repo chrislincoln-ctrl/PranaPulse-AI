@@ -55,7 +55,7 @@ function AppMainContent({
 
 function AppFooter({ notice }: { readonly notice: string }): ReactElement {
   return (
-    <footer className="border-t border-rule bg-paper-3 px-4 py-4 text-center text-xs text-muted">
+    <footer className="relative z-[2] border-t border-rule bg-paper-3 px-4 py-4 text-center text-xs text-muted">
       <div className="container">
         {APP_META.DISPLAY_NAME} v{APP_META.VERSION}: {notice}
       </div>
@@ -69,17 +69,9 @@ function useCloudWorkspaceRestore(
 ) {
   const onRestore = useCallback(
     (prefs: SavedWorkspacePreferences): void => {
-      selectCity(prefs.city, prefs.lat, prefs.lon);
-      updateInput({
-        areaM2: prefs.areaM2,
-        cadrM3Hr: prefs.cadrM3Hr,
-        tightness: prefs.tightness,
-        cookingFuel: prefs.cookingFuel,
-        commuteDistanceKm: prefs.commuteDistanceKm,
-        commuteMode: prefs.commuteMode,
-        mask: prefs.mask,
-        language: prefs.language,
-      });
+      const { city, lat, lon, ...rest } = prefs;
+      selectCity(city, lat, lon);
+      updateInput(rest);
     },
     [selectCity, updateInput],
   );
@@ -90,7 +82,7 @@ function SkipToMainLink({ label }: { readonly label: string }): ReactElement {
   return (
     <a
       href="#main-content"
-      className="sr-only touch-target focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:rounded focus:bg-accent focus:px-4 focus:py-2 focus:text-accent-ink"
+      className="sr-only touch-target focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[60] focus:rounded focus:bg-accent focus:px-4 focus:py-2 focus:text-accent-ink"
     >
       {label}
     </a>
@@ -159,7 +151,12 @@ function AppViewBody(p: AppShellProps): ReactElement {
         workspace={p.workspace}
         auth={p.auth}
         onEnterConsole={() => {
-          p.onToggleViewMode('workbench');
+          if (p.auth.user) {
+            p.onToggleViewMode('workbench');
+          } else {
+            p.auth.clearMessages();
+            p.setAuthModalOpen(true);
+          }
         }}
         t={p.t}
       />
@@ -208,6 +205,9 @@ function AppShell(p: AppShellProps): ReactElement {
         onClose={() => {
           p.setAuthModalOpen(false);
         }}
+        onSignedInSuccess={() => {
+          p.onToggleViewMode('workbench');
+        }}
       />
     </div>
   );
@@ -239,6 +239,17 @@ export const App = memo(function App(): ReactElement {
     setViewMode(mode);
     if (mode === 'workbench') {
       setActiveTab('dashboard');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hasOAuth =
+        window.location.hash.includes('access_token=') ||
+        window.location.search.includes('code=');
+      if (hasOAuth) {
+        setViewMode('workbench');
+      }
     }
   }, []);
 

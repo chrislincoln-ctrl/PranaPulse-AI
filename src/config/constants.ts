@@ -54,6 +54,7 @@ export const UPSTREAM_ENDPOINTS = {
   OPEN_METEO_GEOCODING: 'https://geocoding-api.open-meteo.com/v1/search',
   NOMINATIM_REVERSE: 'https://nominatim.openstreetmap.org/reverse',
   WAQI_BASE: 'https://api.waqi.info/feed',
+  OPENAQ_V3_BASE: 'https://api.openaq.org/v3',
   NASA_FIRMS_BASE: 'https://firms.modaps.eosdis.nasa.gov/api/area/csv',
   GROQ_CHAT_COMPLETIONS: 'https://api.groq.com/openai/v1/chat/completions',
 } as const;

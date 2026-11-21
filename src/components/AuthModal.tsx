@@ -10,6 +10,7 @@ export interface AuthModalProps {
   readonly auth: SupabaseAuthController;
   readonly workspaceInput: PlanRequestPayload;
   readonly onClose: () => void;
+  readonly onSignedInSuccess?: () => void;
 }
 
 function getModalTitle(isSignedIn: boolean, mode: AuthMode): string {
@@ -117,6 +118,17 @@ function useModalDismissEffect(isOpen: boolean, onClose: () => void): void {
   }, [isOpen, onClose]);
 }
 
+function AuthDialogCorners(): ReactElement {
+  return (
+    <>
+      <span className="hero-corner hero-corner-tl" aria-hidden="true" />
+      <span className="hero-corner hero-corner-tr" aria-hidden="true" />
+      <span className="hero-corner hero-corner-bl" aria-hidden="true" />
+      <span className="hero-corner hero-corner-br" aria-hidden="true" />
+    </>
+  );
+}
+
 /**
  * Accessible Supabase Auth & Cloud Profile modal styled to match the PranaPulse AI
  * telemetry console in both Light and Dark modes.
@@ -126,13 +138,17 @@ export const AuthModal = memo(function AuthModal({
   auth,
   workspaceInput,
   onClose,
+  onSignedInSuccess,
 }: AuthModalProps): ReactElement | null {
   const [mode, setMode] = useState<AuthMode>('signin');
   useModalDismissEffect(isOpen, onClose);
-
   if (!isOpen) {
     return null;
   }
+  const handleSignedIn = (): void => {
+    onClose();
+    onSignedInSuccess?.();
+  };
 
   return (
     <div className="auth-backdrop">
@@ -149,10 +165,7 @@ export const AuthModal = memo(function AuthModal({
         aria-labelledby="auth-modal-title"
         className="auth-dialog z-10"
       >
-        <span className="hero-corner hero-corner-tl" aria-hidden="true" />
-        <span className="hero-corner hero-corner-tr" aria-hidden="true" />
-        <span className="hero-corner hero-corner-bl" aria-hidden="true" />
-        <span className="hero-corner hero-corner-br" aria-hidden="true" />
+        <AuthDialogCorners />
         <AuthModalHeader title={getModalTitle(Boolean(auth.user), mode)} onClose={onClose} />
         <div className="space-y-4 p-6">
           <FeedbackBanners errorMessage={auth.errorMessage} noticeMessage={auth.noticeMessage} />
@@ -163,7 +176,7 @@ export const AuthModal = memo(function AuthModal({
               auth={auth}
               mode={mode}
               onChangeMode={setMode}
-              onSignedInSuccess={onClose}
+              onSignedInSuccess={handleSignedIn}
             />
           )}
         </div>

@@ -39,6 +39,7 @@ function makeMockAuth(overrides: Partial<SupabaseAuthController> = {}): Supabase
     lastSavedAt: null,
     clearMessages: vi.fn(),
     signIn: vi.fn().mockResolvedValue(true),
+    signInWithGoogle: vi.fn().mockResolvedValue(true),
     signUp: vi.fn().mockResolvedValue(true),
     resetPassword: vi.fn().mockResolvedValue(true),
     signOut: vi.fn().mockResolvedValue(undefined),

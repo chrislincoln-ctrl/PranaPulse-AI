@@ -138,6 +138,31 @@ td.num {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+
+  .orb-float,
+  .orb-halo-spin,
+  .orb-image-kenburns,
+  .orb-ripple-idle,
+  .orb-particle,
+  .orb-particle::after,
+  .smoke-fallback-blob-a,
+  .smoke-fallback-blob-b,
+  .hero-sparkle {
+    animation: none !important;
+  }
+
+  .orb-particle {
+    opacity: calc(0.65 * var(--orb-particle-mode-alpha, 1)) !important;
+    transform: none !important;
+  }
+
+  .orb-particle::after {
+    opacity: 0.85 !important;
+  }
+
+  .orb-ripple-idle {
+    opacity: 0 !important;
+  }
 }
 /* photographs: duotone paper-3 ink */
 [data-slot]:has(> img) {

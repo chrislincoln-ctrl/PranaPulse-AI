@@ -1,6 +1,8 @@
 /* eslint-disable */
-import { useEffect, useRef, useState, useCallback, useMemo } from "react"; 
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { Sparkle } from "lucide-react";
 import Globe from "@/components/ui/globe";
+import { SmokeCanvas } from "@/components/ui/smoke-canvas";
 import { cn } from "@/lib/utils";
 
 // Reusable ScrollGlobe component following shadcn/ui patterns
@@ -42,6 +44,7 @@ export function ScrollGlobe({ sections, globeConfig = defaultGlobeConfig, classN
   const [scrollProgress, setScrollProgress] = useState(0);
   const [globeTransform, setGlobeTransform] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
+  const heroTextRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<(HTMLElement | null)[]>([]);
   const animationFrameId = useRef<number | undefined>(undefined);
   const navLabelTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -194,6 +197,13 @@ export function ScrollGlobe({ sections, globeConfig = defaultGlobeConfig, classN
         <div className="absolute left-1/2 top-0 bottom-0 w-0.5 lg:w-px bg-gradient-to-b from-transparent via-primary/20 to-transparent -translate-x-1/2 -z-10" />
       </div>
 
+      {/* Drifting wisp smoke canvas behind orb and header/footer */}
+      <SmokeCanvas
+        activeSection={activeSection}
+        scrollProgress={scrollProgress}
+        heroTextRef={heroTextRef}
+      />
+
       {/* Ultra-smooth Globe with responsive scaling */}
       <div
         className="fixed z-10 pointer-events-none will-change-transform transition-all duration-[1400ms] ease-[cubic-bezier(0.23,1,0.32,1)]"
@@ -205,6 +215,14 @@ export function ScrollGlobe({ sections, globeConfig = defaultGlobeConfig, classN
         <div className="scale-75 sm:scale-90 lg:scale-100">
           <Globe />
         </div>
+      </div>
+
+      {/* Subtle twinkling corner sparkle */}
+      <div
+        aria-hidden="true"
+        className="hero-sparkle fixed right-4 bottom-4 sm:right-6 sm:bottom-6 z-[15] pointer-events-none text-foreground/45 print:hidden"
+      >
+        <Sparkle className="h-7 w-7 fill-current stroke-[1.25]" />
       </div>
 
       {/* Dynamic sections - fully responsive */}
@@ -222,10 +240,13 @@ export function ScrollGlobe({ sections, globeConfig = defaultGlobeConfig, classN
             section.align !== 'center' && section.align !== 'right' && "items-start text-left"
           )}
         >
-          <div className={cn(
-            "w-full max-w-sm sm:max-w-lg md:max-w-2xl lg:max-w-4xl xl:max-w-5xl will-change-transform transition-all duration-700",
-            "opacity-100 translate-y-0"
-          )}>
+          <div
+            ref={index === 0 ? heroTextRef : undefined}
+            className={cn(
+              "w-full max-w-sm sm:max-w-lg md:max-w-2xl lg:max-w-4xl xl:max-w-5xl will-change-transform transition-all duration-700",
+              "opacity-100 translate-y-0"
+            )}
+          >
             
             {index === 0 ? (
               <h1 className="font-bold mb-6 sm:mb-8 leading-[1.1] tracking-tight text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl 2xl:text-8xl">

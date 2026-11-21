@@ -25,6 +25,7 @@ const envSchema = z.object({
   GROQ_API_KEY: optionalTrimmedString,
   GROQ_MODEL: optionalTrimmedString.transform((value) => value ?? APP_META.DEFAULT_GROQ_MODEL),
   WAQI_API_TOKEN: optionalTrimmedString,
+  OPENAQ_API_KEY: optionalTrimmedString,
   NASA_FIRMS_MAP_KEY: optionalTrimmedString,
   VITE_SUPABASE_URL: optionalTrimmedString,
   ALLOWED_ORIGINS: optionalTrimmedString.transform((value) =>
