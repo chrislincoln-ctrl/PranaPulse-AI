@@ -94,21 +94,25 @@ describe('Per-member Family Routine UI, WhatsApp share & Companion Chat', () => 
     fireEvent.click(screen.getByRole('tab', { name: /Meera \(Senior\)/i }));
     expect(screen.getByText(/Strict Morning Indoor Seal & Inhaler Readiness/i)).toBeInTheDocument();
 
-    // 3. Expand first member's daily habit editor & trigger Telegram pairing link
+    // 3. Expand first member's daily habit editor & verify NO Telegram buttons inside the roster
     const toggleButtons = screen.getAllByRole('button', {
-      name: /Customize daily habits & Telegram/i,
+      name: /Customize daily habits/i,
     });
     fireEvent.click(toggleButtons[0]!);
     expect(screen.getByLabelText(/Leaves home/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Connect Telegram/i }));
+    expect(screen.queryByRole('link', { name: /Open Telegram to pair/i })).not.toBeInTheDocument();
+
+    // 4. Click the single floating 1-click Telegram button above Companion Chat and verify direct redirect
+    const fakePopup = { closed: false, opener: window, location: { href: '' }, close: vi.fn() };
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(fakePopup as unknown as Window);
+    const tgButton = screen.getByRole('button', { name: /Connect Telegram/i });
+    fireEvent.click(tgButton);
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: /Open Telegram to pair/i })).toHaveAttribute(
-        'href',
-        'https://t.me/PranaPulseBot?start=abc123def4',
-      );
+      expect(openSpy).toHaveBeenCalled();
+      expect(fakePopup.location.href).toBe('https://t.me/PranaPulseBot?start=abc123def4');
     });
 
-    // 4. Open floating bottom-right Family Companion Chat launcher and send a query
+    // 5. Open floating bottom-right Family Companion Chat launcher and send a query
     fireEvent.click(screen.getByRole('button', { name: /Family Daily Companion Chat/i }));
     const chatInput = screen.getByLabelText(/Ask e\.g\./i);
     fireEvent.change(chatInput, { target: { value: 'Near Salt Lake, mild asthma today' } });

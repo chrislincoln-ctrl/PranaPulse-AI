@@ -1,21 +1,30 @@
 import { Router, type Request, type Response } from 'express';
 import { HTTP_STATUS, SECURITY_LIMITS } from '../../src/config/constants.js';
+import { DEFAULT_WORKSPACE_INPUT } from '../../src/config/uiConstants.js';
 import {
   companionChatRequestSchema,
   telegramLinkRequestSchema,
+  workspaceKeySchema,
+  workspaceSyncPostSchema,
+  type TelegramLinkRequest,
 } from '../../src/validators/companionSchemas.js';
 import type { ServerEnv } from '../env.js';
 import { SlidingWindowRateLimiter } from '../services/cacheAndLimiter.js';
 import { handleCompanionCheckin } from '../services/familyCompanionAgent.js';
 import {
-  createTelegramLinkCode,
-  listTelegramOptedInMembers,
-  markDailyBriefSent,
   recordCompanionCheckin,
   updateMemberHabitsByProfileId,
   upsertMemberProfile,
 } from '../services/familyCompanionStore.js';
 import { hasHabitPatch } from '../services/habitExtractor.js';
+import {
+  createWorkspaceTelegramLink,
+  getWorkspaceByKey,
+  listOptedInWorkspaces,
+  markWorkspaceBriefSent,
+  syncWorkspaceFromWeb,
+  type WebWorkspaceSyncInput,
+} from '../services/householdWorkspaceStore.js';
 import {
   buildTelegramDeepLink,
   DEFAULT_TELEGRAM_BUTTONS,
@@ -29,26 +38,47 @@ import {
   processTelegramUpdate,
 } from '../services/telegramWebhookHandler.js';
 
+function normalizeTelegramLinkInput(parsed: TelegramLinkRequest): WebWorkspaceSyncInput {
+  if ('payload' in parsed) {
+    return {
+      workspaceKey: parsed.workspaceKey,
+      payload: parsed.payload,
+      activeMemberId: parsed.activeMemberId,
+      userId: parsed.userId,
+    };
+  }
+  const rest = DEFAULT_WORKSPACE_INPUT.members.filter((m) => m.id !== parsed.member.id);
+  return {
+    workspaceKey: parsed.workspaceKey,
+    activeMemberId: parsed.member.id,
+    userId: parsed.userId,
+    payload: {
+      ...DEFAULT_WORKSPACE_INPUT,
+      city: parsed.city,
+      lat: parsed.lat,
+      lon: parsed.lon,
+      language: parsed.language,
+      mask: parsed.member.mask,
+      commuteMode: parsed.member.commuteMode ?? DEFAULT_WORKSPACE_INPUT.commuteMode,
+      members: [parsed.member, ...rest],
+    },
+  };
+}
+
 async function handleCompanionChat(req: Request, res: Response, env: ServerEnv): Promise<void> {
   const parsed = companionChatRequestSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(HTTP_STATUS.BAD_REQUEST).json({
-      error: 'Provide a valid family member, message, and city coordinates.',
-    });
+    res
+      .status(HTTP_STATUS.BAD_REQUEST)
+      .json({ error: 'Provide a valid family member, message, and city coordinates.' });
     return;
   }
-  const payload = parsed.data;
+  const p = parsed.data;
   const profile = await upsertMemberProfile(
-    {
-      member: payload.member,
-      city: payload.city,
-      lat: payload.lat,
-      lon: payload.lon,
-      language: payload.language,
-    },
+    { member: p.member, city: p.city, lat: p.lat, lon: p.lon, language: p.language },
     env,
   );
-  const result = await handleCompanionCheckin({ ...payload, channel: 'web' }, env);
+  const result = await handleCompanionCheckin({ ...p, channel: 'web' }, env);
   if (hasHabitPatch(result.habitPatch)) {
     await updateMemberHabitsByProfileId(profile.id, result.habitPatch, env);
   }
@@ -57,7 +87,7 @@ async function handleCompanionChat(req: Request, res: Response, env: ServerEnv):
       memberProfileId: profile.id,
       channel: 'web',
       direction: 'inbound',
-      messageText: payload.message,
+      messageText: p.message,
       detectedCity: result.resolvedCity,
       detectedLat: result.resolvedLat,
       detectedLon: result.resolvedLon,
@@ -72,57 +102,99 @@ async function handleCompanionChat(req: Request, res: Response, env: ServerEnv):
 async function handleTelegramLink(req: Request, res: Response, env: ServerEnv): Promise<void> {
   const parsed = telegramLinkRequestSchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(HTTP_STATUS.BAD_REQUEST).json({
-      error: 'Provide a valid family member and city to create a Telegram link.',
-    });
+    res
+      .status(HTTP_STATUS.BAD_REQUEST)
+      .json({ error: 'Provide a valid family member and city to create a Telegram link.' });
     return;
   }
-  const { linkCode } = await createTelegramLinkCode(parsed.data, env);
+  const { workspace, linkCode } = await createWorkspaceTelegramLink(
+    normalizeTelegramLinkInput(parsed.data),
+    env,
+  );
   const botUsername = env.TELEGRAM_BOT_USERNAME ?? null;
   const telegramConfigured = Boolean(env.TELEGRAM_BOT_TOKEN && botUsername);
   const deepLinkUrl = botUsername ? buildTelegramDeepLink(botUsername, linkCode) : null;
-  res.status(HTTP_STATUS.OK).json({ linkCode, deepLinkUrl, telegramConfigured, botUsername });
+  res.status(HTTP_STATUS.OK).json({
+    linkCode,
+    deepLinkUrl,
+    telegramConfigured,
+    botUsername,
+    workspaceKey: workspace.workspaceKey,
+  });
 }
 
-function registerWebCompanionRoutes(
-  router: Router,
-  env: ServerEnv,
-  limiter: SlidingWindowRateLimiter,
-): void {
-  router.post('/companion/chat', limiter.middleware, async (req: Request, res: Response) => {
-    await handleCompanionChat(req, res, env);
+async function handleWorkspaceSyncGet(req: Request, res: Response, env: ServerEnv): Promise<void> {
+  const keyCheck = workspaceKeySchema.safeParse(req.query.workspaceKey);
+  if (!keyCheck.success) {
+    res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Provide a valid workspaceKey parameter.' });
+    return;
+  }
+  const since = typeof req.query.since === 'string' ? req.query.since.trim() : '';
+  const ws = await getWorkspaceByKey(keyCheck.data, env);
+  if (!ws) {
+    res.status(HTTP_STATUS.OK).json({ found: false, changed: false });
+    return;
+  }
+  if (since && ws.updatedAt <= since) {
+    res.status(HTTP_STATUS.OK).json({
+      found: true,
+      changed: false,
+      telegramLinked: Boolean(ws.telegramChatId),
+      updatedAt: ws.updatedAt,
+    });
+    return;
+  }
+  res.status(HTTP_STATUS.OK).json({
+    found: true,
+    changed: true,
+    workspaceKey: ws.workspaceKey,
+    activeMemberId: ws.activeMemberId,
+    telegramLinked: Boolean(ws.telegramChatId),
+    lastModifiedBy: ws.lastModifiedBy,
+    updatedAt: ws.updatedAt,
+    payload: ws.payload,
   });
-  router.post(
-    '/companion/telegram-link',
-    limiter.middleware,
-    async (req: Request, res: Response) => {
-      await handleTelegramLink(req, res, env);
-    },
-  );
+}
+
+async function handleWorkspaceSyncPost(req: Request, res: Response, env: ServerEnv): Promise<void> {
+  const parsed = workspaceSyncPostSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res
+      .status(HTTP_STATUS.BAD_REQUEST)
+      .json({ error: 'Invalid workspace synchronization payload.' });
+    return;
+  }
+  const ws = await syncWorkspaceFromWeb(parsed.data, env);
+  res.status(HTTP_STATUS.OK).json({
+    ok: true,
+    workspaceKey: ws.workspaceKey,
+    telegramLinked: Boolean(ws.telegramChatId),
+    updatedAt: ws.updatedAt,
+  });
 }
 
 async function runDailyBriefFanout(
   env: ServerEnv,
 ): Promise<{ readonly sentCount: number; readonly skippedCount: number }> {
-  const members = await listTelegramOptedInMembers(env);
+  const workspaces = await listOptedInWorkspaces(env);
   let sentCount = 0;
   let skippedCount = 0;
-  for (const member of members) {
-    if (!member.telegramChatId) {
+  for (const ws of workspaces) {
+    if (!ws.telegramChatId) {
       skippedCount += 1;
       continue;
     }
-    const brief = await buildLiveScheduleBrief(member, env);
-    const delivered = env.TELEGRAM_BOT_TOKEN
+    const brief = await buildLiveScheduleBrief(ws, env);
+    const ok = env.TELEGRAM_BOT_TOKEN
       ? await sendTelegramMessage(
           env.TELEGRAM_BOT_TOKEN,
-          member.telegramChatId,
+          ws.telegramChatId,
           brief,
           DEFAULT_TELEGRAM_BUTTONS,
         )
       : true;
-    if (delivered) {
-      await markDailyBriefSent(member.id, env);
+    if (ok) {
+      await markWorkspaceBriefSent(ws, env);
       sentCount += 1;
     } else {
       skippedCount += 1;
@@ -150,16 +222,27 @@ function registerTelegramRoutes(router: Router, env: ServerEnv): void {
       res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: 'Unauthorized daily brief trigger.' });
       return;
     }
-    const counts = await runDailyBriefFanout(env);
-    res.status(HTTP_STATUS.OK).json({ ok: true, ...counts });
+    res.status(HTTP_STATUS.OK).json({ ok: true, ...(await runDailyBriefFanout(env)) });
   });
 }
 
-/** Creates the Express router handling in-app companion chat, Telegram pairing, webhooks, and cron briefs. */
+/** Creates the Express router handling companion chat, Telegram pairing, workspace sync, and cron briefs. */
 export function createCompanionRouter(env: ServerEnv): Router {
   const router = Router();
   const limiter = new SlidingWindowRateLimiter(SECURITY_LIMITS.CHAT_RATE_LIMIT_PER_MIN);
-  registerWebCompanionRoutes(router, env, limiter);
+  const syncLimiter = new SlidingWindowRateLimiter(SECURITY_LIMITS.TELEMETRY_RATE_LIMIT_PER_MIN);
+  router.post('/companion/chat', limiter.middleware, (req, res) =>
+    handleCompanionChat(req, res, env),
+  );
+  router.post('/companion/telegram-link', limiter.middleware, (req, res) =>
+    handleTelegramLink(req, res, env),
+  );
+  router.get('/companion/workspace-sync', syncLimiter.middleware, (req, res) =>
+    handleWorkspaceSyncGet(req, res, env),
+  );
+  router.post('/companion/workspace-sync', syncLimiter.middleware, (req, res) =>
+    handleWorkspaceSyncPost(req, res, env),
+  );
   registerTelegramRoutes(router, env);
   return router;
 }

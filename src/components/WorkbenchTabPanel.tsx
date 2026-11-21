@@ -102,6 +102,9 @@ export const WorkbenchTabPanel = memo(function WorkbenchTabPanel({
       <FamilyCompanionChat
         input={workspace.input}
         memberSchedules={workspace.bundle.aiPlan.memberSchedules ?? []}
+        workspaceKey={workspace.workspaceKey}
+        telegramLinked={workspace.telegramLinked}
+        syncedFromTelegram={workspace.syncedFromTelegram}
         onApplyMemberPatch={applyMemberPatch}
         t={t}
       />

@@ -1,5 +1,5 @@
 import { VALIDATION_BOUNDS } from '../../src/config/constants.js';
-import type { CommuteModeId } from '../../src/domain/types.js';
+import type { CommuteModeId, FamilyMemberInput, MaskTypeId } from '../../src/domain/types.js';
 import { sanitizeUserText } from '../../src/utils/inputSanitizer.js';
 import type { ProfileHabitPatch } from './companionDbMapper.js';
 
@@ -9,18 +9,22 @@ const MAX_MINUTES = 59;
 const MAX_EXTRACTED_NOTE = 150;
 const MIN_LOCATION_LEN = 3;
 const MAX_LOCATION_LEN = 48;
+const MERIDIEM_GROUP_IDX = 3;
 
 const LOCATION_PREP_RE =
-  /\b(?:near|at|in|around|from|outside(?:\s+at|\s+in|\s+near)?)\s+([A-Za-z][A-Za-z0-9\s-]{2,42}?)(?=(?:[,.?!]|$|\s+(?:and|right now|now|today|tonight|tomorrow|thinking|heading|going|walking|leaving|how|is|are|for|with|to)\b))/i;
+  /\b(?:near|at|in|around|from|outside(?:\s+at|\s+in|\s+near)?|(?:switch|change|set)\s+(?:my\s+)?(?:city|location)\s+to|moved\s+to)\s+([A-Za-z][A-Za-z0-9\s,-]{2,42}?)(?=(?:[.?!]|$|\s+(?:and|right now|now|today|tonight|tomorrow|thinking|heading|going|walking|leaving|how|is|are|for|with|to)\b))/i;
+
+const PERSIST_CITY_INTENT_RE =
+  /\b(?:i am|i'm|im|currently|right now|here in|located in|staying in|living in|switch(?:ed)?\s+(?:city|location)|change(?:d)?\s+(?:city|location)|set\s+(?:city|location)|moved\s+to)\b/i;
 
 const TIME_RANGE_RE =
   /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*(?:to|-)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i;
 
 const LEAVE_TIME_RE =
-  /\b(?:leave|leaving|depart|go out|start|school|office|walk)\s+(?:at|around|by)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i;
+  /\b(?:leave|leaving|depart|departing|head out|heading out|go out|going out|step out|stepping out|start|starting|school|office|walk)(?:\s+(?:the\s+)?(?:home|house|for\s+(?:school|office|work|college)))?\s+(?:at|around|by|from)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i;
 
 const RETURN_TIME_RE =
-  /\b(?:return|back|home|finish|pickup)\s+(?:at|around|by)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i;
+  /\b(?:return|returning|come back|coming back|get back|getting back|reach|reaching|arrive|arriving|back|finish|finishing|pickup)(?:\s+(?:to\s+)?(?:home|house))?\s+(?:at|around|by|till|until)\s+(?:(?:\d{1,2}(?::\d{2})?\s*(?:am|pm)\s*)*)(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i;
 
 const HEALTH_CUE_RE =
   /\b(asthma|wheez\w*|inhaler|cough\w*|breathless\w*|copd|bronchitis|allergy|sinus|chest tight\w*)\b/i;
@@ -28,24 +32,13 @@ const HEALTH_CUE_RE =
 const HABIT_CUE_RE =
   /\b(every day|daily|routine|schedule|terrace|balcony|walk\w*|jog\w*|school|office|tuition|park|gym|market)\b/i;
 
-const LOCATION_STOPWORDS = new Set([
-  'home',
-  'house',
-  'work',
-  'school',
-  'office',
-  'the',
-  'my',
-  'this',
-  'that',
-  'here',
-  'there',
-  'today',
-  'morning',
-  'evening',
-  'afternoon',
-  'night',
-]);
+const MEMBER_NUM_RE = /\bmember\s*(\d+)\b/i;
+
+const LOCATION_STOPWORDS = new Set(
+  'home house work school office club clubb movie cinema gym room bedroom terrace balcony indoor indoors outdoor outdoors car bus metro the my this that here there today tomorrow tonight morning evening afternoon night am pm january february march april may june july august september october november december monday tuesday wednesday thursday friday saturday sunday'.split(
+    ' ',
+  ),
+);
 
 function applyMeridiem(hour: number, meridiem: string | undefined): number {
   if (meridiem === 'pm' && hour < NOON_HOUR) {
@@ -101,16 +94,29 @@ function detectCommuteMode(lower: string): CommuteModeId | undefined {
   if (/\bcycl\w*|bicycle\b/.test(lower)) {
     return 'cycling';
   }
-  if (/\bwalk\w*\b/.test(lower)) {
-    return 'walking';
+  return /\bwalk\w*\b/.test(lower) ? 'walking' : undefined;
+}
+
+function detectMaskPreference(lower: string): MaskTypeId | undefined {
+  if (!/\bmask|n95|ffp2|kn95\b/.test(lower)) {
+    return undefined;
   }
-  return undefined;
+  if (/\bn95|ffp2|kn95\b/.test(lower)) {
+    return 'n95-ffp2';
+  }
+  if (/\bsurgical\b/.test(lower)) {
+    return 'surgical';
+  }
+  if (/\bcloth\b/.test(lower)) {
+    return 'cloth';
+  }
+  return /\bno mask|without mask\b/.test(lower) ? 'none' : undefined;
 }
 
 /** Extracts an optional locality or city name mentioned in natural conversation. */
 export function extractLocationMention(message: string): string | null {
   const match = LOCATION_PREP_RE.exec(message);
-  const candidate = match?.[1]?.trim();
+  const candidate = match?.[1]?.trim().replace(/,+$/, '');
   if (!candidate || candidate.length < MIN_LOCATION_LEN) {
     return null;
   }
@@ -122,47 +128,99 @@ export function extractLocationMention(message: string): string | null {
   return cleaned;
 }
 
-function extractTimeBounds(message: string): {
-  readonly leaveHomeTime?: string;
-  readonly returnHomeTime?: string;
-} {
-  const range = TIME_RANGE_RE.exec(message);
-  if (range) {
-    const [, h1, m1, mer1, h2, m2, mer2] = range;
-    const leave = normalizeClockTime(h1, m1, mer1);
-    const ret = normalizeClockTime(h2, m2, mer2);
-    return {
-      ...(leave ? { leaveHomeTime: leave } : {}),
-      ...(ret ? { returnHomeTime: ret } : {}),
-    };
+/** Returns true when a user message states their current city/location should be updated permanently. */
+export function shouldPersistLocationMention(message: string): boolean {
+  return PERSIST_CITY_INTENT_RE.test(message);
+}
+
+function findMemberByFirstName(
+  words: ReadonlySet<string>,
+  members: readonly FamilyMemberInput[],
+): string | null {
+  for (const m of members) {
+    const first = m.label.split(/[\s(]/)[0]?.trim().toLowerCase() ?? '';
+    if (first.length >= MIN_LOCATION_LEN && words.has(first)) {
+      return m.id;
+    }
   }
-  const leaveMatch = LEAVE_TIME_RE.exec(message);
-  const retMatch = RETURN_TIME_RE.exec(message);
-  const [, lh, lm, lmer] = leaveMatch ?? [];
-  const [, rh, rm, rmer] = retMatch ?? [];
-  const leave = normalizeClockTime(lh, lm, lmer);
-  const ret = normalizeClockTime(rh, rm, rmer);
+  return null;
+}
+
+/** Detects whether the message explicitly targets a specific household member by number or first name. */
+export function detectMentionedMemberId(
+  message: string,
+  members: readonly FamilyMemberInput[],
+): string | null {
+  const numMatch = MEMBER_NUM_RE.exec(message);
+  if (numMatch?.[1]) {
+    const byIdx = members[Number.parseInt(numMatch[1], VALIDATION_BOUNDS.DECIMAL_BASE) - 1];
+    if (byIdx) {
+      return byIdx.id;
+    }
+  }
+  const words = new Set(
+    message
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean),
+  );
+  return findMemberByFirstName(words, members);
+}
+
+function packTimeBounds(
+  leave: string | undefined,
+  ret: string | undefined,
+): { readonly leaveHomeTime?: string; readonly returnHomeTime?: string } {
   return {
     ...(leave ? { leaveHomeTime: leave } : {}),
     ...(ret ? { returnHomeTime: ret } : {}),
   };
 }
 
-/** Extracts schedule times, commute modes, health cues, and routine updates from natural text. */
+function parseMatchClock(match: RegExpExecArray | null): string | undefined {
+  return match ? normalizeClockTime(match[1], match[2], match[MERIDIEM_GROUP_IDX]) : undefined;
+}
+
+function extractTimeBounds(message: string): {
+  readonly leaveHomeTime?: string;
+  readonly returnHomeTime?: string;
+} {
+  const leaveMatch = LEAVE_TIME_RE.exec(message);
+  const retMatch = RETURN_TIME_RE.exec(message);
+  if (leaveMatch || retMatch) {
+    return packTimeBounds(parseMatchClock(leaveMatch), parseMatchClock(retMatch));
+  }
+  const range = TIME_RANGE_RE.exec(message);
+  if (!range) {
+    return {};
+  }
+  const [, h1, m1, mer1, h2, m2, mer2] = range;
+  return packTimeBounds(normalizeClockTime(h1, m1, mer1), normalizeClockTime(h2, m2, mer2));
+}
+
+function buildHabitNote(
+  cleanMsg: string,
+  times: { readonly leaveHomeTime?: string; readonly returnHomeTime?: string },
+): string | undefined {
+  const hasCue =
+    HABIT_CUE_RE.test(cleanMsg) || Boolean(times.leaveHomeTime ?? times.returnHomeTime);
+  return hasCue ? cleanMsg : undefined;
+}
+
+/** Extracts schedule times, commute modes, masks, health cues, and routine updates from natural text. */
 export function extractHabitUpdates(message: string): ProfileHabitPatch {
   const cleanMsg = sanitizeUserText(message, MAX_EXTRACTED_NOTE);
   const lower = cleanMsg.toLowerCase();
   const times = extractTimeBounds(cleanMsg);
   const commuteMode = detectCommuteMode(lower);
+  const mask = detectMaskPreference(lower);
   const healthNotes = HEALTH_CUE_RE.test(cleanMsg) ? cleanMsg : undefined;
-  const dailyHabitsNote =
-    HABIT_CUE_RE.test(cleanMsg) || times.leaveHomeTime || times.returnHomeTime
-      ? cleanMsg
-      : undefined;
+  const dailyHabitsNote = buildHabitNote(cleanMsg, times);
 
   return {
     ...times,
     ...(commuteMode ? { commuteMode } : {}),
+    ...(mask ? { mask } : {}),
     ...(healthNotes ? { healthNotes } : {}),
     ...(dailyHabitsNote ? { dailyHabitsNote } : {}),
   };
@@ -174,6 +232,7 @@ export function hasHabitPatch(patch: ProfileHabitPatch): boolean {
     patch.leaveHomeTime ??
     patch.returnHomeTime ??
     patch.commuteMode ??
+    patch.mask ??
     patch.healthNotes ??
     patch.dailyHabitsNote ??
     patch.archetype ??

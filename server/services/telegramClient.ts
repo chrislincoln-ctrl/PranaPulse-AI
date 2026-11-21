@@ -3,7 +3,8 @@ import { SECURITY_LIMITS, UPSTREAM_ENDPOINTS } from '../../src/config/constants.
 
 export interface TelegramInlineButton {
   readonly text: string;
-  readonly callback_data: string;
+  readonly callback_data?: string | undefined;
+  readonly url?: string | undefined;
 }
 
 export interface TelegramLocation {
@@ -35,10 +36,21 @@ const MAX_TELEGRAM_TEXT_LEN = 3900;
 
 export const DEFAULT_TELEGRAM_BUTTONS: readonly (readonly TelegramInlineButton[])[] = [
   [
-    { text: 'Check Current Air', callback_data: 'air' },
-    { text: 'My Schedule Today', callback_data: 'schedule' },
+    { text: 'Live Air', callback_data: 'cmd:air' },
+    { text: 'My Schedule', callback_data: 'cmd:schedule' },
   ],
-  [{ text: 'Window Safety Now', callback_data: 'windows' }],
+  [
+    { text: 'Family Roster', callback_data: 'cmd:family' },
+    { text: 'Indoor & Windows', callback_data: 'cmd:windows' },
+  ],
+  [
+    { text: 'Commute', callback_data: 'cmd:commute' },
+    { text: 'Masks & Gear', callback_data: 'cmd:gear' },
+  ],
+  [
+    { text: 'RWA Notice', callback_data: 'cmd:rwa' },
+    { text: 'Controls & GPS', callback_data: 'cmd:controls' },
+  ],
 ];
 
 /** Builds a 1-tap Telegram bot deep-link URL that automatically sends `/start <linkCode>`. */
@@ -69,7 +81,7 @@ export function verifyTelegramWebhookSecret(
   return timingSafeEqual(actualBuf, expectedBuf);
 }
 
-/** Verifies a Bearer secret token header (used by Vercel Cron for `/api/telegram/daily-brief`). */
+/** Verifies a Bearer secret token header (used by cron workflows for `/api/telegram/daily-brief`). */
 export function verifyBearerSecret(
   authorizationHeader: string | undefined,
   expectedSecret: string | undefined,
@@ -131,6 +143,26 @@ export async function sendTelegramMessage(
     payload.reply_markup = { inline_keyboard: inlineButtons };
   }
   return await postTelegramApi(token, 'sendMessage', payload);
+}
+
+/** Sends a native 1-tap Telegram GPS location request keyboard for mobile live-location updates. */
+export async function sendTelegramLocationPrompt(
+  token: string | undefined,
+  chatId: string | number,
+  text: string,
+): Promise<boolean> {
+  if (!token) {
+    return false;
+  }
+  return await postTelegramApi(token, 'sendMessage', {
+    chat_id: String(chatId),
+    text: text.slice(0, MAX_TELEGRAM_TEXT_LEN),
+    reply_markup: {
+      keyboard: [[{ text: 'Share My Live GPS Location', request_location: true }]],
+      resize_keyboard: true,
+      one_time_keyboard: true,
+    },
+  });
 }
 
 /** Acknowledges an inline button press so Telegram immediately clears the loading indicator. */

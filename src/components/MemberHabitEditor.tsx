@@ -5,7 +5,6 @@ import type { CommuteModeId, FamilyMemberInput, MemberRoutineArchetype } from '.
 import type { LocaleDictionary } from '../i18n/translations.js';
 import type { SupportedLanguage } from '../validators/schemas.js';
 import { SelectField } from './FormFields.js';
-import { TelegramPairingControl } from './TelegramPairingControl.js';
 
 export interface MemberHabitEditorProps {
   readonly member: FamilyMemberInput;
@@ -155,12 +154,11 @@ function HabitEditorDrawer(props: MemberHabitEditorProps): ReactElement {
       </div>
       <HabitTimeInputs member={member} onChange={onChange} t={t} />
       <HabitNotesInputs member={member} onChange={onChange} t={t} />
-      <TelegramPairingControl {...props} />
     </div>
   );
 }
 
-/** Expandable per-member daily habit, commute timing, health note, and 1-tap Telegram pairing panel. */
+/** Expandable per-member daily habit, commute timing, and respiratory health note panel. */
 export const MemberHabitEditor = memo(function MemberHabitEditor(
   props: MemberHabitEditorProps,
 ): ReactElement {

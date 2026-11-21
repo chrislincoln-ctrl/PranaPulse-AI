@@ -7,9 +7,11 @@ import {
   resolveMemberArchetype,
 } from '../../src/domain/memberScheduleBuilder.js';
 import {
+  detectMentionedMemberId,
   extractHabitUpdates,
   extractLocationMention,
   hasHabitPatch,
+  shouldPersistLocationMention,
 } from '../../server/services/habitExtractor.js';
 
 describe('Per-member daily schedule engine & habit extraction', () => {
@@ -127,5 +129,24 @@ describe('Per-member daily schedule engine & habit extraction', () => {
     expect(patch.returnHomeTime).toBe('14:30');
     expect(patch.commuteMode).toBe('electric-bus');
     expect(patch.healthNotes).toContain('asthma');
+
+    // Exact natural phrasing reported by user (leaving home / returning home + AM/PM)
+    const natural = extractHabitUpdates(
+      'I will be leaving home at 10:20 and will be returning home at 11:41 pm',
+    );
+    expect(natural.leaveHomeTime).toBe('10:20');
+    expect(natural.returnHomeTime).toBe('23:41');
+
+    const doubleTypo = extractHabitUpdates(
+      'Today, that is, on the 22nd of November, I will be leaving home at 10:20 and return home at 4 pm11:41 PM',
+    );
+    expect(doubleTypo.leaveHomeTime).toBe('10:20');
+    expect(doubleTypo.returnHomeTime).toBe('23:41');
+    expect(extractLocationMention('I want to go to club in November')).toBeNull();
+    expect(extractLocationMention('Switch city to Kolkata')).toBe('Kolkata');
+    expect(shouldPersistLocationMention('Switch city to Kolkata')).toBe(true);
+    expect(detectMentionedMemberId('Update member 2 timing', DEFAULT_WORKSPACE_INPUT.members)).toBe(
+      'm2',
+    );
   });
 });

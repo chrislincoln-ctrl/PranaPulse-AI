@@ -1,178 +1,122 @@
-import { DEFAULT_WORKSPACE_INPUT } from '../../src/config/uiConstants.js';
-import { computePlanPhysics } from '../../src/domain/localBaseline.js';
+import type { FamilyMemberInput } from '../../src/domain/types.js';
 import type { ServerEnv } from '../env.js';
-import { buildMemberScheduleSnapshot, handleCompanionCheckin } from './familyCompanionAgent.js';
+import type { ProfileHabitPatch } from './companionDbMapper.js';
+import { handleCompanionCheckin } from './familyCompanionAgent.js';
+import { recordCompanionCheckin } from './familyCompanionStore.js';
 import {
-  ensureMemberForTelegramChatId,
-  recordCompanionCheckin,
-  redeemTelegramLinkCode,
-  storedProfileToFamilyMember,
-  updateMemberHabitsByProfileId,
-  type StoredMemberProfile,
-} from './familyCompanionStore.js';
-import { hasHabitPatch } from './habitExtractor.js';
+  detectMentionedMemberId,
+  hasHabitPatch,
+  shouldPersistLocationMention,
+} from './habitExtractor.js';
+import {
+  ensureWorkspaceForTelegramChatId,
+  getActiveMember,
+  redeemWorkspaceLinkCode,
+  updateWorkspaceFromTelegram,
+  type SyncedWorkspaceRecord,
+} from './householdWorkspaceStore.js';
+import { buildLiveScheduleBrief, type TelegramReplyPayload } from './telegramCardBuilders.js';
 import {
   answerTelegramCallbackQuery,
   DEFAULT_TELEGRAM_BUTTONS,
+  sendTelegramLocationPrompt,
   sendTelegramMessage,
   type TelegramWebhookUpdate,
 } from './telegramClient.js';
-import { getUrbanTelemetryBundle } from './telemetryClients.js';
+import { routeTelegramCommand } from './telegramCommandRouter.js';
+
+export { buildLiveScheduleBrief } from './telegramCardBuilders.js';
 
 const START_COMMAND_RE = /^\/start(?:\s+([A-Za-z0-9_-]+))?/i;
-const DEFAULT_CLEAN_HOUR = 13;
 
-function formatWindowRange(hours: readonly number[]): string {
-  if (hours.length === 0) {
-    return '13:00 - 15:00';
+function applyPatchToMember(
+  member: FamilyMemberInput,
+  patch: ProfileHabitPatch,
+): FamilyMemberInput {
+  return {
+    ...member,
+    ...(patch.leaveHomeTime ? { leaveHomeTime: patch.leaveHomeTime } : {}),
+    ...(patch.returnHomeTime ? { returnHomeTime: patch.returnHomeTime } : {}),
+    ...(patch.commuteMode ? { commuteMode: patch.commuteMode } : {}),
+    ...(patch.mask ? { mask: patch.mask } : {}),
+    ...(patch.healthNotes ? { healthNotes: patch.healthNotes } : {}),
+    ...(patch.dailyHabitsNote ? { dailyHabitsNote: patch.dailyHabitsNote } : {}),
+    ...(patch.archetype ? { archetype: patch.archetype } : {}),
+  };
+}
+
+function formatSyncFooter(
+  memberLabel: string,
+  patch: ProfileHabitPatch,
+  updatedCity: string | null,
+): string {
+  const notes: string[] = [];
+  if (updatedCity) {
+    notes.push(`City: ${updatedCity}`);
   }
-  const first = hours[0] ?? DEFAULT_CLEAN_HOUR;
-  const last = hours[hours.length - 1] ?? first;
-  return `${String(first).padStart(2, '0')}:00 - ${String(last).padStart(2, '0')}:59`;
-}
-
-/** Builds a fresh localized Telegram daily brief string for a stored member profile. */
-export async function buildLiveScheduleBrief(
-  profile: StoredMemberProfile,
-  env: ServerEnv,
-): Promise<string> {
-  const telemetry = await getUrbanTelemetryBundle({
-    lat: profile.lat,
-    lon: profile.lon,
-    cityLabel: profile.city,
-    env,
-  });
-  const schedule = buildMemberScheduleSnapshot({
-    member: storedProfileToFamilyMember(profile),
-    city: profile.city,
-    lat: profile.lat,
-    lon: profile.lon,
-    language: profile.language,
-    telemetry,
-  });
-  return schedule.shareBriefText;
-}
-
-async function buildLiveAirCard(profile: StoredMemberProfile, env: ServerEnv): Promise<string> {
-  const telemetry = await getUrbanTelemetryBundle({
-    lat: profile.lat,
-    lon: profile.lon,
-    cityLabel: profile.city,
-    env,
-  });
-  const cur = telemetry.hourlySeries[0];
-  const p = telemetry.currentPollutants;
-  const aqi = telemetry.stationCrossCheck.effectiveSafetyAqi;
-  return [
-    `Live Air & Weather: ${profile.city} (${profile.label})`,
-    `- CPCB NAQI: ${String(aqi)} (${telemetry.assessment.cpcbCategory}) | US-EPA: ${String(telemetry.assessment.usEpaAqi)}`,
-    `- PM2.5: ${String(Math.round(p.pm25UgM3))} ug/m3 | PM10: ${String(Math.round(p.pm10UgM3))} ug/m3`,
-    `- NO2: ${String(Math.round(p.no2UgM3))} ug/m3 | O3: ${String(Math.round(p.o3UgM3))} ug/m3`,
-    `- Boundary Layer (PBL): ${String(telemetry.inversion.currentPblMeters)}m (${telemetry.inversion.currentSeverity})`,
-    `- Weather: Wind ${String(Math.round(cur?.windKmh ?? 0))} km/h | Humidity ${String(Math.round(cur?.rhPercent ?? 0))}%`,
-    `- Mask Advice: Use ${profile.mask} outdoors (${String(telemetry.assessment.cigaretteEquivPerDay)} cig/day ambient load).`,
-  ].join('\n');
-}
-
-async function buildWindowSafetyCard(
-  profile: StoredMemberProfile,
-  env: ServerEnv,
-): Promise<string> {
-  const telemetry = await getUrbanTelemetryBundle({
-    lat: profile.lat,
-    lon: profile.lon,
-    cityLabel: profile.city,
-    env,
-  });
-  const member = storedProfileToFamilyMember(profile);
-  const physics = computePlanPhysics(
-    {
-      ...DEFAULT_WORKSPACE_INPUT,
-      city: profile.city,
-      lat: profile.lat,
-      lon: profile.lon,
-      members: [member],
-    },
-    telemetry,
-  );
-  const openNow = telemetry.inversion.openWindowsNow;
-  const cleanWin = formatWindowRange(telemetry.inversion.bestWindowHours);
-  return [
-    `Window & Purifier Check: ${profile.city} (${profile.label})`,
-    `- Open Windows Now: ${openNow ? 'YES (Safe for 20-min cross-ventilation)' : 'NO (Keep windows & balcony sealed)'}`,
-    `- Mixing Ceiling: ${String(telemetry.inversion.currentPblMeters)}m PBL (${telemetry.inversion.currentSeverity})`,
-    `- Safest Airing Window Today: ${cleanWin}`,
-    `- Indoor HEPA Target: ${String(physics.indoor.requiredCadr48Ach)} m3/hr CADR (~${String(physics.indoor.purge90Minutes)} min for 90% room purge)`,
-    `- Mitigated Indoor PM2.5: ~${String(physics.indoor.dailyMeanMitigatedPm25)} ug/m3 (${String(physics.indoor.exposureReductionPct)}% reduction)`,
-  ].join('\n');
+  if (patch.leaveHomeTime) {
+    notes.push(`Leave ${patch.leaveHomeTime}`);
+  }
+  if (patch.returnHomeTime) {
+    notes.push(`Return ${patch.returnHomeTime}`);
+  }
+  if (patch.commuteMode) {
+    notes.push(`Mode ${patch.commuteMode}`);
+  }
+  if (patch.mask) {
+    notes.push(`Mask ${patch.mask}`);
+  }
+  if (notes.length === 0) {
+    return hasHabitPatch(patch) ? `\n\nSynced to website: ${memberLabel}` : '';
+  }
+  return `\n\nSynced to website (${memberLabel}): ${notes.join(' | ')}`;
 }
 
 async function handleStartCommand(
   chatId: string,
   code: string | undefined,
   env: ServerEnv,
-): Promise<string> {
+): Promise<TelegramReplyPayload> {
   const linked =
-    (code ? await redeemTelegramLinkCode(code, chatId, env) : null) ??
-    (await ensureMemberForTelegramChatId(chatId, env));
+    (code ? await redeemWorkspaceLinkCode(code, chatId, env) : null) ??
+    (await ensureWorkspaceForTelegramChatId(chatId, env));
+  const active = getActiveMember(linked);
   const brief = await buildLiveScheduleBrief(linked, env);
-  return `Linked to ${linked.label} (${linked.city})! You will receive personalized morning briefs and can message or drop a GPS pin anytime.\n\n${brief}`;
+  const text = `Linked to ${active.label} (${linked.payload.city})! Everything you update here syncs live with your website — tap any button below or message naturally.\n\n${brief}`;
+  return { text, buttons: DEFAULT_TELEGRAM_BUTTONS };
 }
 
-async function tryHandleTelegramQuickAction(
-  lower: string,
-  profile: StoredMemberProfile,
-  env: ServerEnv,
-): Promise<string | null> {
-  if (lower === '/schedule' || lower === 'schedule') {
-    return await buildLiveScheduleBrief(profile, env);
-  }
-  if (lower === '/air' || lower === 'air') {
-    return await buildLiveAirCard(profile, env);
-  }
-  if (lower === '/windows' || lower === 'windows') {
-    return await buildWindowSafetyCard(profile, env);
-  }
-  return null;
-}
-
-async function handleLinkedTelegramMessage(params: {
-  readonly profile: StoredMemberProfile;
-  readonly text: string;
-  readonly gpsLat?: number | undefined;
-  readonly gpsLon?: number | undefined;
+async function persistFreeformChanges(params: {
+  readonly workspace: SyncedWorkspaceRecord;
+  readonly targetMember: FamilyMemberInput;
+  readonly promptText: string;
+  readonly gpsLat: number | undefined;
+  readonly result: Awaited<ReturnType<typeof handleCompanionCheckin>>;
   readonly env: ServerEnv;
-}): Promise<string> {
-  const quickCard = await tryHandleTelegramQuickAction(
-    params.text.trim().toLowerCase(),
-    params.profile,
-    params.env,
-  );
-  if (quickCard) {
-    return quickCard;
-  }
-  const promptText =
-    params.text.trim() || 'I shared my current GPS location. How is the air and weather here?';
-  const result = await handleCompanionCheckin(
-    {
-      member: storedProfileToFamilyMember(params.profile),
-      message: promptText,
-      city: params.profile.city,
-      lat: params.profile.lat,
-      lon: params.profile.lon,
-      gpsLat: params.gpsLat,
-      gpsLon: params.gpsLon,
-      language: params.profile.language,
-      channel: 'telegram',
-    },
-    params.env,
-  );
-  if (hasHabitPatch(result.habitPatch)) {
-    await updateMemberHabitsByProfileId(params.profile.id, result.habitPatch, params.env);
+}): Promise<boolean> {
+  const { workspace, targetMember, promptText, gpsLat, result, env } = params;
+  const locationChanged =
+    gpsLat !== undefined ||
+    (shouldPersistLocationMention(promptText) && result.resolvedCity !== workspace.payload.city);
+  const memberChanged = hasHabitPatch(result.habitPatch);
+  if (locationChanged || memberChanged) {
+    const members = memberChanged
+      ? workspace.payload.members.map((m) =>
+          m.id === targetMember.id ? applyPatchToMember(m, result.habitPatch) : m,
+        )
+      : workspace.payload.members;
+    const nextPayload = {
+      ...workspace.payload,
+      ...(locationChanged
+        ? { city: result.resolvedCity, lat: result.resolvedLat, lon: result.resolvedLon }
+        : {}),
+      members,
+    };
+    await updateWorkspaceFromTelegram(workspace, { payload: nextPayload }, env);
   }
   await recordCompanionCheckin(
     {
-      memberProfileId: params.profile.id,
+      memberProfileId: workspace.id,
       channel: 'telegram',
       direction: 'inbound',
       messageText: promptText,
@@ -182,9 +126,55 @@ async function handleLinkedTelegramMessage(params: {
       extractedHabitNote: result.habitPatch.dailyHabitsNote ?? result.habitPatch.healthNotes,
       aqiSnapshot: result.aqi,
     },
-    params.env,
+    env,
   );
-  return result.reply;
+  return locationChanged;
+}
+
+async function handleFreeformMessage(params: {
+  readonly workspace: SyncedWorkspaceRecord;
+  readonly text: string;
+  readonly gpsLat?: number | undefined;
+  readonly gpsLon?: number | undefined;
+  readonly env: ServerEnv;
+}): Promise<TelegramReplyPayload> {
+  const { workspace, env, gpsLat, gpsLon } = params;
+  const promptText =
+    params.text.trim() || 'I shared my current GPS location. How is the air and weather here?';
+  const targetId =
+    detectMentionedMemberId(promptText, workspace.payload.members) ?? workspace.activeMemberId;
+  const targetMember =
+    workspace.payload.members.find((m) => m.id === targetId) ?? getActiveMember(workspace);
+  const result = await handleCompanionCheckin(
+    {
+      member: targetMember,
+      message: promptText,
+      city: workspace.payload.city,
+      lat: workspace.payload.lat,
+      lon: workspace.payload.lon,
+      gpsLat,
+      gpsLon,
+      language: workspace.payload.language,
+      areaM2: workspace.payload.areaM2,
+      cadrM3Hr: workspace.payload.cadrM3Hr,
+      channel: 'telegram',
+    },
+    env,
+  );
+  const locationChanged = await persistFreeformChanges({
+    workspace,
+    targetMember,
+    promptText,
+    gpsLat,
+    result,
+    env,
+  });
+  const footer = formatSyncFooter(
+    targetMember.label,
+    result.habitPatch,
+    locationChanged ? result.resolvedCity : null,
+  );
+  return { text: `${result.reply}${footer}`, buttons: DEFAULT_TELEGRAM_BUTTONS };
 }
 
 function readRawChatId(update: TelegramWebhookUpdate): number | string | undefined {
@@ -218,7 +208,19 @@ function extractUpdateContext(update: TelegramWebhookUpdate): {
   };
 }
 
-/** Processes a single Telegram webhook update (start linking, GPS pin, button callback, or chat). */
+async function dispatchReply(
+  chatId: string,
+  reply: TelegramReplyPayload,
+  env: ServerEnv,
+): Promise<void> {
+  if (reply.requestGpsKeyboard) {
+    await sendTelegramLocationPrompt(env.TELEGRAM_BOT_TOKEN, chatId, reply.text);
+    return;
+  }
+  await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, reply.text, reply.buttons);
+}
+
+/** Processes a single Telegram webhook update (start linking, GPS pin, button callback, command, or chat). */
 export async function processTelegramUpdate(
   update: TelegramWebhookUpdate,
   env: ServerEnv,
@@ -233,17 +235,21 @@ export async function processTelegramUpdate(
   const startMatch = START_COMMAND_RE.exec(ctx.text);
   if (startMatch) {
     const reply = await handleStartCommand(ctx.chatId, startMatch[1], env);
-    await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, ctx.chatId, reply, DEFAULT_TELEGRAM_BUTTONS);
-    return { handled: 'start', replyText: reply };
+    await dispatchReply(ctx.chatId, reply, env);
+    return { handled: 'start', replyText: reply.text };
   }
-  const profile = await ensureMemberForTelegramChatId(ctx.chatId, env);
-  const reply = await handleLinkedTelegramMessage({
-    profile,
-    text: ctx.text,
-    gpsLat: ctx.gpsLat,
-    gpsLon: ctx.gpsLon,
-    env,
-  });
-  await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, ctx.chatId, reply, DEFAULT_TELEGRAM_BUTTONS);
-  return { handled: 'message', replyText: reply };
+  const workspace = await ensureWorkspaceForTelegramChatId(ctx.chatId, env);
+  const routed =
+    ctx.gpsLat === undefined ? await routeTelegramCommand(ctx.text, workspace, env) : null;
+  const reply =
+    routed ??
+    (await handleFreeformMessage({
+      workspace,
+      text: ctx.text,
+      gpsLat: ctx.gpsLat,
+      gpsLon: ctx.gpsLon,
+      env,
+    }));
+  await dispatchReply(ctx.chatId, reply, env);
+  return { handled: routed ? 'command' : 'message', replyText: reply.text };
 }

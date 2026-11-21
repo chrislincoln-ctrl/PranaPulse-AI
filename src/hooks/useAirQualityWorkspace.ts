@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { DEFAULT_WORKSPACE_INPUT, SUPPORTED_LANGUAGES, UI_TIMINGS } from '../config/uiConstants.js';
+import { useCallback, useEffect, useState } from 'react';
+import { DEFAULT_WORKSPACE_INPUT, SUPPORTED_LANGUAGES } from '../config/uiConstants.js';
 import {
   buildInitialWorkspaceBundle,
   recomputeBundlePhysics,
@@ -10,16 +10,10 @@ import { TRANSLATIONS } from '../i18n/translations.js';
 import { quantizeCoord } from '../utils/inputSanitizer.js';
 import type { PlanRequestPayload, SupportedLanguage } from '../validators/schemas.js';
 import { useGeolocationAction, type GpsStatus } from './useGeolocationAction.js';
+import { useHealthCapability, usePlanSynchronizer } from './usePlanSynchronizer.js';
+import { useWorkspaceSync } from './useWorkspaceSync.js';
 
 export type { GpsStatus };
-
-interface HealthPayload {
-  readonly capabilities?: {
-    readonly geminiConfigured?: boolean;
-    readonly groqConfigured?: boolean;
-    readonly telegramConfigured?: boolean;
-  };
-}
 
 function localizeDefaultMembers(
   members: readonly FamilyMemberInput[],
@@ -31,108 +25,11 @@ function localizeDefaultMembers(
     if (!targetName) {
       return member;
     }
-    const isDefaultInAnyLocale = SUPPORTED_LANGUAGES.some(
+    const isDefault = SUPPORTED_LANGUAGES.some(
       (code) => TRANSLATIONS[code].defaultMemberLabels[member.id] === member.label,
     );
-    return isDefaultInAnyLocale ? { ...member, label: targetName } : member;
+    return isDefault ? { ...member, label: targetName } : member;
   });
-}
-
-function isPlanBundle(value: unknown): value is PlanBundleResponse {
-  const obj = typeof value === 'object' ? (value as Record<string, unknown> | null) : null;
-  return Boolean(obj && 'telemetry' in obj && 'indoor' in obj && 'aiPlan' in obj);
-}
-
-async function fetchPlanBundle(
-  payload: PlanRequestPayload,
-  signal: AbortSignal,
-): Promise<PlanBundleResponse | null> {
-  const res = await fetch('/api/plan', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-    signal,
-  });
-  const data: unknown = res.ok ? await res.json() : null;
-  return isPlanBundle(data) ? data : null;
-}
-
-function useHealthCapability(): {
-  readonly liveGeminiConfigured: boolean;
-  readonly groqConfigured: boolean;
-  readonly telegramConfigured: boolean;
-} {
-  const [caps, setCaps] = useState({
-    liveGeminiConfigured: false,
-    groqConfigured: false,
-    telegramConfigured: false,
-  });
-
-  useEffect(() => {
-    void fetch('/api/health')
-      .then((res) => (res.ok ? (res.json() as Promise<HealthPayload>) : null))
-      .then((data) => {
-        setCaps({
-          liveGeminiConfigured: Boolean(data?.capabilities?.geminiConfigured),
-          groqConfigured: Boolean(data?.capabilities?.groqConfigured),
-          telegramConfigured: Boolean(data?.capabilities?.telegramConfigured),
-        });
-      })
-      .catch(() => undefined);
-  }, []);
-
-  return caps;
-}
-
-function usePlanSynchronizer(setBundle: React.Dispatch<React.SetStateAction<PlanBundleResponse>>) {
-  const [isLoadingPlan, setIsLoadingPlan] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const executePlanSync = useCallback(
-    (nextInput: PlanRequestPayload): void => {
-      abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
-      setIsLoadingPlan(true);
-
-      void fetchPlanBundle(nextInput, controller.signal)
-        .then((serverBundle) => {
-          if (serverBundle && !controller.signal.aborted) {
-            setBundle(serverBundle);
-          }
-        })
-        .catch(() => undefined)
-        .finally(() => {
-          if (!controller.signal.aborted) {
-            setIsLoadingPlan(false);
-          }
-        });
-    },
-    [setBundle],
-  );
-
-  const schedulePlanSync = useCallback(
-    (nextInput: PlanRequestPayload): void => {
-      setIsLoadingPlan(true);
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
-      debounceRef.current = setTimeout(() => {
-        executePlanSync(nextInput);
-      }, UI_TIMINGS.PLAN_DEBOUNCE_MS);
-    },
-    [executePlanSync],
-  );
-
-  const cancelPending = useCallback((): void => {
-    abortRef.current?.abort();
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-  }, []);
-
-  return { isLoadingPlan, executePlanSync, schedulePlanSync, cancelPending };
 }
 
 function useWorkspaceEffects(
@@ -143,7 +40,6 @@ function useWorkspaceEffects(
   useEffect(() => {
     document.documentElement.lang = language;
   }, [language]);
-
   useEffect(() => {
     executePlanSync(DEFAULT_WORKSPACE_INPUT);
     return cancelPending;
@@ -162,29 +58,64 @@ function applyPatchToInput(
   return { next: { ...prev, ...patch, members: nextMembers }, languageChanged };
 }
 
+function applyRemoteState(
+  prev: PlanRequestPayload,
+  remote: PlanRequestPayload,
+  setBundle: React.Dispatch<React.SetStateAction<PlanBundleResponse>>,
+  sync: ReturnType<typeof usePlanSynchronizer>,
+): PlanRequestPayload {
+  const locChanged =
+    prev.city !== remote.city || prev.lat !== remote.lat || prev.lon !== remote.lon;
+  if (locChanged) {
+    setBundle(buildInitialWorkspaceBundle(remote));
+    sync.cancelPending();
+    sync.executePlanSync(remote);
+  } else {
+    setBundle((cur) => recomputeBundlePhysics(remote, cur.telemetry));
+    sync.schedulePlanSync(remote);
+  }
+  return remote;
+}
+
+function runUpdatedPlanSync(
+  next: PlanRequestPayload,
+  languageChanged: boolean,
+  sync: ReturnType<typeof usePlanSynchronizer>,
+): void {
+  if (languageChanged) {
+    sync.cancelPending();
+    sync.executePlanSync(next);
+  } else {
+    sync.schedulePlanSync(next);
+  }
+}
+
 function useWorkspaceActions(
-  input: PlanRequestPayload,
   setInput: React.Dispatch<React.SetStateAction<PlanRequestPayload>>,
   setBundle: React.Dispatch<React.SetStateAction<PlanBundleResponse>>,
   sync: ReturnType<typeof usePlanSynchronizer>,
+  pushWorkspace: (payload: PlanRequestPayload, immediate?: boolean) => void,
 ) {
   const [gpsCity, setGpsCity] = useState<string | null>(null);
 
   const applyCityChoice = useCallback(
     (city: string, lat: number, lon: number, fromGps = false): void => {
-      const next: PlanRequestPayload = {
-        ...input,
-        city,
-        lat: quantizeCoord(lat),
-        lon: quantizeCoord(lon),
-      };
       setGpsCity(fromGps ? city : null);
-      setInput(next);
-      setBundle(buildInitialWorkspaceBundle(next));
-      sync.cancelPending();
-      sync.executePlanSync(next);
+      setInput((prev) => {
+        const next: PlanRequestPayload = {
+          ...prev,
+          city,
+          lat: quantizeCoord(lat),
+          lon: quantizeCoord(lon),
+        };
+        setBundle(buildInitialWorkspaceBundle(next));
+        sync.cancelPending();
+        sync.executePlanSync(next);
+        pushWorkspace(next, true);
+        return next;
+      });
     },
-    [input, setBundle, setInput, sync],
+    [pushWorkspace, setBundle, setInput, sync],
   );
 
   const updateInput = useCallback(
@@ -198,70 +129,80 @@ function useWorkspaceActions(
             languageChanged ? undefined : { aiPlan: cur.aiPlan, aiMeta: cur.aiMeta },
           ),
         );
-        if (languageChanged) {
-          sync.cancelPending();
-          sync.executePlanSync(next);
-        } else {
-          sync.schedulePlanSync(next);
-        }
+        runUpdatedPlanSync(next, languageChanged, sync);
+        pushWorkspace(next, false);
         return next;
       });
     },
-    [setBundle, setInput, sync],
+    [pushWorkspace, setBundle, setInput, sync],
   );
 
   return { gpsCity, applyCityChoice, updateInput };
 }
 
+function useCityAndGpsHandlers(
+  applyCityChoice: (city: string, lat: number, lon: number, fromGps?: boolean) => void,
+) {
+  const selectCityFromGps = useCallback(
+    (city: string, lat: number, lon: number) => {
+      applyCityChoice(city, lat, lon, true);
+    },
+    [applyCityChoice],
+  );
+  const { gpsStatus, requestGeolocation, resetGpsStatus } = useGeolocationAction(selectCityFromGps);
+  const selectCity = useCallback(
+    (city: string, lat: number, lon: number) => {
+      resetGpsStatus();
+      applyCityChoice(city, lat, lon, false);
+    },
+    [applyCityChoice, resetGpsStatus],
+  );
+  return { gpsStatus, requestGeolocation, selectCity };
+}
+
 /**
  * Manages atmospheric telemetry, interactive household physics controls, and synchronized
- * grounded Gemini schedule refreshes with instant 60 FPS deterministic reactivity.
+ * grounded Gemini + Telegram schedule refreshes with instant 60 FPS deterministic reactivity.
  */
 export function useAirQualityWorkspace() {
   const [input, setInput] = useState<PlanRequestPayload>(DEFAULT_WORKSPACE_INPUT);
   const [bundle, setBundle] = useState<PlanBundleResponse>(() =>
     buildInitialWorkspaceBundle(DEFAULT_WORKSPACE_INPUT),
   );
-  const { liveGeminiConfigured, groqConfigured, telegramConfigured } = useHealthCapability();
+  const caps = useHealthCapability();
   const sync = usePlanSynchronizer(setBundle);
-
+  const applyRemote = useCallback(
+    (remote: PlanRequestPayload) => {
+      setInput((prev) => applyRemoteState(prev, remote, setBundle, sync));
+    },
+    [sync],
+  );
+  const remoteSync = useWorkspaceSync(applyRemote);
   useWorkspaceEffects(input.language, sync.executePlanSync, sync.cancelPending);
   const { gpsCity, applyCityChoice, updateInput } = useWorkspaceActions(
-    input,
     setInput,
     setBundle,
     sync,
+    remoteSync.pushWorkspace,
   );
-  const selectCityFromGps = useCallback(
-    (city: string, lat: number, lon: number): void => {
-      applyCityChoice(city, lat, lon, true);
-    },
-    [applyCityChoice],
-  );
-  const { gpsStatus, requestGeolocation, resetGpsStatus } = useGeolocationAction(selectCityFromGps);
-
-  const selectCity = useCallback(
-    (city: string, lat: number, lon: number): void => {
-      resetGpsStatus();
-      applyCityChoice(city, lat, lon, false);
-    },
-    [applyCityChoice, resetGpsStatus],
-  );
+  const { gpsStatus, requestGeolocation, selectCity } = useCityAndGpsHandlers(applyCityChoice);
+  const refreshPlanNow = useCallback(() => {
+    sync.executePlanSync(input);
+  }, [input, sync]);
 
   return {
     input,
     bundle,
-    liveGeminiConfigured,
-    groqConfigured,
-    telegramConfigured,
-    isLoadingPlan: sync.isLoadingPlan,
+    ...caps,
     gpsStatus,
     gpsCity,
     updateInput,
     selectCity,
     requestGeolocation,
-    refreshPlanNow: () => {
-      sync.executePlanSync(input);
-    },
+    refreshPlanNow,
+    workspaceKey: remoteSync.workspaceKey,
+    telegramLinked: remoteSync.telegramLinked,
+    syncedFromTelegram: remoteSync.syncedFromTelegram,
+    isLoadingPlan: sync.isLoadingPlan,
   };
 }

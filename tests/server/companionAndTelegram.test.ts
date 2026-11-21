@@ -288,4 +288,102 @@ describe('Family Companion Chat, Telegram Webhook & Daily Brief Cron', () => {
     expect(telegramCalls.some((c) => c.url.includes('/sendMessage'))).toBe(true);
     expect(telegramCalls.some((c) => c.url.includes('/answerCallbackQuery'))).toBe(true);
   });
+
+  it('syncs Kolkata GPS to Telegram, recovers coords on cold start, and syncs Telegram edits back to website', async () => {
+    mockCompanionUpstreamFetch();
+    const env = loadServerEnv({
+      NODE_ENV: 'test',
+      TELEGRAM_BOT_TOKEN: 'test-bot-token',
+      TELEGRAM_BOT_USERNAME: 'PranaPulseBot',
+      TELEGRAM_WEBHOOK_SECRET: 'sync-secret',
+    });
+    const app = createApp(env);
+    const kolkataPayload = {
+      ...DEFAULT_WORKSPACE_INPUT,
+      city: 'Shimultala, Kolkata',
+      lat: 22.57,
+      lon: 88.36,
+    };
+
+    // 1. Website creates 1-click Telegram link with live Kolkata GPS workspace
+    const linkRes = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/companion/telegram-link',
+      body: { workspaceKey: 'wkolkata01', payload: kolkataPayload, activeMemberId: 'm1' },
+    });
+    expect(linkRes.status).toBe(200);
+    const { linkCode } = linkRes.body as { linkCode: string };
+    expect(linkCode).toContain('wkolkata01');
+    expect(linkCode).toContain('2257_8836');
+
+    // 2. Simulate serverless cold start before /start — decoded coords still resolve to Kolkata, NOT New Delhi
+    clearCompanionStore();
+    const coldStartRes = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'sync-secret' },
+      body: { message: { chat: { id: 7744 }, text: `/start ${linkCode}` } },
+    });
+    expect(coldStartRes.status).toBe(200);
+    expect((coldStartRes.body as { replyText: string }).replyText).toContain('Kolkata');
+    expect((coldStartRes.body as { replyText: string }).replyText).not.toContain('New Delhi');
+
+    // 3. User updates Member 1 timings in Telegram natural language
+    const timeMsg = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'sync-secret' },
+      body: {
+        message: {
+          chat: { id: 7744 },
+          text: 'I will be leaving home at 10:20 and will be returning home at 11:41 pm',
+        },
+      },
+    });
+    expect(timeMsg.status).toBe(200);
+    expect((timeMsg.body as { replyText: string }).replyText).toContain('Leave 10:20');
+    expect((timeMsg.body as { replyText: string }).replyText).toContain('Return 23:41');
+
+    // 4. User operates full-site controls via Telegram (/room, /rwa, mask callback)
+    const roomRes = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'sync-secret' },
+      body: { message: { chat: { id: 7744 }, text: '/room 35' } },
+    });
+    expect(roomRes.status).toBe(200);
+    expect((roomRes.body as { replyText: string }).replyText).toContain('35 m2');
+
+    const rwaRes = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'sync-secret' },
+      body: { message: { chat: { id: 7744 }, text: '/rwa 240 65' } },
+    });
+    expect(rwaRes.status).toBe(200);
+    expect((rwaRes.body as { replyText: string }).replyText).toContain('240');
+
+    // 5. Website polls GET /api/companion/workspace-sync and receives Member 1's 10:20 / 23:41 + room + RWA!
+    const syncGet = await invokeExpress(app, {
+      method: 'GET',
+      url: '/api/companion/workspace-sync?workspaceKey=wkolkata01',
+    });
+    expect(syncGet.status).toBe(200);
+    const syncBody = syncGet.body as {
+      found: boolean;
+      changed: boolean;
+      telegramLinked: boolean;
+      lastModifiedBy: string;
+      payload: typeof DEFAULT_WORKSPACE_INPUT;
+    };
+    expect(syncBody.found).toBe(true);
+    expect(syncBody.changed).toBe(true);
+    expect(syncBody.telegramLinked).toBe(true);
+    expect(syncBody.lastModifiedBy).toBe('telegram');
+    expect(syncBody.payload.city).toContain('Kolkata');
+    expect(syncBody.payload.members[0]?.leaveHomeTime).toBe('10:20');
+    expect(syncBody.payload.members[0]?.returnHomeTime).toBe('23:41');
+    expect(syncBody.payload.areaM2).toBe(35);
+    expect(syncBody.payload.householdsParticipating).toBe(240);
+  });
 });

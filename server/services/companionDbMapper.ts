@@ -51,6 +51,7 @@ export interface ProfileHabitPatch {
   readonly leaveHomeTime?: string | undefined;
   readonly returnHomeTime?: string | undefined;
   readonly commuteMode?: CommuteModeId | undefined;
+  readonly mask?: MaskTypeId | undefined;
   readonly healthNotes?: string | undefined;
   readonly dailyHabitsNote?: string | undefined;
   readonly archetype?: MemberRoutineArchetype | undefined;

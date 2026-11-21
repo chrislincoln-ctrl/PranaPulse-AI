@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { DEFAULT_WORKSPACE_INPUT } from '../../src/config/uiConstants.js';
 import type { ServerEnv } from '../env.js';
+import { clearHouseholdWorkspaceStore } from './householdWorkspaceStore.js';
 import {
   applyHabitPatchToProfile,
   buildProfileFromUpsert,
@@ -45,8 +46,8 @@ function buildFallbackProfileForMemberKey(memberKey?: string): StoredMemberProfi
     DEFAULT_WORKSPACE_INPUT.members[0] ?? {
       id: 'm1',
       label: 'Aarav (School)',
-      role: 'child',
-      mask: 'n95-ffp2',
+      role: 'child' as const,
+      mask: 'n95-ffp2' as const,
       dailyOutdoorHours: 1,
     };
   const { city, lat, lon } = DEFAULT_WORKSPACE_INPUT;
@@ -197,17 +198,6 @@ export async function findMemberByTelegramChatId(
   return mem ?? (await queryDbProfileByColumn('telegram_chat_id', telegramChatId, env));
 }
 
-/** Ensures a Telegram user always resolves to a linked family member even across serverless cold starts. */
-export async function ensureMemberForTelegramChatId(
-  telegramChatId: string,
-  env: ServerEnv,
-): Promise<StoredMemberProfile> {
-  return (
-    (await findMemberByTelegramChatId(telegramChatId, env)) ??
-    (await redeemTelegramLinkCode('m1', telegramChatId, env))
-  );
-}
-
 /** Lists all Telegram-linked family members opted into automated daily morning briefs. */
 export async function listTelegramOptedInMembers(
   env: ServerEnv,
@@ -245,7 +235,6 @@ export async function updateMemberHabitsByProfileId(
   return await persistProfileToDb(updated, env);
 }
 
-/** Records an inbound or outbound companion check-in message for history and auditing. */
 export async function recordCompanionCheckin(
   entry: CheckinLogInput,
   env: ServerEnv,
@@ -255,26 +244,25 @@ export async function recordCompanionCheckin(
     memoryCheckins.shift();
   }
   const db = createAdminSupabaseClient(env);
-  if (db) {
-    try {
-      await db.from(CHECKINS_TABLE).insert(toDbCheckinPayload(entry));
-    } catch {
-      // Ignore DB persistence hiccups so live replies never fail.
-    }
+  if (!db) {
+    return;
+  }
+  try {
+    await db.from(CHECKINS_TABLE).insert(toDbCheckinPayload(entry));
+  } catch {
+    // Ignore DB persistence hiccups so live replies never fail.
   }
 }
 
-/** Marks the timestamp when a member last received an automated daily Telegram brief. */
 export async function markDailyBriefSent(profileId: string, env: ServerEnv): Promise<void> {
-  const nowIso = new Date().toISOString();
   const existing = memoryProfiles.get(profileId);
   if (existing) {
-    await persistProfileToDb({ ...existing, lastBriefSentAt: nowIso }, env);
+    await persistProfileToDb({ ...existing, lastBriefSentAt: new Date().toISOString() }, env);
   }
 }
 
-/** Clears the in-memory companion store for isolated automated tests. */
 export function clearCompanionStore(): void {
   memoryProfiles.clear();
   memoryCheckins.length = 0;
+  clearHouseholdWorkspaceStore();
 }

@@ -68,7 +68,7 @@ function mergeMemberWithPatch(
   member: FamilyMemberInput,
   patch: ProfileHabitPatch,
 ): FamilyMemberInput {
-  return { ...member, ...patch };
+  return { ...member, ...patch, mask: patch.mask ?? member.mask };
 }
 
 async function resolveMentionedPlace(
