@@ -36,17 +36,14 @@ function HousingControls({
   );
 }
 
-function RosterMemberList({
-  input,
-  advisories,
-  onUpdateInput,
-  t,
-}: {
+interface RosterSliceProps {
   readonly input: PlanRequestPayload;
   readonly advisories: readonly FamilyMemberAdvisory[];
   readonly onUpdateInput: (patch: Partial<PlanRequestPayload>) => void;
   readonly t: LocaleDictionary;
-}): ReactElement {
+}
+
+function RosterMemberList({ input, advisories, onUpdateInput, t }: RosterSliceProps): ReactElement {
   const { members, language, city, lat, lon } = input;
   const advisoryMap = new Map(advisories.map((a) => [a.id, a]));
   return (
@@ -112,12 +109,7 @@ function FamilyRosterSection({
   advisories,
   onUpdateInput,
   t,
-}: {
-  readonly input: PlanRequestPayload;
-  readonly advisories: readonly FamilyMemberAdvisory[];
-  readonly onUpdateInput: (patch: Partial<PlanRequestPayload>) => void;
-  readonly t: LocaleDictionary;
-}): ReactElement {
+}: RosterSliceProps): ReactElement {
   const canAdd = input.members.length < VALIDATION_BOUNDS.MAX_FAMILY_MEMBERS;
   const addMember = (): void => {
     const nextIdx = input.members.length + 1;
@@ -147,12 +139,7 @@ function FamilyRosterSection({
         onAdd={addMember}
       />
       <HousingControls input={input} onUpdateInput={onUpdateInput} t={t} />
-      <RosterMemberList
-        input={input}
-        advisories={advisories}
-        onUpdateInput={onUpdateInput}
-        t={t}
-      />
+      <RosterMemberList input={input} advisories={advisories} onUpdateInput={onUpdateInput} t={t} />
     </section>
   );
 }

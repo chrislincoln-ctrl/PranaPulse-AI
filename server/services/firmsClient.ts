@@ -113,4 +113,3 @@ export async function fetchFirePlume(
 
   return await queryLiveFirmsCsv(lat, lon, apiKey, fallback);
 }
-

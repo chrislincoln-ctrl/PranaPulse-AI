@@ -91,4 +91,3 @@ export function computeScaledEdgeMetrics(
   );
   return { distanceKm, exposureUg, minutes };
 }
-

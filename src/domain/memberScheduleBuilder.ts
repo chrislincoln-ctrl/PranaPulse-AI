@@ -2,11 +2,7 @@ import { FAMILY_RISK_WEIGHTS } from '../config/physicsConstants.js';
 import { MEMBER_SCHEDULE_STRINGS, type MemberStepVars } from '../i18n/memberScheduleCopy.js';
 import { TRANSLATIONS } from '../i18n/translations.js';
 import type { DeterministicBriefContext } from './fallbackPlanBuilder.js';
-import type {
-  FamilyMemberInput,
-  MemberRoutineArchetype,
-  RoutineStepItem,
-} from './types.js';
+import type { FamilyMemberInput, MemberRoutineArchetype, RoutineStepItem } from './types.js';
 import type { AiPlanOutput } from '../validators/schemas.js';
 
 type MutableMemberSchedule = NonNullable<AiPlanOutput['memberSchedules']>[number];
@@ -60,7 +56,9 @@ export function buildMemberShareBriefText(
   const lines = [
     `${pack.briefHeader}: ${member.label}`,
     `${ctx.request.city} | CPCB NAQI ${String(ctx.effectiveAqi)} (${ctx.aqi.cpcbCategory}) | PBL ${String(ctx.inversion.currentPblMeters)}m`,
-    ...steps.map((step) => `- ${step.timeWindow}: ${step.actionTitle} (${step.estimatedImpactLabel})`),
+    ...steps.map(
+      (step) => `- ${step.timeWindow}: ${step.actionTitle} (${step.estimatedImpactLabel})`,
+    ),
     pack.briefReplyHint,
   ];
   return lines.join('\n');

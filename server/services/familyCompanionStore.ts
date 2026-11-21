@@ -235,7 +235,10 @@ export async function updateMemberHabitsByProfileId(
 }
 
 /** Records an inbound or outbound companion check-in message for history and auditing. */
-export async function recordCompanionCheckin(entry: CheckinLogInput, env: ServerEnv): Promise<void> {
+export async function recordCompanionCheckin(
+  entry: CheckinLogInput,
+  env: ServerEnv,
+): Promise<void> {
   memoryCheckins.push(entry);
   if (memoryCheckins.length > MAX_IN_MEMORY_CHECKINS) {
     memoryCheckins.shift();

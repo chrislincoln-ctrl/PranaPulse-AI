@@ -62,8 +62,7 @@ function TelegramLinkFeedback({
       )}
       {!linkState.telegramConfigured && (
         <p className="text-xs text-muted">
-          {t.memberTelegramPendingHint}{' '}
-          {linkState.linkCode ? `(Code: ${linkState.linkCode})` : ''}
+          {t.memberTelegramPendingHint} {linkState.linkCode ? `(Code: ${linkState.linkCode})` : ''}
         </p>
       )}
     </div>

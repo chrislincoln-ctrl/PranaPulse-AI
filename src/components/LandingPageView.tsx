@@ -48,7 +48,8 @@ function getTelemetrySection(city: string, aqi: number, pblMeters: number) {
     features: [
       {
         title: 'Planetary Boundary Layer Tracking',
-        description: 'Continuous vertical mixing layer height and nocturnal thermal lid estimation.',
+        description:
+          'Continuous vertical mixing layer height and nocturnal thermal lid estimation.',
       },
       {
         title: 'Thermal Plume Detection',

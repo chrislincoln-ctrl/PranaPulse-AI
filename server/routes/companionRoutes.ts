@@ -92,9 +92,13 @@ function registerWebCompanionRoutes(
   router.post('/companion/chat', limiter.middleware, async (req: Request, res: Response) => {
     await handleCompanionChat(req, res, env);
   });
-  router.post('/companion/telegram-link', limiter.middleware, async (req: Request, res: Response) => {
-    await handleTelegramLink(req, res, env);
-  });
+  router.post(
+    '/companion/telegram-link',
+    limiter.middleware,
+    async (req: Request, res: Response) => {
+      await handleTelegramLink(req, res, env);
+    },
+  );
 }
 
 async function runDailyBriefFanout(
@@ -134,9 +138,9 @@ function registerTelegramRoutes(router: Router, env: ServerEnv): void {
       res.status(HTTP_STATUS.FORBIDDEN).json({ error: 'Invalid Telegram webhook secret.' });
       return;
     }
-    const update = (typeof req.body === 'object' && req.body !== null
-      ? req.body
-      : {}) as TelegramWebhookUpdate;
+    const update = (
+      typeof req.body === 'object' && req.body !== null ? req.body : {}
+    ) as TelegramWebhookUpdate;
     const outcome = await processTelegramUpdate(update, env);
     res.status(HTTP_STATUS.OK).json({ ok: true, ...outcome });
   });

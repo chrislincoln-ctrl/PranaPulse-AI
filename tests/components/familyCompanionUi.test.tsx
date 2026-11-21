@@ -79,7 +79,9 @@ describe('Per-member Family Routine UI, WhatsApp share & Companion Chat', () => 
     expect(screen.getByText(/Strict Morning Indoor Seal & Inhaler Readiness/i)).toBeInTheDocument();
 
     // 3. Expand first member's daily habit editor & trigger Telegram pairing link
-    const toggleButtons = screen.getAllByRole('button', { name: /Customize daily habits & Telegram/i });
+    const toggleButtons = screen.getAllByRole('button', {
+      name: /Customize daily habits & Telegram/i,
+    });
     fireEvent.click(toggleButtons[0]!);
     expect(screen.getByLabelText(/Leaves home/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Connect Telegram/i }));

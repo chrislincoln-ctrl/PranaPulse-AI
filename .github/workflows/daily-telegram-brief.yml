@@ -1,0 +1,24 @@
+name: Daily Telegram Family Air Brief
+
+on:
+  schedule:
+    # 01:00 UTC = 06:30 IST every morning
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+
+jobs:
+  send-daily-briefs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger PranaPulse Daily Telegram Brief
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: https://pranapulseai.vercel.app
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET is not configured in GitHub repository secrets yet; skipping."
+            exit 0
+          fi
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_URL}/api/telegram/daily-brief"

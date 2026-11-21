@@ -201,7 +201,8 @@ function buildHabitFields(m: FamilyMemberInput, existing: StoredMemberProfile | 
 
 function buildTelegramFields(m: FamilyMemberInput, existing: StoredMemberProfile | undefined) {
   const optIn = m.telegramDailyBrief ?? (existing ? existing.telegramOptIn : true);
-  const briefTime = m.briefTimeLocal ?? (existing ? existing.briefTimeLocal : DEFAULT_BRIEF_TIME_LOCAL);
+  const briefTime =
+    m.briefTimeLocal ?? (existing ? existing.briefTimeLocal : DEFAULT_BRIEF_TIME_LOCAL);
   return {
     telegramChatId: existing ? existing.telegramChatId : null,
     telegramLinkCode: existing ? existing.telegramLinkCode : null,

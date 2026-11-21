@@ -24,11 +24,7 @@ export type MaskTypeId = 'none' | 'cloth' | 'surgical' | 'n95-ffp2';
 export type FamilyRole = 'child' | 'senior-respiratory' | 'commuter' | 'caregiver';
 
 export type MemberRoutineArchetype =
-  | 'school-student'
-  | 'office-commuter'
-  | 'senior-homebound'
-  | 'outdoor-active'
-  | 'home-caregiver';
+  'school-student' | 'office-commuter' | 'senior-homebound' | 'outdoor-active' | 'home-caregiver';
 
 export interface PollutantReadingInput {
   readonly pm25UgM3: number;

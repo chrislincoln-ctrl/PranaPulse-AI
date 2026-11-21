@@ -217,4 +217,3 @@ export function extractFreshReadings(
   }
   return { pollutants, latestUtc };
 }
-

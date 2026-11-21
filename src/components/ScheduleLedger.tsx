@@ -97,11 +97,7 @@ function HackBuyLinks({ hack }: { readonly hack: IndoorHackItem }): ReactElement
   );
 }
 
-function RoutineStepsList({
-  steps,
-}: {
-  readonly steps: readonly RoutineStepItem[];
-}): ReactElement {
+function RoutineStepsList({ steps }: { readonly steps: readonly RoutineStepItem[] }): ReactElement {
   return (
     <ol className="mt-4 space-y-3">
       {steps.map((step, idx) => (
@@ -238,7 +234,9 @@ export const ScheduleLedger = memo(function ScheduleLedger({
         t={t}
       />
       {!activeSchedule && <p className="mt-4 font-medium text-ink">{aiPlan.headline}</p>}
-      <RoutineStepsList steps={activeSchedule ? activeSchedule.dailyRoutine : aiPlan.dailyRoutine} />
+      <RoutineStepsList
+        steps={activeSchedule ? activeSchedule.dailyRoutine : aiPlan.dailyRoutine}
+      />
       <HacksAndSwapsGrid aiPlan={aiPlan} t={t} />
     </div>
   );

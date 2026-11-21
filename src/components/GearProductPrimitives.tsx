@@ -119,4 +119,3 @@ export function GearProductCardShell(p: CardShellProps): ReactElement {
     </li>
   );
 }
-

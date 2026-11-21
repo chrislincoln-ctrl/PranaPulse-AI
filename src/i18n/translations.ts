@@ -391,10 +391,8 @@ const en: LocaleDictionary = {
   landingInversionCeilingLabel: 'Thermal Boundary Lid',
   landingEstimatedPm25Label: 'Estimated PM2.5 Load',
   landingVisibilityLabel: 'Urban Visibility',
-  landingSevereInversionDesc:
-    'Cold ground trapping keeps particulates suspended under 220 m.',
-  landingCleanAirDesc:
-    'Solar convective mixing lifts atmospheric inversion above 1200 m.',
+  landingSevereInversionDesc: 'Cold ground trapping keeps particulates suspended under 220 m.',
+  landingCleanAirDesc: 'Solar convective mixing lifts atmospheric inversion above 1200 m.',
   landingAuthGatewayTitle: 'Access PranaPulse Console',
   landingAuthGatewaySubtitle:
     'Launch immediately as a guest or sign in to synchronize your family roster across devices.',
@@ -419,8 +417,7 @@ const en: LocaleDictionary = {
   landingPillarAdvisorTitle: 'Physics-Grounded Health Advisor',
   landingPillarAdvisorDesc:
     'Multi-source guidance bound strictly to live sensor readings and peer-reviewed aerosol science.',
-  landingBottomBannerTitle:
-    'Protect your family from winter atmospheric trapping today.',
+  landingBottomBannerTitle: 'Protect your family from winter atmospheric trapping today.',
   landingBottomBannerCta: 'Enter Workbench Console',
   languageNames: { en: 'English', hi: 'हिन्दी', ta: 'தமிழ்' },
   cityNames: {
@@ -702,10 +699,8 @@ const hi: LocaleDictionary = {
   landingInversionCeilingLabel: 'थर्मल बाउंड्री सीलिंग',
   landingEstimatedPm25Label: 'अनुमानित PM2.5 भार',
   landingVisibilityLabel: 'शहरी दृश्यता',
-  landingSevereInversionDesc:
-    'जमीन की ठंडक से प्रदूषक 220 मीटर के नीचे ही फंसे रहते हैं।',
-  landingCleanAirDesc:
-    'धूप से संवहन मिश्रण वायुमंडलीय इनवर्जन को 1200 मीटर से ऊपर उठाता है।',
+  landingSevereInversionDesc: 'जमीन की ठंडक से प्रदूषक 220 मीटर के नीचे ही फंसे रहते हैं।',
+  landingCleanAirDesc: 'धूप से संवहन मिश्रण वायुमंडलीय इनवर्जन को 1200 मीटर से ऊपर उठाता है।',
   landingAuthGatewayTitle: 'प्राणपल्स कंसोल में प्रवेश करें',
   landingAuthGatewaySubtitle:
     'अतिथि के रूप में तुरंत शुरू करें या अपने पारिवारिक डेटा को सिंक करने के लिए साइन इन करें।',
@@ -728,10 +723,8 @@ const hi: LocaleDictionary = {
   landingPillarFamilyDesc:
     'बच्चों, बुजुर्गों और यात्रियों के लिए विशिष्ट बाहरी जोखिम सीमा और मास्क दिशानिर्देश।',
   landingPillarAdvisorTitle: 'भौतिकी-आधारित स्वास्थ्य सलाहकार',
-  landingPillarAdvisorDesc:
-    'लाइव सेंसर डेटा और प्रमाणित वायुमंडलीय विज्ञान पर आधारित सटीक सुरक्षा परामर्श।',
-  landingBottomBannerTitle:
-    'आज ही अपने परिवार को शीतकालीन वायुमंडलीय प्रदूषण से सुरक्षित करें।',
+  landingPillarAdvisorDesc: 'लाइव सेंसर डेटा और प्रमाणित वायुमंडलीय विज्ञान पर आधारित सटीक सुरक्षा परामर्श।',
+  landingBottomBannerTitle: 'आज ही अपने परिवार को शीतकालीन वायुमंडलीय प्रदूषण से सुरक्षित करें।',
   landingBottomBannerCta: 'वर्कबेंच कंसोल में प्रवेश करें',
   languageNames: { en: 'English', hi: 'हिन्दी', ta: 'தமிழ்' },
   cityNames: {
@@ -836,8 +829,7 @@ const hi: LocaleDictionary = {
   companionChatSubheading:
     'बाहर होने पर तुरंत स्थानीय हवा व मौसम पूछें, या अपनी दिनचर्या बदलकर समय-सारणी अपडेट करें।',
   companionChatMemberLabel: 'सदस्य चुनें',
-  companionChatPlaceholder:
-    'पूछें जैसे: मैं अभी बाहर हूं, हवा कैसी है? या: मेरा स्कूल समय 08:00 से 15:00 है',
+  companionChatPlaceholder: 'पूछें जैसे: मैं अभी बाहर हूं, हवा कैसी है? या: मेरा स्कूल समय 08:00 से 15:00 है',
   companionChatSend: 'साथी से पूछें',
   companionChatSending: 'लाइव सेंसर जांच रहा है',
   companionChatUseGps: 'GPS जोड़ें',
@@ -1015,10 +1007,8 @@ const ta: LocaleDictionary = {
   landingInversionCeilingLabel: 'வெப்ப வரம்பு மூடி',
   landingEstimatedPm25Label: 'மதிப்பிடப்பட்ட PM2.5 அளவு',
   landingVisibilityLabel: 'நகர பார்வைத் திறன்',
-  landingSevereInversionDesc:
-    'குளிர்ந்த நிலப்பரப்பு மாசுகளை 220 மீட்டருக்குள் தடுத்து வைக்கிறது.',
-  landingCleanAirDesc:
-    'சூரிய வெப்பக் கலவை வளிமண்டல இன்வெர்ஷனை 1200 மீட்டருக்கு மேல் உயர்த்துகிறது.',
+  landingSevereInversionDesc: 'குளிர்ந்த நிலப்பரப்பு மாசுகளை 220 மீட்டருக்குள் தடுத்து வைக்கிறது.',
+  landingCleanAirDesc: 'சூரிய வெப்பக் கலவை வளிமண்டல இன்வெர்ஷனை 1200 மீட்டருக்கு மேல் உயர்த்துகிறது.',
   landingAuthGatewayTitle: 'பிராணபல்ஸ் கன்சோலை அணுகவும்',
   landingAuthGatewaySubtitle:
     'விருந்தினராக உடனடியாகத் தொடங்கவும் அல்லது உங்கள் குடும்பப் பட்டியலை ஒத்திசைக்க உள்நுழையவும்.',
@@ -1043,8 +1033,7 @@ const ta: LocaleDictionary = {
   landingPillarAdvisorTitle: 'இயற்பியல் அடிப்படையிலான சுகாதார ஆலோசகர்',
   landingPillarAdvisorDesc:
     'நேரடி உணரி அளவீடுகள் மற்றும் அறிவியல் ஆய்வுகளுக்குக் கட்டுப்பட்ட நம்பகமான வழிகாட்டல்.',
-  landingBottomBannerTitle:
-    'இன்றே உங்கள் குடும்பத்தை குளிர்கால வளிமண்டல புகை மூட்டத்திலிருந்து பாதுகாக்கவும்.',
+  landingBottomBannerTitle: 'இன்றே உங்கள் குடும்பத்தை குளிர்கால வளிமண்டல புகை மூட்டத்திலிருந்து பாதுகாக்கவும்.',
   landingBottomBannerCta: 'பணிமனை கன்சோலில் நுழையவும்',
   languageNames: { en: 'English', hi: 'हिन्दी', ta: 'தமிழ்' },
   cityNames: {

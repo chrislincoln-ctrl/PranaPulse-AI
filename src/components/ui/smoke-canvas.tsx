@@ -1,11 +1,11 @@
 /* eslint-disable */
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import {
   INTRO_DURATION as ORB_INTRO_DURATION,
   getDevIntroTime,
   hasPlayedHeroIntro,
   subscribeHeroIntroStart,
-} from "@/components/ui/globe";
+} from '@/components/ui/globe';
 
 // Tunable constants
 export const SMOKE_MAX_ALPHA = { dark: 0.4, light: 0.1 } as const;
@@ -252,21 +252,23 @@ function cubicBezierSection(x: number): number {
 }
 
 function getIsDarkMode(): boolean {
-  if (typeof document === "undefined") {
+  if (typeof document === 'undefined') {
     return true;
   }
-  return document.documentElement.dataset.mode !== "light";
+  return document.documentElement.dataset.mode !== 'light';
 }
 
 function getPrefersReducedMotion(): boolean {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
     return false;
   }
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-function measureHeroTextRect(container: HTMLElement | null): [number, number, number, number, number] {
-  if (!container || typeof document === "undefined") {
+function measureHeroTextRect(
+  container: HTMLElement | null,
+): [number, number, number, number, number] {
+  if (!container || typeof document === 'undefined') {
     return [0, 0, 0, 0, 0];
   }
   const containerRect = container.getBoundingClientRect();
@@ -284,8 +286,8 @@ function measureHeroTextRect(container: HTMLElement | null): [number, number, nu
   let maxR = -Infinity;
   let maxB = -Infinity;
 
-  const range = typeof document.createRange === "function" ? document.createRange() : null;
-  const textTargets = container.querySelectorAll("h1, p, button, span");
+  const range = typeof document.createRange === 'function' ? document.createRange() : null;
+  const textTargets = container.querySelectorAll('h1, p, button, span');
 
   textTargets.forEach((node) => {
     const el = node as HTMLElement;
@@ -293,7 +295,7 @@ function measureHeroTextRect(container: HTMLElement | null): [number, number, nu
     if (r.width <= 0 || r.height <= 0) {
       return;
     }
-    if ((el.tagName === "P" || el.tagName === "H1") && range) {
+    if ((el.tagName === 'P' || el.tagName === 'H1') && range) {
       try {
         range.selectNodeContents(el);
         const rects = range.getClientRects();
@@ -367,7 +369,7 @@ export function SmokeCanvas({ activeSection, scrollProgress, heroTextRef }: Smok
       activeSectionRef.current = activeSection;
       fromIntensityRef.current = currentIntensityRef.current;
       targetIntensityRef.current = nextTarget;
-      transitionStartRef.current = typeof performance !== "undefined" ? performance.now() : 0;
+      transitionStartRef.current = typeof performance !== 'undefined' ? performance.now() : 0;
       triggerRedrawRef.current?.();
     }
   }, [activeSection]);
@@ -380,20 +382,20 @@ export function SmokeCanvas({ activeSection, scrollProgress, heroTextRef }: Smok
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || typeof window === "undefined") {
+    if (!canvas || typeof window === 'undefined') {
       return;
     }
 
     let gl: WebGLRenderingContext | null = null;
     try {
-      gl = canvas.getContext("webgl", {
+      gl = canvas.getContext('webgl', {
         alpha: true,
         premultipliedAlpha: true,
         antialias: false,
         depth: false,
         stencil: false,
         preserveDrawingBuffer: false,
-        powerPreference: "low-power",
+        powerPreference: 'low-power',
       });
     } catch {
       gl = null;
@@ -439,18 +441,18 @@ export function SmokeCanvas({ activeSection, scrollProgress, heroTextRef }: Smok
       gl.STATIC_DRAW,
     );
 
-    const aPos = gl.getAttribLocation(program, "a_pos");
-    const uRes = gl.getUniformLocation(program, "u_res");
-    const uViewport = gl.getUniformLocation(program, "u_viewport");
-    const uTime = gl.getUniformLocation(program, "u_time");
-    const uIntro = gl.getUniformLocation(program, "u_intro");
-    const uSectionIntensity = gl.getUniformLocation(program, "u_sectionIntensity");
-    const uMaxAlpha = gl.getUniformLocation(program, "u_maxAlpha");
-    const uTextCap = gl.getUniformLocation(program, "u_textCap");
-    const uColor = gl.getUniformLocation(program, "u_color");
-    const uTextRect = gl.getUniformLocation(program, "u_textRect");
-    const uHasTextRect = gl.getUniformLocation(program, "u_hasTextRect");
-    const uFeather = gl.getUniformLocation(program, "u_feather");
+    const aPos = gl.getAttribLocation(program, 'a_pos');
+    const uRes = gl.getUniformLocation(program, 'u_res');
+    const uViewport = gl.getUniformLocation(program, 'u_viewport');
+    const uTime = gl.getUniformLocation(program, 'u_time');
+    const uIntro = gl.getUniformLocation(program, 'u_intro');
+    const uSectionIntensity = gl.getUniformLocation(program, 'u_sectionIntensity');
+    const uMaxAlpha = gl.getUniformLocation(program, 'u_maxAlpha');
+    const uTextCap = gl.getUniformLocation(program, 'u_textCap');
+    const uColor = gl.getUniformLocation(program, 'u_color');
+    const uTextRect = gl.getUniformLocation(program, 'u_textRect');
+    const uHasTextRect = gl.getUniformLocation(program, 'u_hasTextRect');
+    const uFeather = gl.getUniformLocation(program, 'u_feather');
 
     gl.useProgram(program);
     gl.enableVertexAttribArray(aPos);
@@ -641,19 +643,19 @@ export function SmokeCanvas({ activeSection, scrollProgress, heroTextRef }: Smok
     });
     modeObserver.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["data-mode"],
+      attributeFilter: ['data-mode'],
     });
 
     // Watch prefers-reduced-motion dynamically
     const motionMq =
-      typeof window.matchMedia === "function"
-        ? window.matchMedia("(prefers-reduced-motion: reduce)")
+      typeof window.matchMedia === 'function'
+        ? window.matchMedia('(prefers-reduced-motion: reduce)')
         : null;
     const handleMotionChange = () => {
       reducedMotion = motionMq ? motionMq.matches : false;
       startLoopIfAllowed();
     };
-    motionMq?.addEventListener("change", handleMotionChange);
+    motionMq?.addEventListener('change', handleMotionChange);
 
     // Watch viewport & hero text resize
     const handleResize = () => {
@@ -662,10 +664,10 @@ export function SmokeCanvas({ activeSection, scrollProgress, heroTextRef }: Smok
         drawFrame(performance.now(), true);
       }
     };
-    window.addEventListener("resize", handleResize, { passive: true });
+    window.addEventListener('resize', handleResize, { passive: true });
 
     let ro: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== "undefined" && heroTextRef.current) {
+    if (typeof ResizeObserver !== 'undefined' && heroTextRef.current) {
       ro = new ResizeObserver(() => {
         textRectRef.current = measureHeroTextRect(heroTextRef.current);
         if (devIntroT !== null || reducedMotion) {
@@ -683,7 +685,7 @@ export function SmokeCanvas({ activeSection, scrollProgress, heroTextRef }: Smok
         startLoopIfAllowed();
       }
     };
-    document.addEventListener("visibilitychange", handleVisibility);
+    document.addEventListener('visibilitychange', handleVisibility);
 
     // Handle WebGL context loss gracefully
     const handleContextLost = (e: Event) => {
@@ -691,7 +693,7 @@ export function SmokeCanvas({ activeSection, scrollProgress, heroTextRef }: Smok
       stopLoop();
       setWebglFailed(true);
     };
-    canvas.addEventListener("webglcontextlost", handleContextLost);
+    canvas.addEventListener('webglcontextlost', handleContextLost);
 
     resizeCanvas();
     drawFrame(performance.now(), true);
@@ -706,11 +708,11 @@ export function SmokeCanvas({ activeSection, scrollProgress, heroTextRef }: Smok
         window.clearTimeout(fallbackStartTimer);
       }
       modeObserver.disconnect();
-      motionMq?.removeEventListener("change", handleMotionChange);
-      window.removeEventListener("resize", handleResize);
+      motionMq?.removeEventListener('change', handleMotionChange);
+      window.removeEventListener('resize', handleResize);
       ro?.disconnect();
-      document.removeEventListener("visibilitychange", handleVisibility);
-      canvas.removeEventListener("webglcontextlost", handleContextLost);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      canvas.removeEventListener('webglcontextlost', handleContextLost);
       if (gl && !gl.isContextLost()) {
         gl.disableVertexAttribArray(aPos);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
@@ -725,7 +727,7 @@ export function SmokeCanvas({ activeSection, scrollProgress, heroTextRef }: Smok
 
   // Also observe dark/light mode when in CSS fallback mode
   useEffect(() => {
-    if (!webglFailed || typeof document === "undefined") {
+    if (!webglFailed || typeof document === 'undefined') {
       return;
     }
     const observer = new MutationObserver(() => {
@@ -733,7 +735,7 @@ export function SmokeCanvas({ activeSection, scrollProgress, heroTextRef }: Smok
     });
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["data-mode"],
+      attributeFilter: ['data-mode'],
     });
     return () => {
       observer.disconnect();
@@ -746,7 +748,7 @@ export function SmokeCanvas({ activeSection, scrollProgress, heroTextRef }: Smok
     const sectionFactor = SMOKE_INTENSITY_BY_SECTION[activeSection] ?? 0.2;
     const maxAlpha = isDarkState ? SMOKE_MAX_ALPHA.dark : SMOKE_MAX_ALPHA.light;
     const textCap = isDarkState ? TEXT_ALPHA_CAP.dark : TEXT_ALPHA_CAP.light;
-    const rgb = isDarkState ? "205, 215, 220" : "70, 80, 90";
+    const rgb = isDarkState ? '205, 215, 220' : '70, 80, 90';
     const edgeAlpha = Math.min(maxAlpha, maxAlpha * sectionFactor * introFactor);
     const centerAlpha = Math.min(textCap, edgeAlpha * 0.35);
 
@@ -788,4 +790,3 @@ export function SmokeCanvas({ activeSection, scrollProgress, heroTextRef }: Smok
 }
 
 export default SmokeCanvas;
-

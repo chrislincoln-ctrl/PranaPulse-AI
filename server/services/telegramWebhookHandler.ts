@@ -1,8 +1,5 @@
 import type { ServerEnv } from '../env.js';
-import {
-  buildMemberScheduleSnapshot,
-  handleCompanionCheckin,
-} from './familyCompanionAgent.js';
+import { buildMemberScheduleSnapshot, handleCompanionCheckin } from './familyCompanionAgent.js';
 import {
   findMemberByTelegramChatId,
   recordCompanionCheckin,

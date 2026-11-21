@@ -506,9 +506,7 @@ function buildTaSteps(v: MemberStepVars): readonly RoutineStepItem[] {
     },
     {
       timeWindow: v.cleanWindow,
-      actionTitle: isActive
-        ? 'மதிய தூய நேரத்தில் மட்டும் நடைப்பயிற்சி'
-        : 'மதிய பாதுகாப்பான காற்றோட்டம்',
+      actionTitle: isActive ? 'மதிய தூய நேரத்தில் மட்டும் நடைப்பயிற்சி' : 'மதிய பாதுகாப்பான காற்றோட்டம்',
       reasonSummary: `மதிய (${v.cleanWindow}) நேரத்தில் ${isActive ? 'மிதமான நடைப்பயிற்சி' : '20 நிமிட காற்றோட்டம்'} செய்யவும்.`,
       estimatedImpactLabel: 'நாளின் குறைந்த புகை நேரம்',
       exposureTag: isActive ? 'outdoor' : 'ventilation',

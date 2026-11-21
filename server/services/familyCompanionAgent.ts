@@ -59,19 +59,22 @@ const HIGH_AQI = FAMILY_RISK_WEIGHTS.HIGH_RISK_CPCB_THRESHOLD;
 const MODERATE_AQI = 120;
 
 const ZERO_COMMUTE: CommuteOptionEvaluation = {
-  mode: 'metro', mask: 'n95-ffp2', durationMinutes: 0, personalInhaledUg: 0,
-  cigaretteEquiv: 0, communityCo2Grams: 0, communityPm25Mg: 0,
-  isParetoOptimal: true, paradoxWarning: false,
+  mode: 'metro',
+  mask: 'n95-ffp2',
+  durationMinutes: 0,
+  personalInhaledUg: 0,
+  cigaretteEquiv: 0,
+  communityCo2Grams: 0,
+  communityPm25Mg: 0,
+  isParetoOptimal: true,
+  paradoxWarning: false,
 };
 
-function mergeMemberWithPatch(member: FamilyMemberInput, patch: ProfileHabitPatch): FamilyMemberInput {
-  const next: Record<string, unknown> = { ...member };
-  for (const [k, v] of Object.entries(patch)) {
-    if (v !== undefined) {
-      next[k] = v;
-    }
-  }
-  return next as unknown as FamilyMemberInput;
+function mergeMemberWithPatch(
+  member: FamilyMemberInput,
+  patch: ProfileHabitPatch,
+): FamilyMemberInput {
+  return { ...member, ...patch };
 }
 
 async function resolveCheckinLocation(

@@ -91,6 +91,33 @@ function buildTurnFromResponse(params: {
   };
 }
 
+function applyResponseToTurns(params: {
+  readonly data: CompanionApiResponse | null;
+  readonly activeMember: FamilyMemberInput;
+  readonly question: string;
+  readonly onApplyMemberPatch: (memberId: string, patch: Partial<FamilyMemberInput>) => void;
+  readonly setTurns: React.Dispatch<React.SetStateAction<readonly CompanionChatTurn[]>>;
+}): void {
+  if (!params.data) {
+    return;
+  }
+  const updated = hasPatchValues(params.data.habitPatch);
+  if (updated && params.data.habitPatch) {
+    params.onApplyMemberPatch(params.activeMember.id, params.data.habitPatch);
+  }
+  const data = params.data;
+  params.setTurns((prev) => [
+    ...prev,
+    buildTurnFromResponse({
+      memberLabel: params.activeMember.label,
+      question: params.question,
+      data,
+      updated,
+      index: prev.length,
+    }),
+  ]);
+}
+
 function useGpsAttachment() {
   const [gpsPoint, setGpsPoint] = useState<CompanionGpsPoint | null>(null);
   const toggleGps = (): void => {
@@ -124,23 +151,13 @@ export function useCompanionChat(
     setDraft('');
     void postCompanionQuery(input, activeMember, cleaned, gpsPoint)
       .then((data) => {
-        if (!data) {
-          return;
-        }
-        const updated = hasPatchValues(data.habitPatch);
-        if (updated && data.habitPatch) {
-          onApplyMemberPatch(activeMember.id, data.habitPatch);
-        }
-        setTurns((prev) => [
-          ...prev,
-          buildTurnFromResponse({
-            memberLabel: activeMember.label,
-            question: cleaned,
-            data,
-            updated,
-            index: prev.length,
-          }),
-        ]);
+        applyResponseToTurns({
+          data,
+          activeMember,
+          question: cleaned,
+          onApplyMemberPatch,
+          setTurns,
+        });
       })
       .catch(() => undefined)
       .finally(() => {
@@ -149,7 +166,14 @@ export function useCompanionChat(
   };
 
   return {
-    activeMember, draft, setDraft, turns, isSending, gpsPoint,
-    setSelectedMemberId, toggleGps, sendQuestion,
+    activeMember,
+    draft,
+    setDraft,
+    turns,
+    isSending,
+    gpsPoint,
+    setSelectedMemberId,
+    toggleGps,
+    sendQuestion,
   };
 }

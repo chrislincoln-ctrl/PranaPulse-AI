@@ -172,11 +172,11 @@ export function extractHabitUpdates(message: string): ProfileHabitPatch {
 export function hasHabitPatch(patch: ProfileHabitPatch): boolean {
   return Boolean(
     patch.leaveHomeTime ??
-      patch.returnHomeTime ??
-      patch.commuteMode ??
-      patch.healthNotes ??
-      patch.dailyHabitsNote ??
-      patch.archetype ??
-      patch.city,
+    patch.returnHomeTime ??
+    patch.commuteMode ??
+    patch.healthNotes ??
+    patch.dailyHabitsNote ??
+    patch.archetype ??
+    patch.city,
   );
 }

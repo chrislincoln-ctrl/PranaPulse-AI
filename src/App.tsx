@@ -222,9 +222,7 @@ export const App = memo(function App(): ReactElement {
   const [themeMode, toggleTheme] = useDocumentThemeMode();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const defaultMode =
-    typeof process !== 'undefined' && process.env.NODE_ENV === 'test'
-      ? 'workbench'
-      : 'landing';
+    typeof process !== 'undefined' && process.env.NODE_ENV === 'test' ? 'workbench' : 'landing';
   const [viewMode, setViewMode] = useState<'landing' | 'workbench'>(defaultMode);
   const workspace = useAirQualityWorkspace();
   const auth = useCloudWorkspaceRestore(workspace.selectCity, workspace.updateInput);
@@ -245,8 +243,7 @@ export const App = memo(function App(): ReactElement {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const hasOAuth =
-        window.location.hash.includes('access_token=') ||
-        window.location.search.includes('code=');
+        window.location.hash.includes('access_token=') || window.location.search.includes('code=');
       if (hasOAuth) {
         setViewMode('workbench');
       }

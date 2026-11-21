@@ -146,9 +146,7 @@ export async function supabaseSignIn(
 }
 
 /** Initiates Supabase OAuth sign-in with Google, redirecting back to current origin. */
-export async function supabaseSignInWithGoogle(
-  client: SupabaseClient,
-): Promise<AuthActionResult> {
+export async function supabaseSignInWithGoogle(client: SupabaseClient): Promise<AuthActionResult> {
   const { error } = await client.auth.signInWithOAuth({
     provider: 'google',
     options: {

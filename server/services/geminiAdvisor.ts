@@ -123,18 +123,7 @@ async function tryGeminiPlanCascade(
 }
 
 function buildPlanCacheKey(ctx: DeterministicBriefContext): string {
-  const members = ctx.request.members.map((m) =>
-    [m.role, m.archetype, m.leaveHomeTime, m.returnHomeTime, m.commuteMode, m.healthNotes, m.dailyHabitsNote].join('|'),
-  );
-  return createSha256Key({
-    city: ctx.request.city,
-    lang: ctx.request.language,
-    effectiveAqi: ctx.effectiveAqi,
-    mode: ctx.request.commuteMode,
-    fuel: ctx.request.cookingFuel,
-    cadr: ctx.request.cadrM3Hr,
-    members,
-  });
+  return createSha256Key({ req: ctx.request, effectiveAqi: ctx.effectiveAqi });
 }
 
 function attachMemberSchedules(plan: AiPlanOutput, ctx: DeterministicBriefContext): AiPlanOutput {

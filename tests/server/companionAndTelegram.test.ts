@@ -27,7 +27,8 @@ function mockCompanionUpstreamFetch() {
   vi.spyOn(globalThis, 'fetch').mockImplementation((urlArg, init) => {
     const url = resolveFetchUrl(urlArg);
     if (url.includes('api.telegram.org')) {
-      const body = typeof init?.body === 'string' ? (JSON.parse(init.body) as Record<string, unknown>) : {};
+      const body =
+        typeof init?.body === 'string' ? (JSON.parse(init.body) as Record<string, unknown>) : {};
       telegramCalls.push({ url, body });
       return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }));
     }
@@ -265,7 +266,9 @@ describe('Family Companion Chat, Telegram Webhook & Daily Brief Cron', () => {
       },
     });
     expect(cbWebhook.status).toBe(200);
-    expect((cbWebhook.body as { replyText: string }).replyText).toContain('PranaPulse Daily Air Brief');
+    expect((cbWebhook.body as { replyText: string }).replyText).toContain(
+      'PranaPulse Daily Air Brief',
+    );
 
     // 6. Daily brief cron rejects missing/invalid secret
     const unauthCron = await invokeExpress(app, {

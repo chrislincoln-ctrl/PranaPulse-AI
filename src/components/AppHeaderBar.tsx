@@ -96,10 +96,11 @@ function BrandLogoButton({
       className="group flex cursor-pointer items-center gap-2.5 text-left transition-opacity hover:opacity-85 focus:outline-hidden sm:gap-3"
       aria-label={`${APP_META.DISPLAY_NAME} - Return to landing page`}
     >
-      <Wind className="h-6 w-6 shrink-0 text-cool transition-transform group-hover:scale-105" aria-hidden="true" />
-      <span className="text-base font-semibold text-ink sm:text-lg">
-        {APP_META.DISPLAY_NAME}
-      </span>
+      <Wind
+        className="h-6 w-6 shrink-0 text-cool transition-transform group-hover:scale-105"
+        aria-hidden="true"
+      />
+      <span className="text-base font-semibold text-ink sm:text-lg">{APP_META.DISPLAY_NAME}</span>
     </button>
   );
 }

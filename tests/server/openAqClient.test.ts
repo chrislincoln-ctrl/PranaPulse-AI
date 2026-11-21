@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../server/app.js';
 import { loadServerEnv } from '../../server/env.js';
-import { fetchOpenAqStation, normalizeOpenAqUnitToUgM3 } from '../../server/services/openAqClient.js';
+import {
+  fetchOpenAqStation,
+  normalizeOpenAqUnitToUgM3,
+} from '../../server/services/openAqClient.js';
 import { clearTelemetryCaches } from '../../server/services/telemetryClients.js';
 import { invokeExpress } from '../helpers/invokeExpress.js';
 
@@ -358,4 +361,3 @@ describe('OpenAQ API v3 ground-sensor client & hybrid telemetry merge', () => {
     expect(await fetchOpenAqStation(28.61, 77.21, 'oaq-key')).toBeNull();
   });
 });
-

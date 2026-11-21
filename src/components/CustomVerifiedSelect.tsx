@@ -108,9 +108,7 @@ function CustomEntryDrawer(props: {
           <span>{verifying ? t.verifyingCustomButton : t.verifyCustomButton}</span>
         </button>
       </div>
-      {feedback && (
-        <VerificationBanner isValid={feedback.isValid} message={feedback.explanation} />
-      )}
+      {feedback && <VerificationBanner isValid={feedback.isValid} message={feedback.explanation} />}
     </div>
   );
 }

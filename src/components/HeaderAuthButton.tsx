@@ -56,4 +56,3 @@ export const HeaderAuthButton = memo(function HeaderAuthButton({
     </button>
   );
 });
-

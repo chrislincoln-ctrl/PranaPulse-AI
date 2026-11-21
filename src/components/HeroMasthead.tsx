@@ -121,4 +121,3 @@ export function HeroMasthead({ telemetry, gpsCity, t }: HeroMastheadProps): Reac
     </div>
   );
 }
-

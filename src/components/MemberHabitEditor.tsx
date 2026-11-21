@@ -1,11 +1,7 @@
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { memo, useState, type ReactElement } from 'react';
 import { resolveMemberArchetype } from '../domain/memberScheduleBuilder.js';
-import type {
-  CommuteModeId,
-  FamilyMemberInput,
-  MemberRoutineArchetype,
-} from '../domain/types.js';
+import type { CommuteModeId, FamilyMemberInput, MemberRoutineArchetype } from '../domain/types.js';
 import type { LocaleDictionary } from '../i18n/translations.js';
 import type { SupportedLanguage } from '../validators/schemas.js';
 import { SelectField } from './FormFields.js';
