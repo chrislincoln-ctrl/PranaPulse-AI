@@ -2,6 +2,7 @@ import { VALIDATION_BOUNDS } from '../../src/config/constants.js';
 import type { SupportedLanguage } from '../../src/validators/schemas.js';
 import type { ServerEnv } from '../env.js';
 import {
+  getActiveMember,
   updateWorkspaceFromTelegram,
   type SyncedWorkspaceRecord,
 } from './householdWorkspaceStore.js';
@@ -9,10 +10,12 @@ import {
   buildFamilyRosterCard,
   buildLiveAirCard,
   buildScheduleCard,
+  buildWhoAreYouCard,
   buildWindowIndoorCard,
+  prefixActiveUser,
   type TelegramReplyPayload,
 } from './telegramCardBuilders.js';
-import { DEFAULT_TELEGRAM_BUTTONS } from './telegramClient.js';
+import { buildTelegramMenuForMember } from './telegramClient.js';
 import {
   buildCommuteCard,
   buildControlsCard,
@@ -26,6 +29,7 @@ import {
   handleFuelCommand,
   handleMaskUpdate,
   handleMemberSwitch,
+  handleRoleCommand,
   handleRoomOrCadr,
   handleRwaCommand,
 } from './telegramWorkspaceCommands.js';
@@ -39,13 +43,22 @@ type ArgHandler = (
   env: ServerEnv,
 ) => Promise<TelegramReplyPayload>;
 
-const GPS_PROMPT_REPLY: TelegramReplyPayload = {
-  text: 'Tap "Share My Live GPS Location" below (or send a location pin) to switch your city and sync live with the website.',
-  buttons: DEFAULT_TELEGRAM_BUTTONS,
-  requestGpsKeyboard: true,
-};
+function buildGpsPromptReply(ws: SyncedWorkspaceRecord): TelegramReplyPayload {
+  const active = getActiveMember(ws);
+  return {
+    text: prefixActiveUser(
+      ws,
+      'Tap "Share My Live GPS Location" below (or send a location pin) to switch your city and sync live with the website.',
+    ),
+    buttons: buildTelegramMenuForMember(active.label),
+    requestGpsKeyboard: true,
+  };
+}
 
 const SIMPLE_HANDLERS: Readonly<Record<string, SimpleHandler>> = {
+  'cmd:switchuser': (ws) => Promise.resolve(buildWhoAreYouCard(ws)),
+  '/switch': (ws) => Promise.resolve(buildWhoAreYouCard(ws)),
+  '/user': (ws) => Promise.resolve(buildWhoAreYouCard(ws)),
   'cmd:air': buildLiveAirCard,
   '/air': buildLiveAirCard,
   air: buildLiveAirCard,
@@ -71,8 +84,8 @@ const SIMPLE_HANDLERS: Readonly<Record<string, SimpleHandler>> = {
   '/settings': (ws) => Promise.resolve(buildControlsCard(ws, DEFAULT_WEB_APP_URL)),
   '/menu': (ws) => Promise.resolve(buildControlsCard(ws, DEFAULT_WEB_APP_URL)),
   '/help': (ws) => Promise.resolve(buildControlsCard(ws, DEFAULT_WEB_APP_URL)),
-  'gps:ask': () => Promise.resolve(GPS_PROMPT_REPLY),
-  '/gps': () => Promise.resolve(GPS_PROMPT_REPLY),
+  'gps:ask': (ws) => Promise.resolve(buildGpsPromptReply(ws)),
+  '/gps': (ws) => Promise.resolve(buildGpsPromptReply(ws)),
 };
 
 async function handleDistanceCommand(
@@ -93,7 +106,7 @@ async function handleDistanceCommand(
   const card = await buildCommuteCard(updated, env);
   return {
     ...card,
-    text: `Commute distance set to ${String(clamped)} km (synced).\n\n${card.text}`,
+    text: `${card.text}\n\nSynced: Commute distance set to ${String(clamped)} km.`,
   };
 }
 
@@ -104,7 +117,11 @@ async function handleRouteCommand(
 ): Promise<TelegramReplyPayload> {
   const [fromRaw, toRaw] = rest.split(/\s+to\s+/i);
   if (!fromRaw?.trim() || !toRaw?.trim()) {
-    return { text: 'Usage: /route Salt Lake to Park Street', buttons: DEFAULT_TELEGRAM_BUTTONS };
+    const active = getActiveMember(ws);
+    return {
+      text: prefixActiveUser(ws, 'Usage: /route Salt Lake to Park Street'),
+      buttons: buildTelegramMenuForMember(active.label),
+    };
   }
   return await buildCorridorCard(ws, fromRaw.trim(), toRaw.trim(), env);
 }
@@ -112,6 +129,8 @@ async function handleRouteCommand(
 const ARG_HANDLERS: Readonly<Record<string, ArgHandler>> = {
   '/city': handleCityCommand,
   '/member': handleMemberSwitch,
+  '/role': handleRoleCommand,
+  '/profile': handleRoleCommand,
   '/mask': handleMaskUpdate,
   '/addmember': handleAddMemberCommand,
   '/room': (r, ws, env) => handleRoomOrCadr('room', r, ws, env),

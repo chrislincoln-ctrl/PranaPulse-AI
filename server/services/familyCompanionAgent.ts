@@ -14,6 +14,7 @@ import type { ServerEnv } from '../env.js';
 import type { ProfileHabitPatch } from './companionDbMapper.js';
 import { generateCompanionReply } from './companionLlmClient.js';
 import { extractHabitUpdates, extractLocationMention } from './habitExtractor.js';
+import { applyMemberHabitPatch } from './memberMatcher.js';
 import { reverseGeocodeCoords } from './reverseGeocoder.js';
 import {
   getUrbanTelemetryBundle,
@@ -68,7 +69,7 @@ function mergeMemberWithPatch(
   member: FamilyMemberInput,
   patch: ProfileHabitPatch,
 ): FamilyMemberInput {
-  return { ...member, ...patch, mask: patch.mask ?? member.mask };
+  return applyMemberHabitPatch(member, patch as Record<string, unknown>);
 }
 
 async function resolveMentionedPlace(

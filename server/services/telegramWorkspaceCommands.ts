@@ -1,5 +1,5 @@
 import { VALIDATION_BOUNDS } from '../../src/config/constants.js';
-import type { FamilyMemberInput, FamilyRole, MaskTypeId } from '../../src/domain/types.js';
+import type { FamilyMemberInput, MaskTypeId } from '../../src/domain/types.js';
 import { sanitizeUserText } from '../../src/utils/inputSanitizer.js';
 import type { PlanRequestPayload } from '../../src/validators/schemas.js';
 import type { ServerEnv } from '../env.js';
@@ -11,13 +11,16 @@ import {
 import {
   buildFamilyRosterCard,
   buildLiveAirCard,
-  buildScheduleCard,
   buildWindowIndoorCard,
+  prefixActiveUser,
   type TelegramReplyPayload,
 } from './telegramCardBuilders.js';
-import { DEFAULT_TELEGRAM_BUTTONS } from './telegramClient.js';
+import { buildTelegramMenuForMember } from './telegramClient.js';
 import { buildGearCard, buildRwaCard } from './telegramExtraCards.js';
+import { ROLE_ALIASES } from './telegramMemberCommands.js';
 import { searchUrbanLocations } from './telemetryClients.js';
+
+export { handleMemberSwitch, handleRoleCommand } from './telegramMemberCommands.js';
 
 type CookingFuelOption = PlanRequestPayload['cookingFuel'];
 
@@ -41,39 +44,8 @@ const FUEL_ALIASES: Readonly<Record<string, CookingFuelOption>> = {
   'solid-biomass': 'solid-biomass',
 };
 
-const ROLE_ALIASES: Readonly<Record<string, FamilyRole>> = {
-  child: 'child',
-  school: 'child',
-  senior: 'senior-respiratory',
-  'senior-respiratory': 'senior-respiratory',
-  elder: 'senior-respiratory',
-  commuter: 'commuter',
-  office: 'commuter',
-  caregiver: 'caregiver',
-  home: 'caregiver',
-};
-
 function clampNumber(val: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Math.round(val)));
-}
-
-export async function handleMemberSwitch(
-  arg: string,
-  ws: SyncedWorkspaceRecord,
-  env: ServerEnv,
-): Promise<TelegramReplyPayload> {
-  const clean = arg.trim().toLowerCase();
-  const numIdx = Number.parseInt(clean, VALIDATION_BOUNDS.DECIMAL_BASE) - 1;
-  const target =
-    ws.payload.members.find((m) => m.id.toLowerCase() === clean) ??
-    ws.payload.members[numIdx] ??
-    ws.payload.members.find((m) => m.label.toLowerCase().includes(clean));
-  if (!target) {
-    return await buildFamilyRosterCard(ws, env);
-  }
-  const updated = await updateWorkspaceFromTelegram(ws, { activeMemberId: target.id }, env);
-  const card = await buildScheduleCard(updated, env);
-  return { ...card, text: `Active member switched to ${target.label} (synced).\n\n${card.text}` };
 }
 
 export async function handleMaskUpdate(
@@ -93,7 +65,7 @@ export async function handleMaskUpdate(
     env,
   );
   const card = await buildGearCard(updated, env);
-  return { ...card, text: `Updated ${active.label}'s mask to ${mask} (synced).\n\n${card.text}` };
+  return { ...card, text: `${card.text}\n\nSynced: ${active.label}'s mask updated to ${mask}.` };
 }
 
 export async function handleCityCommand(
@@ -101,12 +73,16 @@ export async function handleCityCommand(
   ws: SyncedWorkspaceRecord,
   env: ServerEnv,
 ): Promise<TelegramReplyPayload> {
+  const active = getActiveMember(ws);
   const clean = sanitizeUserText(query, VALIDATION_BOUNDS.MAX_CITY_QUERY_LEN);
   const top = clean ? (await searchUrbanLocations(clean))[0] : undefined;
   if (!top) {
     return {
-      text: `Could not find "${clean}". Try /city Kolkata or share a live GPS pin.`,
-      buttons: DEFAULT_TELEGRAM_BUTTONS,
+      text: prefixActiveUser(
+        ws,
+        `Could not find "${clean}". Try /city Kolkata or share a live GPS pin.`,
+      ),
+      buttons: buildTelegramMenuForMember(active.label),
     };
   }
   const updated = await updateWorkspaceFromTelegram(
@@ -115,7 +91,7 @@ export async function handleCityCommand(
     env,
   );
   const card = await buildLiveAirCard(updated, env);
-  return { ...card, text: `City updated to ${top.name} (synced to website).\n\n${card.text}` };
+  return { ...card, text: `${card.text}\n\nSynced: City updated to ${top.name}.` };
 }
 
 async function applyIndoorPatch(
@@ -129,7 +105,7 @@ async function applyIndoorPatch(
     env,
   );
   const card = await buildWindowIndoorCard(updated, env);
-  return { ...card, text: `Indoor settings synced to website.\n\n${card.text}` };
+  return { ...card, text: `${card.text}\n\nSynced: Indoor settings updated on website.` };
 }
 
 export async function handleRoomOrCadr(
@@ -138,33 +114,36 @@ export async function handleRoomOrCadr(
   ws: SyncedWorkspaceRecord,
   env: ServerEnv,
 ): Promise<TelegramReplyPayload> {
-  const nums = rest
+  const [n0, n1] = rest
     .split(/[\s,]+/)
     .map((n) => Number.parseFloat(n))
     .filter((n) => Number.isFinite(n));
-  if (kind === 'room' && nums[0] !== undefined) {
-    const areaM2 = clampNumber(
-      nums[0],
-      VALIDATION_BOUNDS.MIN_ROOM_AREA_M2,
-      VALIDATION_BOUNDS.MAX_ROOM_AREA_M2,
-    );
-    return await applyIndoorPatch({ areaM2 }, ws, env);
-  }
-  if (kind === 'cadr' && nums[0] !== undefined) {
+  if (kind === 'room' && n0 !== undefined) {
     return await applyIndoorPatch(
-      { cadrM3Hr: clampNumber(nums[0], 0, VALIDATION_BOUNDS.MAX_CADR_M3_HR) },
+      {
+        areaM2: clampNumber(
+          n0,
+          VALIDATION_BOUNDS.MIN_ROOM_AREA_M2,
+          VALIDATION_BOUNDS.MAX_ROOM_AREA_M2,
+        ),
+      },
+      ws,
+      env,
+    );
+  }
+  if (kind === 'cadr' && n0 !== undefined) {
+    return await applyIndoorPatch(
+      { cadrM3Hr: clampNumber(n0, 0, VALIDATION_BOUNDS.MAX_CADR_M3_HR) },
       ws,
       env,
     );
   }
   const areaM2 =
-    nums[0] !== undefined
-      ? clampNumber(nums[0], VALIDATION_BOUNDS.MIN_ROOM_AREA_M2, VALIDATION_BOUNDS.MAX_ROOM_AREA_M2)
+    n0 !== undefined
+      ? clampNumber(n0, VALIDATION_BOUNDS.MIN_ROOM_AREA_M2, VALIDATION_BOUNDS.MAX_ROOM_AREA_M2)
       : ws.payload.areaM2;
   const cadrM3Hr =
-    nums[1] !== undefined
-      ? clampNumber(nums[1], 0, VALIDATION_BOUNDS.MAX_CADR_M3_HR)
-      : ws.payload.cadrM3Hr;
+    n1 !== undefined ? clampNumber(n1, 0, VALIDATION_BOUNDS.MAX_CADR_M3_HR) : ws.payload.cadrM3Hr;
   return await applyIndoorPatch({ areaM2, cadrM3Hr }, ws, env);
 }
 
@@ -184,16 +163,23 @@ export async function handleAddMemberCommand(
   ws: SyncedWorkspaceRecord,
   env: ServerEnv,
 ): Promise<TelegramReplyPayload> {
+  const active = getActiveMember(ws);
   if (ws.payload.members.length >= VALIDATION_BOUNDS.MAX_FAMILY_MEMBERS) {
     return {
-      text: `Family roster already has the maximum ${String(VALIDATION_BOUNDS.MAX_FAMILY_MEMBERS)} members.`,
-      buttons: DEFAULT_TELEGRAM_BUTTONS,
+      text: prefixActiveUser(
+        ws,
+        `Family roster already has the maximum ${String(VALIDATION_BOUNDS.MAX_FAMILY_MEMBERS)} members.`,
+      ),
+      buttons: buildTelegramMenuForMember(active.label),
     };
   }
   const [rawName, rawRole, rawMask] = rawArgs.split('|').map((s) => s.trim());
   const label = sanitizeUserText(rawName ?? '', VALIDATION_BOUNDS.MAX_CITY_QUERY_LEN);
   if (!label) {
-    return { text: 'Usage: /addmember Priya | child | n95', buttons: DEFAULT_TELEGRAM_BUTTONS };
+    return {
+      text: prefixActiveUser(ws, 'Usage: /addmember Priya | child | n95'),
+      buttons: buildTelegramMenuForMember(active.label),
+    };
   }
   const newMember: FamilyMemberInput = {
     id: `m${String(ws.payload.members.length + 1)}`,
@@ -211,7 +197,7 @@ export async function handleAddMemberCommand(
     env,
   );
   const card = await buildFamilyRosterCard(updated, env);
-  return { ...card, text: `Added ${label} to Family Care Roster (synced).\n\n${card.text}` };
+  return { ...card, text: `${card.text}\n\nSynced: Added ${label} to Family Care Roster.` };
 }
 
 export async function handleRwaCommand(
@@ -234,5 +220,5 @@ export async function handleRwaCommand(
     env,
   );
   const card = await buildRwaCard(updated, env);
-  return { ...card, text: `RWA simulator updated (synced to website).\n\n${card.text}` };
+  return { ...card, text: `${card.text}\n\nSynced: RWA simulator updated on website.` };
 }

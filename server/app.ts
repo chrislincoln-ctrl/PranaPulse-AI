@@ -7,7 +7,7 @@ import { APP_META, HTTP_STATUS, SECURITY_LIMITS } from '../src/config/constants.
 import { loadServerEnv, type ServerEnv } from './env.js';
 import { createAirQualityRouter, type RateLimiterPair } from './routes/airQualityRoutes.js';
 import { createCompanionRouter } from './routes/companionRoutes.js';
-import { checkCompanionDbReady } from './services/householdWorkspaceStore.js';
+import { checkCompanionDbHealth } from './services/householdWorkspaceStore.js';
 
 interface AppErrorLike {
   status?: number;
@@ -57,7 +57,7 @@ function buildHelmetMiddleware(env: ServerEnv): ReturnType<typeof helmet> {
 
 function registerHealthRoute(app: Express, env: ServerEnv): void {
   app.get('/api/health', async (_req: Request, res: Response) => {
-    const companionDbReady = await checkCompanionDbReady(env);
+    const dbHealth = await checkCompanionDbHealth(env);
     res.status(HTTP_STATUS.OK).json({
       status: 'ok',
       service: APP_META.NAME,
@@ -73,7 +73,8 @@ function registerHealthRoute(app: Express, env: ServerEnv): void {
         supabaseAdminConfigured: Boolean(
           resolveSupabaseOrigin(env.VITE_SUPABASE_URL) && env.SUPABASE_SERVICE_ROLE_KEY,
         ),
-        companionDbReady,
+        companionDbReady: dbHealth.ready,
+        companionStorageBackend: dbHealth.backend,
         telegramConfigured: Boolean(env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_BOT_USERNAME),
       },
     });

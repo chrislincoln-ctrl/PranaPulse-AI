@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { SECURITY_LIMITS, UPSTREAM_ENDPOINTS } from '../../src/config/constants.js';
+import { memberShortName } from './memberMatcher.js';
 
 export interface TelegramInlineButton {
   readonly text: string;
@@ -36,22 +37,37 @@ const MAX_TELEGRAM_TEXT_LEN = 3900;
 
 export const DEFAULT_TELEGRAM_BUTTONS: readonly (readonly TelegramInlineButton[])[] = [
   [
+    { text: 'Change User', callback_data: 'cmd:switchuser' },
     { text: 'Live Air', callback_data: 'cmd:air' },
+  ],
+  [
     { text: 'My Schedule', callback_data: 'cmd:schedule' },
-  ],
-  [
     { text: 'Family Roster', callback_data: 'cmd:family' },
+  ],
+  [
     { text: 'Indoor & Windows', callback_data: 'cmd:windows' },
-  ],
-  [
     { text: 'Commute', callback_data: 'cmd:commute' },
-    { text: 'Masks & Gear', callback_data: 'cmd:gear' },
   ],
   [
+    { text: 'Masks & Gear', callback_data: 'cmd:gear' },
     { text: 'RWA Notice', callback_data: 'cmd:rwa' },
-    { text: 'Controls & GPS', callback_data: 'cmd:controls' },
   ],
+  [{ text: 'Controls & GPS', callback_data: 'cmd:controls' }],
 ];
+
+/** Builds the persistent inline menu showing "Change User (<Name>)" right below every reply. */
+export function buildTelegramMenuForMember(
+  memberLabel: string,
+): readonly (readonly TelegramInlineButton[])[] {
+  const shortName = memberShortName(memberLabel);
+  return [
+    [
+      { text: `Change User (${shortName})`, callback_data: 'cmd:switchuser' },
+      { text: 'Live Air', callback_data: 'cmd:air' },
+    ],
+    ...DEFAULT_TELEGRAM_BUTTONS.slice(1),
+  ];
+}
 
 /** Builds a 1-tap Telegram bot deep-link URL that automatically sends `/start <linkCode>`. */
 export function buildTelegramDeepLink(botUsername: string, linkCode: string): string {

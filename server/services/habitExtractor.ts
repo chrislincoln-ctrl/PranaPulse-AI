@@ -35,7 +35,7 @@ const HABIT_CUE_RE =
 const MEMBER_NUM_RE = /\bmember\s*(\d+)\b/i;
 
 const LOCATION_STOPWORDS = new Set(
-  'home house work school office club clubb movie cinema gym room bedroom terrace balcony indoor indoors outdoor outdoors car bus metro the my this that here there today tomorrow tonight morning evening afternoon night am pm january february march april may june july august september october november december monday tuesday wednesday thursday friday saturday sunday'.split(
+  'home house work school office college university hostel campus class classes tuition hospital clinic shop store mall market cafe restaurant club clubb movie cinema gym room bedroom terrace balcony indoor indoors outdoor outdoors car bus metro the my this that here there today tomorrow tonight morning evening afternoon night am pm january february march april may june july august september october november december monday tuesday wednesday thursday friday saturday sunday'.split(
     ' ',
   ),
 );
@@ -88,7 +88,12 @@ function detectCommuteMode(lower: string): CommuteModeId | undefined {
   if (/\b(?:ev|electric)\s+car\b/.test(lower)) {
     return 'ev-car';
   }
-  if (/\bscooter|two-wheeler|motorbike|scooty\b/.test(lower)) {
+  if (
+    /\b(?:petrol|diesel|cab|taxi|uber|ola|private|ac)\s*car\b|\bby car\b|\bdriving\b/.test(lower)
+  ) {
+    return 'petrol-car';
+  }
+  if (/\bscooter|two-wheeler|motorbike|scooty|motorcycle|bike\b/.test(lower)) {
     return 'two-wheeler';
   }
   if (/\bcycl\w*|bicycle\b/.test(lower)) {
@@ -228,14 +233,5 @@ export function extractHabitUpdates(message: string): ProfileHabitPatch {
 
 /** Checks whether a habit patch contains at least one actionable update field. */
 export function hasHabitPatch(patch: ProfileHabitPatch): boolean {
-  return Boolean(
-    patch.leaveHomeTime ??
-    patch.returnHomeTime ??
-    patch.commuteMode ??
-    patch.mask ??
-    patch.healthNotes ??
-    patch.dailyHabitsNote ??
-    patch.archetype ??
-    patch.city,
-  );
+  return Object.values(patch).some((v) => v !== undefined);
 }

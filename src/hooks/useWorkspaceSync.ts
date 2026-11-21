@@ -74,7 +74,9 @@ async function fetchRemoteWorkspace(
   if (since) {
     query.set('since', since);
   }
-  const res = await fetch(`/api/companion/workspace-sync?${query.toString()}`);
+  const res = await fetch(`/api/companion/workspace-sync?${query.toString()}`, {
+    cache: 'no-store',
+  });
   return res.ok ? ((await res.json()) as WorkspaceSyncGetResponse) : null;
 }
 

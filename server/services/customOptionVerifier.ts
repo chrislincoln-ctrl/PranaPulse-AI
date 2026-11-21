@@ -81,7 +81,7 @@ const KEYWORD_MATCHERS: Record<CustomCategory, readonly { re: RegExp; target: st
       target: 'senior-respiratory',
     },
     {
-      re: /runner|athlete|cyclist|delivery|driver|police|guard|worker|jogger|commuter|धावक|पुलिस|मजदूर|ஓட்டப்பந்தய|தொழிலாளி/i,
+      re: /college|university|undergrad|grad|student|runner|athlete|cyclist|delivery|driver|police|guard|worker|jogger|commuter|धावक|पुलिस|मजदूर|ஓட்டப்பந்தய|தொழிலாளி/i,
       target: 'commuter',
     },
     {

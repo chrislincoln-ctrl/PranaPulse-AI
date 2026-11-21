@@ -48,6 +48,9 @@ export interface MemberProfileUpsertInput {
 }
 
 export interface ProfileHabitPatch {
+  readonly label?: string | undefined;
+  readonly role?: FamilyRole | undefined;
+  readonly dailyOutdoorHours?: number | undefined;
   readonly leaveHomeTime?: string | undefined;
   readonly returnHomeTime?: string | undefined;
   readonly commuteMode?: CommuteModeId | undefined;
@@ -98,17 +101,14 @@ export interface DbMemberRow {
   readonly updated_at: string;
 }
 
-/** Creates an isolated server-side Supabase client when service-role credentials are present. */
 export function createAdminSupabaseClient(env: ServerEnv): SupabaseClient | null {
-  if (!env.VITE_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
-    return null;
-  }
-  return createClient(env.VITE_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  return env.VITE_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY
+    ? createClient(env.VITE_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      })
+    : null;
 }
 
-/** Maps a Postgres `family_member_profiles` row into a domain `StoredMemberProfile`. */
 export function toStoredMemberProfile(row: DbMemberRow): StoredMemberProfile {
   return {
     id: row.id,
@@ -137,32 +137,31 @@ export function toStoredMemberProfile(row: DbMemberRow): StoredMemberProfile {
   };
 }
 
-/** Maps a `StoredMemberProfile` to a Postgres column dictionary for upsert/insert. */
-export function toDbMemberPayload(profile: StoredMemberProfile): DbMemberRow {
+export function toDbMemberPayload(p: StoredMemberProfile): DbMemberRow {
   return {
-    id: profile.id,
-    user_id: profile.userId,
-    member_key: profile.memberKey,
-    label: profile.label,
-    role: profile.role,
-    mask: profile.mask,
-    daily_outdoor_hours: profile.dailyOutdoorHours,
-    city: profile.city,
-    lat: profile.lat,
-    lon: profile.lon,
-    language: profile.language,
-    archetype: profile.archetype,
-    leave_home_time: profile.leaveHomeTime,
-    return_home_time: profile.returnHomeTime,
-    commute_mode: profile.commuteMode,
-    health_notes: profile.healthNotes,
-    daily_habits_note: profile.dailyHabitsNote,
-    telegram_chat_id: profile.telegramChatId,
-    telegram_link_code: profile.telegramLinkCode,
-    telegram_opt_in: profile.telegramOptIn,
-    brief_time_local: profile.briefTimeLocal,
-    last_brief_sent_at: profile.lastBriefSentAt,
-    updated_at: profile.updatedAt,
+    id: p.id,
+    user_id: p.userId,
+    member_key: p.memberKey,
+    label: p.label,
+    role: p.role,
+    mask: p.mask,
+    daily_outdoor_hours: p.dailyOutdoorHours,
+    city: p.city,
+    lat: p.lat,
+    lon: p.lon,
+    language: p.language,
+    archetype: p.archetype,
+    leave_home_time: p.leaveHomeTime,
+    return_home_time: p.returnHomeTime,
+    commute_mode: p.commuteMode,
+    health_notes: p.healthNotes,
+    daily_habits_note: p.dailyHabitsNote,
+    telegram_chat_id: p.telegramChatId,
+    telegram_link_code: p.telegramLinkCode,
+    telegram_opt_in: p.telegramOptIn,
+    brief_time_local: p.briefTimeLocal,
+    last_brief_sent_at: p.lastBriefSentAt,
+    updated_at: p.updatedAt,
   };
 }
 
@@ -185,29 +184,29 @@ export function storedProfileToFamilyMember(p: StoredMemberProfile): FamilyMembe
   };
 }
 
-function pickStr(a: string | undefined, b: string | null | undefined): string | null {
-  return a ?? b ?? null;
-}
+const pickStr = (a?: string, b?: string | null): string | null => a ?? b ?? null;
 
-function buildHabitFields(m: FamilyMemberInput, existing: StoredMemberProfile | undefined) {
+function buildHabitFields(m: FamilyMemberInput, ex: StoredMemberProfile | undefined) {
   return {
     archetype: resolveMemberArchetype(m),
-    leaveHomeTime: pickStr(m.leaveHomeTime, existing?.leaveHomeTime),
-    returnHomeTime: pickStr(m.returnHomeTime, existing?.returnHomeTime),
-    commuteMode: m.commuteMode ?? existing?.commuteMode ?? null,
-    healthNotes: pickStr(m.healthNotes, existing?.healthNotes),
-    dailyHabitsNote: pickStr(m.dailyHabitsNote, existing?.dailyHabitsNote),
+    leaveHomeTime: pickStr(m.leaveHomeTime, ex?.leaveHomeTime),
+    returnHomeTime: pickStr(m.returnHomeTime, ex?.returnHomeTime),
+    commuteMode: m.commuteMode ?? ex?.commuteMode ?? null,
+    healthNotes: pickStr(m.healthNotes, ex?.healthNotes),
+    dailyHabitsNote: pickStr(m.dailyHabitsNote, ex?.dailyHabitsNote),
   };
 }
 
+const DEFAULT_TG_FIELDS = {
+  telegramChatId: null,
+  telegramLinkCode: null,
+  telegramOptIn: true,
+  briefTimeLocal: DEFAULT_BRIEF_TIME_LOCAL,
+  lastBriefSentAt: null,
+} as const;
+
 function buildTelegramFields(m: FamilyMemberInput, existing: StoredMemberProfile | undefined) {
-  const base = existing ?? {
-    telegramChatId: null,
-    telegramLinkCode: null,
-    telegramOptIn: true,
-    briefTimeLocal: DEFAULT_BRIEF_TIME_LOCAL,
-    lastBriefSentAt: null,
-  };
+  const base = existing ?? DEFAULT_TG_FIELDS;
   return {
     telegramChatId: base.telegramChatId,
     telegramLinkCode: base.telegramLinkCode,
@@ -217,7 +216,6 @@ function buildTelegramFields(m: FamilyMemberInput, existing: StoredMemberProfile
   };
 }
 
-/** Constructs an updated in-memory profile record from an upsert request. */
 export function buildProfileFromUpsert(
   input: MemberProfileUpsertInput,
   existing: StoredMemberProfile | undefined,
@@ -226,7 +224,7 @@ export function buildProfileFromUpsert(
   const { member: m, city, lat, lon, language } = input;
   return {
     id: existing?.id ?? newId,
-    userId: pickStr(input.userId, existing?.userId),
+    userId: input.userId ?? existing?.userId ?? null,
     memberKey: m.id,
     label: m.label,
     role: m.role,
@@ -242,7 +240,6 @@ export function buildProfileFromUpsert(
   };
 }
 
-/** Merges partial habit updates cleanly onto an existing stored profile. */
 export function applyHabitPatchToProfile(
   profile: StoredMemberProfile,
   patch: ProfileHabitPatch,
@@ -256,17 +253,16 @@ export function applyHabitPatchToProfile(
   return next as unknown as StoredMemberProfile;
 }
 
-/** Maps a check-in record into a Postgres insert payload. */
-export function toDbCheckinPayload(entry: CheckinLogInput): Record<string, unknown> {
+export function toDbCheckinPayload(e: CheckinLogInput): Record<string, unknown> {
   return {
-    member_profile_id: entry.memberProfileId,
-    channel: entry.channel,
-    direction: entry.direction,
-    message_text: entry.messageText,
-    detected_city: entry.detectedCity ?? null,
-    detected_lat: entry.detectedLat ?? null,
-    detected_lon: entry.detectedLon ?? null,
-    extracted_habit_note: entry.extractedHabitNote ?? null,
-    aqi_snapshot: entry.aqiSnapshot ?? null,
+    member_profile_id: e.memberProfileId,
+    channel: e.channel,
+    direction: e.direction,
+    message_text: e.messageText,
+    detected_city: e.detectedCity ?? null,
+    detected_lat: e.detectedLat ?? null,
+    detected_lon: e.detectedLon ?? null,
+    extracted_habit_note: e.extractedHabitNote ?? null,
+    aqi_snapshot: e.aqiSnapshot ?? null,
   };
 }

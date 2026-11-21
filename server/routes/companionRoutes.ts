@@ -19,15 +19,17 @@ import {
 import { hasHabitPatch } from '../services/habitExtractor.js';
 import {
   createWorkspaceTelegramLink,
+  getActiveMember,
   getWorkspaceByKey,
   listOptedInWorkspaces,
   markWorkspaceBriefSent,
   syncWorkspaceFromWeb,
   type WebWorkspaceSyncInput,
 } from '../services/householdWorkspaceStore.js';
+import { prefixActiveUser } from '../services/telegramCardBuilders.js';
 import {
   buildTelegramDeepLink,
-  DEFAULT_TELEGRAM_BUTTONS,
+  buildTelegramMenuForMember,
   sendTelegramMessage,
   verifyBearerSecret,
   verifyTelegramWebhookSecret,
@@ -124,6 +126,7 @@ async function handleTelegramLink(req: Request, res: Response, env: ServerEnv): 
 }
 
 async function handleWorkspaceSyncGet(req: Request, res: Response, env: ServerEnv): Promise<void> {
+  res.setHeader('Cache-Control', 'no-store');
   const keyCheck = workspaceKeySchema.safeParse(req.query.workspaceKey);
   if (!keyCheck.success) {
     res.status(HTTP_STATUS.BAD_REQUEST).json({ error: 'Provide a valid workspaceKey parameter.' });
@@ -184,13 +187,14 @@ async function runDailyBriefFanout(
       skippedCount += 1;
       continue;
     }
-    const brief = await buildLiveScheduleBrief(ws, env);
+    const active = getActiveMember(ws);
+    const brief = prefixActiveUser(ws, await buildLiveScheduleBrief(ws, env));
     const ok = env.TELEGRAM_BOT_TOKEN
       ? await sendTelegramMessage(
           env.TELEGRAM_BOT_TOKEN,
           ws.telegramChatId,
           brief,
-          DEFAULT_TELEGRAM_BUTTONS,
+          buildTelegramMenuForMember(active.label),
         )
       : true;
     if (ok) {

@@ -224,7 +224,7 @@ describe('Family Companion Chat, Telegram Webhook & Daily Brief Cron', () => {
     });
     expect(badWebhook.status).toBe(403);
 
-    // 3. Pair via /start <linkCode>
+    // 3. Pair via /start <linkCode> — asks who is chatting and presents 1-tap member buttons
     const startWebhook = await invokeExpress(app, {
       method: 'POST',
       url: '/api/telegram/webhook',
@@ -235,7 +235,9 @@ describe('Family Companion Chat, Telegram Webhook & Daily Brief Cron', () => {
     });
     expect(startWebhook.status).toBe(200);
     expect((startWebhook.body as { handled: string; replyText: string }).handled).toBe('start');
-    expect((startWebhook.body as { replyText: string }).replyText).toContain('Linked to Aarav');
+    expect((startWebhook.body as { replyText: string }).replyText).toContain('Who is chatting');
+    expect((startWebhook.body as { replyText: string }).replyText).toContain('Aarav');
+    expect((startWebhook.body as { replyText: string }).replyText).toContain('Meera');
 
     // 4. Native Telegram GPS location pin check-in
     const gpsWebhook = await invokeExpress(app, {
@@ -385,5 +387,150 @@ describe('Family Companion Chat, Telegram Webhook & Daily Brief Cron', () => {
     expect(syncBody.payload.members[0]?.returnHomeTime).toBe('23:41');
     expect(syncBody.payload.areaM2).toBe(35);
     expect(syncBody.payload.householdsParticipating).toBe(240);
+  });
+
+  it('keeps active family user sticky across messages, shows Change User button, and updates vulnerability profile & full site via natural language', async () => {
+    const telegramCalls = mockCompanionUpstreamFetch();
+    const env = loadServerEnv({
+      NODE_ENV: 'test',
+      TELEGRAM_BOT_TOKEN: 'test-bot-token',
+      TELEGRAM_BOT_USERNAME: 'PranaPulseBot',
+      TELEGRAM_WEBHOOK_SECRET: 'sticky-secret',
+    });
+    const app = createApp(env);
+    const kolkataPayload = {
+      ...DEFAULT_WORKSPACE_INPUT,
+      city: 'Shimultala, Kolkata',
+      lat: 22.57,
+      lon: 88.36,
+    };
+
+    const linkRes = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/companion/telegram-link',
+      body: { workspaceKey: 'wsticky01', payload: kolkataPayload, activeMemberId: 'm1' },
+    });
+    const { linkCode } = linkRes.body as { linkCode: string };
+
+    // 1. /start asks who is chatting with clickable family member buttons
+    const startRes = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'sticky-secret' },
+      body: { message: { chat: { id: 5511 }, text: `/start ${linkCode}` } },
+    });
+    expect(startRes.status).toBe(200);
+    expect((startRes.body as { replyText: string }).replyText).toContain('Who is chatting');
+    const startKb = JSON.stringify(telegramCalls.at(-1)?.body.reply_markup);
+    expect(startKb).toContain('member:m1');
+    expect(startKb).toContain('member:m2');
+    expect(startKb).toContain('member:m3');
+
+    // 2. Mira introduces herself and says "I'm a college student" -> switches permanently to Meera (m2) and updates role
+    const miraIntro = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'sticky-secret' },
+      body: {
+        message: {
+          chat: { id: 5511 },
+          text: "Hi I am Mira and I'm a college student, change my profile on the website",
+        },
+      },
+    });
+    expect(miraIntro.status).toBe(200);
+    const introReply = (miraIntro.body as { replyText: string }).replyText;
+    expect(introReply).toContain('[Active User: Meera (Senior)');
+    expect(introReply).toContain('Adult outdoor commuter');
+    expect(JSON.stringify(telegramCalls.at(-1)?.body.reply_markup)).toContain(
+      'Change User (Meera)',
+    );
+
+    // 3. Follow-up message WITHOUT mentioning any name stays on Meera (m2) — NEVER reverts to Aarav (m1)
+    const miraFollowup = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'sticky-secret' },
+      body: {
+        message: {
+          chat: { id: 5511 },
+          text: 'I will be leaving home at 10:20 and returning home at 11:41 pm',
+        },
+      },
+    });
+    expect(miraFollowup.status).toBe(200);
+    const followupReply = (miraFollowup.body as { replyText: string }).replyText;
+    expect(followupReply).toContain('[Active User: Meera (Senior)');
+    expect(followupReply).toContain('Leave 10:20');
+    expect(followupReply).toContain('Return 23:41');
+    expect(JSON.stringify(telegramCalls.at(-1)?.body.reply_markup)).toContain(
+      'Change User (Meera)',
+    );
+
+    // 4. Tap "Change User" -> shows member picker -> tap Member 3 (Rohan)
+    const switchPrompt = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'sticky-secret' },
+      body: {
+        callback_query: { id: 'cb-sw', data: 'cmd:switchuser', message: { chat: { id: 5511 } } },
+      },
+    });
+    expect((switchPrompt.body as { replyText: string }).replyText).toContain('Who is chatting');
+
+    const pickRohan = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'sticky-secret' },
+      body: {
+        callback_query: { id: 'cb-m3', data: 'member:m3', message: { chat: { id: 5511 } } },
+      },
+    });
+    expect((pickRohan.body as { replyText: string }).replyText).toContain(
+      '[Active User: Rohan (Commuter)',
+    );
+    expect(JSON.stringify(telegramCalls.at(-1)?.body.reply_markup)).toContain(
+      'Change User (Rohan)',
+    );
+
+    // 5. Rohan sends full-site natural controls without repeating his name
+    const rohanControls = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'sticky-secret' },
+      body: {
+        message: {
+          chat: { id: 5511 },
+          text: 'Room is 32 sqm, purifier cadr 450, induction stove, 220 participating homes, outdoor hours 4',
+        },
+      },
+    });
+    expect(rohanControls.status).toBe(200);
+    expect((rohanControls.body as { replyText: string }).replyText).toContain(
+      '[Active User: Rohan (Commuter)',
+    );
+
+    // 6. Verify ALL website controls synced cleanly to GET /api/companion/workspace-sync
+    const syncGet = await invokeExpress(app, {
+      method: 'GET',
+      url: '/api/companion/workspace-sync?workspaceKey=wsticky01',
+    });
+    const syncBody = syncGet.body as {
+      activeMemberId: string;
+      payload: typeof DEFAULT_WORKSPACE_INPUT;
+    };
+    expect(syncBody.activeMemberId).toBe('m3');
+    // Aarav (m1) remained untouched!
+    expect(syncBody.payload.members[0]?.leaveHomeTime).toBe('07:30');
+    // Meera (m2) got college-student vulnerability profile + sticky timings!
+    expect(syncBody.payload.members[1]?.role).toBe('commuter');
+    expect(syncBody.payload.members[1]?.leaveHomeTime).toBe('10:20');
+    expect(syncBody.payload.members[1]?.returnHomeTime).toBe('23:41');
+    // Rohan (m3) got outdoor hours + full-site indoor & RWA controls!
+    expect(syncBody.payload.members[2]?.dailyOutdoorHours).toBe(4);
+    expect(syncBody.payload.areaM2).toBe(32);
+    expect(syncBody.payload.cadrM3Hr).toBe(450);
+    expect(syncBody.payload.cookingFuel).toBe('induction');
+    expect(syncBody.payload.householdsParticipating).toBe(220);
   });
 });

@@ -8,7 +8,7 @@ import {
   clearMemoryChatConflict,
   findMemoryWorkspaceByChat,
   findMemoryWorkspaceByCode,
-  memoryWorkspaces,
+  lookupWorkspaceByKey,
   persistWorkspaceRecord,
   queryDbWorkspace,
 } from './workspacePersistence.js';
@@ -23,6 +23,7 @@ import {
 
 export { getActiveMember, type SyncedWorkspaceRecord } from './workspaceSyncCodec.js';
 export {
+  checkCompanionDbHealth,
   checkCompanionDbReady,
   clearHouseholdWorkspaceStore,
   listOptedInWorkspaces,
@@ -74,8 +75,7 @@ export async function getWorkspaceByKey(
   if (!workspaceKey) {
     return null;
   }
-  const fromDb = await queryDbWorkspace('id', workspaceKeyToUuid(workspaceKey), env);
-  return fromDb ?? memoryWorkspaces.get(workspaceKey) ?? null;
+  return await lookupWorkspaceByKey(workspaceKey, env);
 }
 
 function resolveActiveMemberId(

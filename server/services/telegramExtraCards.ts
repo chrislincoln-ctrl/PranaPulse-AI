@@ -4,12 +4,14 @@ import type { MaskTypeId } from '../../src/domain/types.js';
 import type { ServerEnv } from '../env.js';
 import { planCityCorridor } from './corridorPlanner.js';
 import { getActiveMember, type SyncedWorkspaceRecord } from './householdWorkspaceStore.js';
+import { ROLE_DISPLAY_NAMES } from './naturalSiteControlExtractor.js';
 import {
   buildWhatsAppUrl,
   MASK_LABELS,
+  prefixActiveUser,
   type TelegramReplyPayload,
 } from './telegramCardBuilders.js';
-import { DEFAULT_TELEGRAM_BUTTONS, type TelegramInlineButton } from './telegramClient.js';
+import { buildTelegramMenuForMember, type TelegramInlineButton } from './telegramClient.js';
 import { getUrbanTelemetryBundle } from './telemetryClients.js';
 
 const MAX_COMMUTE_ROWS = 5;
@@ -20,6 +22,7 @@ export async function buildCommuteCard(
   ws: SyncedWorkspaceRecord,
   env: ServerEnv,
 ): Promise<TelegramReplyPayload> {
+  const active = getActiveMember(ws);
   const telemetry = await getUrbanTelemetryBundle({
     lat: ws.payload.lat,
     lon: ws.payload.lon,
@@ -31,13 +34,16 @@ export async function buildCommuteCard(
     const tag = opt.isParetoOptimal ? ' [Best]' : '';
     return `${String(idx + 1)}. ${opt.mode}${tag}: ${String(opt.durationMinutes)} min | ${String(opt.personalInhaledUg)} ug PM2.5 | ${String(opt.communityCo2Grams)}g CO2`;
   });
-  const text = [
+  const body = [
     `Commute & Route (${ws.payload.city}, ${String(ws.payload.commuteDistanceKm)} km, ${MASK_LABELS[ws.payload.mask]})`,
     ...ranked,
     '',
     'Commands: /distance 12  |  /route Salt Lake to Park Street',
   ].join('\n');
-  return { text, buttons: DEFAULT_TELEGRAM_BUTTONS };
+  return {
+    text: prefixActiveUser(ws, body),
+    buttons: buildTelegramMenuForMember(active.label),
+  };
 }
 
 /** Computes a live origin-to-destination corridor recommendation for `/route <from> to <to>`. */
@@ -53,17 +59,17 @@ export async function buildCorridorCard(
     { city: ws.payload.city, fromArea, toArea, commuteMode: mode, language: ws.payload.language },
     env,
   );
-  const text = [
+  const body = [
     `Corridor Plan (${ws.payload.city}): ${fromArea} -> ${toArea}`,
     `- Distance: ${String(plan.estimatedDistanceKm)} km | Mode: ${mode}`,
     `- Summary: ${plan.routeSummary}`,
   ].join('\n');
+  const menu = buildTelegramMenuForMember(active.label);
   const mapRow: readonly TelegramInlineButton[] = plan.googleMapsUrl
     ? [{ text: 'Open Route in Google Maps', url: plan.googleMapsUrl }]
     : [];
-  const buttons =
-    mapRow.length > 0 ? [mapRow, ...DEFAULT_TELEGRAM_BUTTONS] : DEFAULT_TELEGRAM_BUTTONS;
-  return { text, buttons };
+  const buttons = mapRow.length > 0 ? [mapRow, ...menu] : menu;
+  return { text: prefixActiveUser(ws, body), buttons };
 }
 
 /** Builds the Masks & Purifiers gear comparison card with 1-tap inline mask switcher buttons. */
@@ -89,15 +95,15 @@ export async function buildGearCard(
     text: `${mk === member.mask ? '* ' : ''}${MASK_LABELS[mk]}`,
     callback_data: `mask:${mk}`,
   }));
-  const text = [
+  const body = [
     `Masks & Purifiers (${ws.payload.city} | PM2.5 ${String(pm25)} ug/m3)`,
     ...maskRows,
     `- Purifier Target for ${String(ws.payload.areaM2)} m2: ${String(physics.indoor.requiredCadr48Ach)} m3/hr HEPA (or DIY MERV-13 Corsi-Rosenthal box)`,
     `Tap below to update ${member.label}'s mask (syncs to website):`,
   ].join('\n');
   return {
-    text,
-    buttons: [maskBtns.slice(0, 2), maskBtns.slice(2), ...DEFAULT_TELEGRAM_BUTTONS],
+    text: prefixActiveUser(ws, body),
+    buttons: [maskBtns.slice(0, 2), maskBtns.slice(2), ...buildTelegramMenuForMember(member.label)],
   };
 }
 
@@ -106,6 +112,7 @@ export async function buildRwaCard(
   ws: SyncedWorkspaceRecord,
   env: ServerEnv,
 ): Promise<TelegramReplyPayload> {
+  const active = getActiveMember(ws);
   const telemetry = await getUrbanTelemetryBundle({
     lat: ws.payload.lat,
     lon: ws.payload.lon,
@@ -122,12 +129,12 @@ export async function buildRwaCard(
       : 'Keep windows sealed (trapping active)',
     `Participating homes: ${String(ws.payload.householdsParticipating)} | Daily CO2 avoided: ${String(physics.rwa.dailyCo2SavedKg)} kg | Daily PM2.5 avoided: ${String(physics.rwa.dailyPm25AvoidedG)} g`,
   ].join('\n');
-  const text = `${notice}\n\nAdjust anytime: /rwa 150 60 (homes & transit shift %)`;
+  const body = `${notice}\n\nAdjust anytime: /rwa 150 60 (homes & transit shift %)`;
   const buttons: (readonly TelegramInlineButton[])[] = [
     [{ text: 'Share RWA Notice on WhatsApp', url: buildWhatsAppUrl(notice) }],
-    ...DEFAULT_TELEGRAM_BUTTONS,
+    ...buildTelegramMenuForMember(active.label),
   ];
-  return { text, buttons };
+  return { text: prefixActiveUser(ws, body), buttons };
 }
 
 /** Builds the Controls, GPS & Synced Web Dashboard hub card. */
@@ -137,18 +144,20 @@ export function buildControlsCard(
 ): TelegramReplyPayload {
   const member = getActiveMember(ws);
   const syncedUrl = `${webBaseUrl}/?ws=${encodeURIComponent(ws.workspaceKey)}`;
-  const text = [
+  const body = [
     `PranaPulse Telegram Operating Hub`,
     `- Active City: ${ws.payload.city} (${ws.payload.lat.toFixed(2)}, ${ws.payload.lon.toFixed(2)})`,
-    `- Active Member: ${member.label} (${member.leaveHomeTime ?? '--'} to ${member.returnHomeTime ?? '--'})`,
+    `- Vulnerability Profile: ${ROLE_DISPLAY_NAMES[member.role]} (${member.leaveHomeTime ?? '--'} to ${member.returnHomeTime ?? '--'})`,
     `- Language: ${ws.payload.language.toUpperCase()} | Daily 06:30 Brief: ${ws.telegramOptIn ? 'ON' : 'OFF'}`,
     '',
     'Everything you change here syncs live with your website:',
+    '- /switch  (change active family member)',
+    '- /role college student  (update vulnerability profile)',
     '- /city Kolkata   (change city)',
     '- /room 25  |  /cadr 400  |  /fuel induction',
     '- /distance 12  |  /route Salt Lake to Park Street',
     '- /rwa 150 60  |  /addmember Priya | child',
-    '- Or chat naturally (e.g. "I will be leaving home at 10:20 and returning home at 11:41 pm")',
+    '- Or chat naturally (e.g. "I am a college student, leaving home at 10:20 and returning at 11:41 pm")',
   ].join('\n');
   const buttons: (readonly TelegramInlineButton[])[] = [
     [{ text: 'Share Live GPS Location', callback_data: 'gps:ask' }],
@@ -164,7 +173,7 @@ export function buildControlsCard(
       },
       { text: 'Open Synced Website', url: syncedUrl },
     ],
-    ...DEFAULT_TELEGRAM_BUTTONS,
+    ...buildTelegramMenuForMember(member.label),
   ];
-  return { text, buttons };
+  return { text: prefixActiveUser(ws, body), buttons };
 }
