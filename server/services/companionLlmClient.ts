@@ -141,7 +141,7 @@ function buildCompanionPrompt(ctx: CompanionReplyContext): string {
     `Live telemetry for ${city}: CPCB_NAQI=${String(aqi)} (${telemetry.assessment.cpcbCategory}), PM2.5=${String(Math.round(telemetry.currentPollutants.pm25UgM3))} ug/m3, PBL=${String(telemetry.inversion.currentPblMeters)}m, inversion=${telemetry.inversion.currentSeverity}, wind=${String(Math.round(cur?.windKmh ?? 0))} km/h, humidity=${String(Math.round(cur?.rhPercent ?? 0))}%, openWindowsNow=${String(telemetry.inversion.openWindowsNow)}, bestWindow=${cleanWin}.`,
     `Schedule today: ${stepsText}. Schedule updated: ${String(hasHabitPatch(habitPatch))}.`,
     `User message: "${message}"`,
-    `Instructions: Reply in language "${language}" in 2 short, crisp sentences (STRICTLY 25-40 words maximum). Start with a brief warm greeting ("Hi ${name}!"), directly answer their question to the point with 1-2 key live numbers (like NAQI ${String(aqi)} or best window ${cleanWin}), and give one clear next step. No fluff, no long paragraphs, no bullet lists.`,
+    `Instructions: Reply in language "${language}" in 2 short, warm sentences (STRICTLY 25-40 words maximum). Start with a brief greeting ("Hi ${name}!"), directly answer their exact message using 1-2 relevant telemetry facts for their topic (do NOT mention window opening hours unless they ask about windows or timing), and give one clear tip. No bullet lists.`,
   ].join('\n');
 }
 

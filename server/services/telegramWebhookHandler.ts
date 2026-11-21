@@ -1,3 +1,5 @@
+import { DEFAULT_WORKSPACE_INPUT } from '../../src/config/uiConstants.js';
+import { computePlanPhysics } from '../../src/domain/localBaseline.js';
 import type { ServerEnv } from '../env.js';
 import { buildMemberScheduleSnapshot, handleCompanionCheckin } from './familyCompanionAgent.js';
 import {
@@ -18,6 +20,16 @@ import {
 import { getUrbanTelemetryBundle } from './telemetryClients.js';
 
 const START_COMMAND_RE = /^\/start(?:\s+([A-Za-z0-9_-]+))?/i;
+const DEFAULT_CLEAN_HOUR = 13;
+
+function formatWindowRange(hours: readonly number[]): string {
+  if (hours.length === 0) {
+    return '13:00 - 15:00';
+  }
+  const first = hours[0] ?? DEFAULT_CLEAN_HOUR;
+  const last = hours[hours.length - 1] ?? first;
+  return `${String(first).padStart(2, '0')}:00 - ${String(last).padStart(2, '0')}:59`;
+}
 
 /** Builds a fresh localized Telegram daily brief string for a stored member profile. */
 export async function buildLiveScheduleBrief(
@@ -41,15 +53,58 @@ export async function buildLiveScheduleBrief(
   return schedule.shareBriefText;
 }
 
-function resolveTelegramPromptText(rawText: string): string {
-  const lower = rawText.trim().toLowerCase();
-  if (lower === '/air' || lower === 'air') {
-    return 'How is the air and weather right now?';
-  }
-  if (lower === 'windows') {
-    return 'Is it safe to open windows right now?';
-  }
-  return rawText.trim() || 'I shared my current GPS location. How is the air and weather here?';
+async function buildLiveAirCard(profile: StoredMemberProfile, env: ServerEnv): Promise<string> {
+  const telemetry = await getUrbanTelemetryBundle({
+    lat: profile.lat,
+    lon: profile.lon,
+    cityLabel: profile.city,
+    env,
+  });
+  const cur = telemetry.hourlySeries[0];
+  const p = telemetry.currentPollutants;
+  const aqi = telemetry.stationCrossCheck.effectiveSafetyAqi;
+  return [
+    `Live Air & Weather: ${profile.city} (${profile.label})`,
+    `- CPCB NAQI: ${String(aqi)} (${telemetry.assessment.cpcbCategory}) | US-EPA: ${String(telemetry.assessment.usEpaAqi)}`,
+    `- PM2.5: ${String(Math.round(p.pm25UgM3))} ug/m3 | PM10: ${String(Math.round(p.pm10UgM3))} ug/m3`,
+    `- NO2: ${String(Math.round(p.no2UgM3))} ug/m3 | O3: ${String(Math.round(p.o3UgM3))} ug/m3`,
+    `- Boundary Layer (PBL): ${String(telemetry.inversion.currentPblMeters)}m (${telemetry.inversion.currentSeverity})`,
+    `- Weather: Wind ${String(Math.round(cur?.windKmh ?? 0))} km/h | Humidity ${String(Math.round(cur?.rhPercent ?? 0))}%`,
+    `- Mask Advice: Use ${profile.mask} outdoors (${String(telemetry.assessment.cigaretteEquivPerDay)} cig/day ambient load).`,
+  ].join('\n');
+}
+
+async function buildWindowSafetyCard(
+  profile: StoredMemberProfile,
+  env: ServerEnv,
+): Promise<string> {
+  const telemetry = await getUrbanTelemetryBundle({
+    lat: profile.lat,
+    lon: profile.lon,
+    cityLabel: profile.city,
+    env,
+  });
+  const member = storedProfileToFamilyMember(profile);
+  const physics = computePlanPhysics(
+    {
+      ...DEFAULT_WORKSPACE_INPUT,
+      city: profile.city,
+      lat: profile.lat,
+      lon: profile.lon,
+      members: [member],
+    },
+    telemetry,
+  );
+  const openNow = telemetry.inversion.openWindowsNow;
+  const cleanWin = formatWindowRange(telemetry.inversion.bestWindowHours);
+  return [
+    `Window & Purifier Check: ${profile.city} (${profile.label})`,
+    `- Open Windows Now: ${openNow ? 'YES (Safe for 20-min cross-ventilation)' : 'NO (Keep windows & balcony sealed)'}`,
+    `- Mixing Ceiling: ${String(telemetry.inversion.currentPblMeters)}m PBL (${telemetry.inversion.currentSeverity})`,
+    `- Safest Airing Window Today: ${cleanWin}`,
+    `- Indoor HEPA Target: ${String(physics.indoor.requiredCadr48Ach)} m3/hr CADR (~${String(physics.indoor.purge90Minutes)} min for 90% room purge)`,
+    `- Mitigated Indoor PM2.5: ~${String(physics.indoor.dailyMeanMitigatedPm25)} ug/m3 (${String(physics.indoor.exposureReductionPct)}% reduction)`,
+  ].join('\n');
 }
 
 async function handleStartCommand(
@@ -68,6 +123,23 @@ async function handleStartCommand(
   return `Linked to ${linked.label} (${linked.city})! You will receive personalized morning briefs and can message or drop a GPS pin anytime.\n\n${brief}`;
 }
 
+async function tryHandleTelegramQuickAction(
+  lower: string,
+  profile: StoredMemberProfile,
+  env: ServerEnv,
+): Promise<string | null> {
+  if (lower === '/schedule' || lower === 'schedule') {
+    return await buildLiveScheduleBrief(profile, env);
+  }
+  if (lower === '/air' || lower === 'air') {
+    return await buildLiveAirCard(profile, env);
+  }
+  if (lower === '/windows' || lower === 'windows') {
+    return await buildWindowSafetyCard(profile, env);
+  }
+  return null;
+}
+
 async function handleLinkedTelegramMessage(params: {
   readonly profile: StoredMemberProfile;
   readonly text: string;
@@ -75,11 +147,16 @@ async function handleLinkedTelegramMessage(params: {
   readonly gpsLon?: number | undefined;
   readonly env: ServerEnv;
 }): Promise<string> {
-  const lower = params.text.trim().toLowerCase();
-  if (lower === '/schedule' || lower === 'schedule') {
-    return await buildLiveScheduleBrief(params.profile, params.env);
+  const quickCard = await tryHandleTelegramQuickAction(
+    params.text.trim().toLowerCase(),
+    params.profile,
+    params.env,
+  );
+  if (quickCard) {
+    return quickCard;
   }
-  const promptText = resolveTelegramPromptText(params.text);
+  const promptText =
+    params.text.trim() || 'I shared my current GPS location. How is the air and weather here?';
   const result = await handleCompanionCheckin(
     {
       member: storedProfileToFamilyMember(params.profile),
