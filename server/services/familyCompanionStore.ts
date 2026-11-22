@@ -2,6 +2,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { DEFAULT_WORKSPACE_INPUT } from '../../src/config/uiConstants.js';
 import type { ServerEnv } from '../env.js';
 import { clearHouseholdWorkspaceStore } from './householdWorkspaceStore.js';
+import { fetchLatestProfileRow } from './profileRowQuery.js';
 import {
   applyHabitPatchToProfile,
   buildProfileFromUpsert,
@@ -60,33 +61,19 @@ function buildFallbackProfileForMemberKey(memberKey?: string): StoredMemberProfi
   return profile;
 }
 
-function cacheFirstRow(data: unknown): StoredMemberProfile | null {
-  const row = (Array.isArray(data) ? (data as DbMemberRow[]) : [])[0];
-  if (!row) {
-    return null;
-  }
-  const loaded = toStoredMemberProfile(row);
-  memoryProfiles.set(loaded.id, loaded);
-  return loaded;
-}
-
 async function queryDbProfileByColumn(
   column: 'telegram_link_code' | 'telegram_chat_id',
   value: string,
   env: ServerEnv,
 ): Promise<StoredMemberProfile | null> {
-  const db = createAdminSupabaseClient(env);
-  if (!db) {
-    return null;
-  }
   try {
-    const res = await db
-      .from(PROFILES_TABLE)
-      .select('*')
-      .eq(column, value)
-      .order('updated_at', { ascending: false })
-      .limit(1);
-    return cacheFirstRow(res.data);
+    const { row } = await fetchLatestProfileRow(column, value, env);
+    if (!row) {
+      return null;
+    }
+    const loaded = toStoredMemberProfile(row);
+    memoryProfiles.set(loaded.id, loaded);
+    return loaded;
   } catch {
     return null;
   }
@@ -114,7 +101,13 @@ async function persistProfileToDb(
       .upsert(toDbMemberPayload(profile), { onConflict: 'id' })
       .select()
       .limit(1);
-    return cacheFirstRow(res.data) ?? profile;
+    const savedRow = (Array.isArray(res.data) ? (res.data as DbMemberRow[]) : [])[0];
+    if (!savedRow) {
+      return profile;
+    }
+    const loaded = toStoredMemberProfile(savedRow);
+    memoryProfiles.set(loaded.id, loaded);
+    return loaded;
   } catch {
     return profile;
   }

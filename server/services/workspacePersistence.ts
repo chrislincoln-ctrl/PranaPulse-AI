@@ -1,5 +1,6 @@
 import type { ServerEnv } from '../env.js';
 import { createAdminSupabaseClient, type DbMemberRow } from './companionDbMapper.js';
+import { fetchLatestProfileRow } from './profileRowQuery.js';
 import {
   listOptedInWorkspacesFromStorage,
   probeStorageBucketReady,
@@ -77,26 +78,31 @@ async function queryPostgresWorkspace(
   if (Date.now() < pgMissingUntil) {
     return null;
   }
-  const db = createAdminSupabaseClient(env);
-  if (!db) {
-    return null;
-  }
   try {
-    const res = await db
-      .from(PROFILES_TABLE)
-      .select('*')
-      .eq(column, value)
-      .order('updated_at', { ascending: false })
-      .limit(1);
-    if (isMissingTableError(res.error)) {
+    const { row, error } = await fetchLatestProfileRow(column, value, env);
+    if (isMissingTableError(error)) {
       pgMissingUntil = Date.now() + DB_PROBE_TTL_MS;
       return null;
     }
-    const row = (Array.isArray(res.data) ? (res.data as DbMemberRow[]) : [])[0];
     return row ? cacheWorkspace(deserializeDbRowToWorkspace(row)) : null;
   } catch {
     return null;
   }
+}
+
+async function readStorageWorkspaceByColumn(
+  column: 'id' | 'telegram_chat_id' | 'telegram_link_code',
+  value: string,
+  env: ServerEnv,
+  rawKeyHint?: string,
+): Promise<SyncedWorkspaceRecord | null> {
+  if (column === 'id' && rawKeyHint) {
+    return await readWorkspaceFromStorageByKey(rawKeyHint, env);
+  }
+  if (column === 'telegram_chat_id') {
+    return await readWorkspaceFromStorageByChat(value, env);
+  }
+  return column === 'telegram_link_code' ? await readWorkspaceFromStorageByCode(value, env) : null;
 }
 
 /** Looks up a workspace across Postgres (Tier 1) and Supabase Storage (Tier 2). */
@@ -110,14 +116,7 @@ export async function queryDbWorkspace(
   if (fromPg) {
     return fromPg;
   }
-  let fromStorage: SyncedWorkspaceRecord | null = null;
-  if (column === 'id' && rawKeyHint) {
-    fromStorage = await readWorkspaceFromStorageByKey(rawKeyHint, env);
-  } else if (column === 'telegram_chat_id') {
-    fromStorage = await readWorkspaceFromStorageByChat(value, env);
-  } else if (column === 'telegram_link_code') {
-    fromStorage = await readWorkspaceFromStorageByCode(value, env);
-  }
+  const fromStorage = await readStorageWorkspaceByColumn(column, value, env, rawKeyHint);
   return fromStorage ? cacheWorkspace(fromStorage) : null;
 }
 
@@ -238,28 +237,29 @@ function cacheProbe(health: CompanionDbHealth): CompanionDbHealth {
 }
 
 export async function checkCompanionDbHealth(env: ServerEnv): Promise<CompanionDbHealth> {
-  const db = createAdminSupabaseClient(env);
-  if (!db) {
+  if (!createAdminSupabaseClient(env)) {
     return { ready: false, backend: 'memory' };
   }
   if (dbProbeCache && Date.now() - dbProbeCache.checkedAt < DB_PROBE_TTL_MS) {
     return dbProbeCache.health;
   }
   try {
-    const res = await db.from(PROFILES_TABLE).select('id').limit(1);
-    if (!res.error) {
+    const { error } = await fetchLatestProfileRow(
+      'id',
+      '00000000-0000-0000-0000-000000000000',
+      env,
+    );
+    if (!error) {
       return cacheProbe({ ready: true, backend: 'postgres' });
     }
-    if (isMissingTableError(res.error)) {
+    if (isMissingTableError(error)) {
       pgMissingUntil = Date.now() + DB_PROBE_TTL_MS;
     }
   } catch {
     // Fall through to Storage bucket probe.
   }
   const ok = await probeStorageBucketReady(env);
-  return cacheProbe(
-    ok ? { ready: true, backend: 'supabase-storage' } : { ready: false, backend: 'memory' },
-  );
+  return cacheProbe({ ready: ok, backend: ok ? 'supabase-storage' : 'memory' });
 }
 
 export const checkCompanionDbReady = async (env: ServerEnv): Promise<boolean> =>

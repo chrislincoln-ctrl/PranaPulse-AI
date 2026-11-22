@@ -2,6 +2,11 @@ import { Router, type Request, type Response } from 'express';
 import { HTTP_STATUS, SECURITY_LIMITS } from '../../src/config/constants.js';
 import { computePlanPhysics } from '../../src/domain/localBaseline.js';
 import {
+  corridorPlanRequestSchema,
+  customVerifyRequestSchema,
+  locateQuerySchema,
+} from '../../src/validators/companionSchemas.js';
+import {
   chatRequestSchema,
   geocodeQuerySchema,
   planRequestSchema,
@@ -10,12 +15,8 @@ import {
 } from '../../src/validators/schemas.js';
 import type { ServerEnv } from '../env.js';
 import { SlidingWindowRateLimiter } from '../services/cacheAndLimiter.js';
-import { planCityCorridor, type CorridorPlanRequest } from '../services/corridorPlanner.js';
-import {
-  verifyCustomOption,
-  type CustomCategory,
-  type CustomVerifyRequest,
-} from '../services/customOptionVerifier.js';
+import { planCityCorridor } from '../services/corridorPlanner.js';
+import { verifyCustomOption } from '../services/customOptionVerifier.js';
 import { generateGroundedPlan, streamGroundedAdvice } from '../services/geminiAdvisor.js';
 import { getUrbanTelemetryBundle, searchUrbanLocations } from '../services/telemetryClients.js';
 import { extractRequestGeoContext, resolveAutoLocation } from '../services/waqiFirmsClient.js';
@@ -39,13 +40,15 @@ function parseCoordQuery(query: Request['query']): {
   readonly lon?: number | undefined;
   readonly accuracy?: number | undefined;
 } {
-  const lat = Number(query.lat);
-  const lon = Number(query.lon);
-  const accuracy = Number(query.accuracy);
-  if (Number.isFinite(lat) && Number.isFinite(lon)) {
-    return { lat, lon, ...(Number.isFinite(accuracy) && accuracy > 0 ? { accuracy } : {}) };
+  const parsed = locateQuerySchema.safeParse(query);
+  if (!parsed.success || parsed.data.lat === undefined || parsed.data.lon === undefined) {
+    return {};
   }
-  return {};
+  return {
+    lat: parsed.data.lat,
+    lon: parsed.data.lon,
+    ...(parsed.data.accuracy !== undefined ? { accuracy: parsed.data.accuracy } : {}),
+  };
 }
 
 function registerGeocodeAndTelemetry(
@@ -137,39 +140,6 @@ async function buildPlanPayload(
   };
 }
 
-function isCustomCategory(val: unknown): val is CustomCategory {
-  return val === 'role' || val === 'tightness' || val === 'cookingFuel';
-}
-
-function readStr(val: unknown): string {
-  return typeof val === 'string' ? val.trim() : '';
-}
-
-function resolveLang(val: unknown): CorridorPlanRequest['language'] {
-  return val === 'hi' || val === 'ta' ? val : 'en';
-}
-
-function parseVerifyRequest(body: unknown): CustomVerifyRequest | null {
-  const obj = (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
-  const customText = readStr(obj.customText);
-  if (!isCustomCategory(obj.category) || customText.length === 0) {
-    return null;
-  }
-  return { category: obj.category, customText, language: resolveLang(obj.language) };
-}
-
-function parseCorridorPlanBody(body: unknown): CorridorPlanRequest | null {
-  const obj = (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
-  const city = readStr(obj.city);
-  const fromArea = readStr(obj.fromArea);
-  const toArea = readStr(obj.toArea);
-  if (!city || !fromArea || !toArea) {
-    return null;
-  }
-  const commuteMode = (readStr(obj.commuteMode) || 'metro') as CorridorPlanRequest['commuteMode'];
-  return { city, fromArea, toArea, commuteMode, language: resolveLang(obj.language) };
-}
-
 function registerPlanRoute(
   router: Router,
   env: ServerEnv,
@@ -191,22 +161,22 @@ function registerPlanRoute(
   });
 
   router.post('/verify-custom', limiter.middleware, async (req: Request, res: Response) => {
-    const verifyReq = parseVerifyRequest(req.body);
-    if (!verifyReq) {
+    const parsed = customVerifyRequestSchema.safeParse(req.body);
+    if (!parsed.success || parsed.data.customText.length === 0) {
       sendValidationError(res, 'Provide a valid category and custom text to verify.');
       return;
     }
-    const result = await verifyCustomOption(verifyReq, env);
+    const result = await verifyCustomOption(parsed.data, env);
     res.status(HTTP_STATUS.OK).json(result);
   });
 
   router.post('/corridor-plan', limiter.middleware, async (req: Request, res: Response) => {
-    const planReq = parseCorridorPlanBody(req.body);
-    if (!planReq) {
+    const parsed = corridorPlanRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
       sendValidationError(res, 'Provide city, starting area (fromArea), and destination (toArea).');
       return;
     }
-    const result = await planCityCorridor(planReq, env);
+    const result = await planCityCorridor(parsed.data, env);
     res.status(HTTP_STATUS.OK).json(result);
   });
 }

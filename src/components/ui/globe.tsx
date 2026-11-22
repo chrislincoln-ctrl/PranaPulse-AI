@@ -58,7 +58,13 @@ export function getDevIntroTime(): number | null {
 }
 
 // Exact cubic-bezier solver for smooth organic curves
-function solveCubicBezier(x: number, x1: number, y1: number, x2: number, y2: number): number {
+export function solveCubicBezier(
+  x: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+): number {
   if (x <= 0) return 0;
   if (x >= 1) return 1;
   let lo = 0;
@@ -92,14 +98,14 @@ function clamp01(v: number): number {
   return Math.max(0, Math.min(1, v));
 }
 
-function getIsDarkMode(): boolean {
+export function getIsDarkMode(): boolean {
   if (typeof document === 'undefined') {
     return true;
   }
   return document.documentElement.dataset.mode !== 'light';
 }
 
-function getPrefersReducedMotion(): boolean {
+export function getPrefersReducedMotion(): boolean {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
     return false;
   }

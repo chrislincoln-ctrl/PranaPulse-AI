@@ -1,11 +1,12 @@
 import { computePlanPhysics } from '../../src/domain/localBaseline.js';
+import { formatHourRange } from '../../src/domain/memberScheduleBuilder.js';
 import type { MaskTypeId } from '../../src/domain/types.js';
 import type { ServerEnv } from '../env.js';
 import { buildMemberScheduleSnapshot } from './familyCompanionAgent.js';
 import { getActiveMember, type SyncedWorkspaceRecord } from './householdWorkspaceStore.js';
 import { ROLE_DISPLAY_NAMES } from './naturalSiteControlExtractor.js';
 import { buildTelegramMenuForMember, type TelegramInlineButton } from './telegramClient.js';
-import { getUrbanTelemetryBundle } from './telemetryClients.js';
+import { getUrbanTelemetryBundle, type TelemetryBundle } from './telemetryClients.js';
 
 export interface TelegramReplyPayload {
   readonly text: string;
@@ -13,7 +14,6 @@ export interface TelegramReplyPayload {
   readonly requestGpsKeyboard?: boolean;
 }
 
-const DEFAULT_CLEAN_HOUR = 13;
 const MAX_MEMBER_BTNS = 6;
 
 export const MASK_LABELS: Readonly<Record<MaskTypeId, string>> = {
@@ -33,6 +33,45 @@ export function prefixActiveUser(ws: SyncedWorkspaceRecord, body: string): strin
   return `[Active User: ${active.label} | ${ws.payload.city}]\n${body}`;
 }
 
+/** Loads live atmospheric telemetry & deterministic physics snapshot for a synced Telegram workspace. */
+export async function loadWorkspacePhysics(
+  ws: SyncedWorkspaceRecord,
+  env: ServerEnv,
+): Promise<{
+  readonly active: ReturnType<typeof getActiveMember>;
+  readonly telemetry: TelemetryBundle;
+  readonly physics: ReturnType<typeof computePlanPhysics>;
+}> {
+  const active = getActiveMember(ws);
+  const telemetry = await getUrbanTelemetryBundle({
+    lat: ws.payload.lat,
+    lon: ws.payload.lon,
+    cityLabel: ws.payload.city,
+    env,
+  });
+  return { active, telemetry, physics: computePlanPhysics(ws.payload, telemetry) };
+}
+
+function buildMemberPickerRows(
+  ws: SyncedWorkspaceRecord,
+  compactName: boolean,
+): (readonly TelegramInlineButton[])[] {
+  const buttons: TelegramInlineButton[] = ws.payload.members
+    .slice(0, MAX_MEMBER_BTNS)
+    .map((m, i) => {
+      const display = compactName ? (m.label.split(' ')[0] ?? m.label) : m.label;
+      return {
+        text: `${m.id === ws.activeMemberId ? '* ' : ''}${String(i + 1)}. ${display}`,
+        callback_data: `member:${m.id}`,
+      };
+    });
+  const rows: (readonly TelegramInlineButton[])[] = [];
+  for (let idx = 0; idx < buttons.length; idx += 2) {
+    rows.push(buttons.slice(idx, idx + 2));
+  }
+  return rows;
+}
+
 /** Builds a 1-tap "Who is chatting?" member selector card used on /start and "Change User". */
 export function buildWhoAreYouCard(
   ws: SyncedWorkspaceRecord,
@@ -45,16 +84,6 @@ export function buildWhoAreYouCard(
     const timing = m.leaveHomeTime ? ` | ${m.leaveHomeTime}-${m.returnHomeTime ?? ''}` : '';
     return `${String(i + 1)}. ${m.label}${tag} - ${roleLabel}${timing}`;
   });
-  const memberBtns: TelegramInlineButton[] = ws.payload.members
-    .slice(0, MAX_MEMBER_BTNS)
-    .map((m, i) => ({
-      text: `${m.id === ws.activeMemberId ? '* ' : ''}${String(i + 1)}. ${m.label}`,
-      callback_data: `member:${m.id}`,
-    }));
-  const btnRows: (readonly TelegramInlineButton[])[] = [];
-  for (let idx = 0; idx < memberBtns.length; idx += 2) {
-    btnRows.push(memberBtns.slice(idx, idx + 2));
-  }
   const header = introLine ?? `Who is chatting right now? (Current: ${active.label})`;
   const text = [
     header,
@@ -68,7 +97,7 @@ export function buildWhoAreYouCard(
   return {
     text,
     buttons: [
-      ...btnRows,
+      ...buildMemberPickerRows(ws, false),
       [
         { text: 'Live Air', callback_data: 'cmd:air' },
         { text: 'Controls & GPS', callback_data: 'cmd:controls' },
@@ -77,27 +106,12 @@ export function buildWhoAreYouCard(
   };
 }
 
-function formatWindowRange(hours: readonly number[]): string {
-  if (hours.length === 0) {
-    return '13:00 - 15:00';
-  }
-  const first = hours[0] ?? DEFAULT_CLEAN_HOUR;
-  const last = hours[hours.length - 1] ?? first;
-  return `${String(first).padStart(2, '0')}:00 - ${String(last).padStart(2, '0')}:59`;
-}
-
 /** Builds the active member's individualized live daily schedule brief (used by `/schedule` and daily cron). */
 export async function buildLiveScheduleBrief(
   ws: SyncedWorkspaceRecord,
   env: ServerEnv,
 ): Promise<string> {
-  const member = getActiveMember(ws);
-  const telemetry = await getUrbanTelemetryBundle({
-    lat: ws.payload.lat,
-    lon: ws.payload.lon,
-    cityLabel: ws.payload.city,
-    env,
-  });
+  const { active: member, telemetry } = await loadWorkspacePhysics(ws, env);
   const schedule = buildMemberScheduleSnapshot({
     member,
     city: ws.payload.city,
@@ -116,13 +130,7 @@ export async function buildLiveAirCard(
   ws: SyncedWorkspaceRecord,
   env: ServerEnv,
 ): Promise<TelegramReplyPayload> {
-  const member = getActiveMember(ws);
-  const telemetry = await getUrbanTelemetryBundle({
-    lat: ws.payload.lat,
-    lon: ws.payload.lon,
-    cityLabel: ws.payload.city,
-    env,
-  });
+  const { active: member, telemetry } = await loadWorkspacePhysics(ws, env);
   const cur = telemetry.hourlySeries[0];
   const p = telemetry.currentPollutants;
   const aqi = telemetry.stationCrossCheck.effectiveSafetyAqi;
@@ -161,14 +169,7 @@ export async function buildFamilyRosterCard(
   ws: SyncedWorkspaceRecord,
   env: ServerEnv,
 ): Promise<TelegramReplyPayload> {
-  const active = getActiveMember(ws);
-  const telemetry = await getUrbanTelemetryBundle({
-    lat: ws.payload.lat,
-    lon: ws.payload.lon,
-    cityLabel: ws.payload.city,
-    env,
-  });
-  const physics = computePlanPhysics(ws.payload, telemetry);
+  const { active, physics } = await loadWorkspacePhysics(ws, env);
   const advMap = new Map(physics.memberAdvisories.map((a) => [a.id, a]));
   const rows = ws.payload.members.map((m, i) => {
     const activeTag = m.id === ws.activeMemberId ? ' [Active]' : '';
@@ -176,16 +177,6 @@ export async function buildFamilyRosterCard(
     const dose = advMap.get(m.id)?.estimatedDailyInhaledUg ?? 0;
     return `${String(i + 1)}. ${m.label}${activeTag} (${ROLE_DISPLAY_NAMES[m.role]})\n   ${timing} | ${MASK_LABELS[m.mask]} | ~${String(dose)} ug/day`;
   });
-  const memberBtns: TelegramInlineButton[] = ws.payload.members
-    .slice(0, MAX_MEMBER_BTNS)
-    .map((m, i) => ({
-      text: `${m.id === ws.activeMemberId ? '* ' : ''}${String(i + 1)}. ${m.label.split(' ')[0] ?? m.label}`,
-      callback_data: `member:${m.id}`,
-    }));
-  const btnRows: (readonly TelegramInlineButton[])[] = [];
-  for (let idx = 0; idx < memberBtns.length; idx += 2) {
-    btnRows.push(memberBtns.slice(idx, idx + 2));
-  }
   const body = [
     `Family Care Roster (${ws.payload.city})`,
     ...rows,
@@ -194,7 +185,7 @@ export async function buildFamilyRosterCard(
   ].join('\n');
   return {
     text: prefixActiveUser(ws, body),
-    buttons: [...btnRows, ...buildTelegramMenuForMember(active.label)],
+    buttons: [...buildMemberPickerRows(ws, true), ...buildTelegramMenuForMember(active.label)],
   };
 }
 
@@ -203,16 +194,9 @@ export async function buildWindowIndoorCard(
   ws: SyncedWorkspaceRecord,
   env: ServerEnv,
 ): Promise<TelegramReplyPayload> {
-  const member = getActiveMember(ws);
-  const telemetry = await getUrbanTelemetryBundle({
-    lat: ws.payload.lat,
-    lon: ws.payload.lon,
-    cityLabel: ws.payload.city,
-    env,
-  });
-  const physics = computePlanPhysics(ws.payload, telemetry);
+  const { active: member, telemetry, physics } = await loadWorkspacePhysics(ws, env);
   const openNow = telemetry.inversion.openWindowsNow;
-  const cleanWin = formatWindowRange(telemetry.inversion.bestWindowHours);
+  const cleanWin = formatHourRange(telemetry.inversion.bestWindowHours);
   const lines = [
     `Indoor & Windows: ${ws.payload.city}`,
     `- Open Windows Now: ${openNow ? 'YES (20-min cross-ventilation safe)' : 'NO (Keep windows & balcony sealed)'}`,

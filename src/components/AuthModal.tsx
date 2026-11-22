@@ -4,6 +4,7 @@ import type { SupabaseAuthController } from '../hooks/useSupabaseAuth.js';
 import type { PlanRequestPayload } from '../validators/schemas.js';
 import { AccountProfileSection } from './AccountProfileSection.js';
 import { AuthFormSection, type AuthMode } from './AuthFormSection.js';
+import { CornerReticles } from './HeroMasthead.js';
 
 export interface AuthModalProps {
   readonly isOpen: boolean;
@@ -119,17 +120,6 @@ function useModalDismissEffect(isOpen: boolean, onClose: () => void): void {
   }, [isOpen, onClose]);
 }
 
-function AuthDialogCorners(): ReactElement {
-  return (
-    <>
-      <span className="hero-corner hero-corner-tl" aria-hidden="true" />
-      <span className="hero-corner hero-corner-tr" aria-hidden="true" />
-      <span className="hero-corner hero-corner-bl" aria-hidden="true" />
-      <span className="hero-corner hero-corner-br" aria-hidden="true" />
-    </>
-  );
-}
-
 function AuthModalBody({
   auth,
   workspaceInput,
@@ -213,7 +203,7 @@ export const AuthModal = memo(function AuthModal({
         aria-labelledby="auth-modal-title"
         className="auth-dialog z-10"
       >
-        <AuthDialogCorners />
+        <CornerReticles />
         <AuthModalHeader title={getModalTitle(Boolean(auth.user), mode)} onClose={onClose} />
         <AuthModalBody
           auth={auth}

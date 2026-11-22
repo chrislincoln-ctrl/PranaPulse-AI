@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { SECURITY_LIMITS, VALIDATION_BOUNDS } from '../config/constants.js';
 import { sanitizeUserText } from '../utils/inputSanitizer.js';
 import {
+  commuteModeSchema,
   familyMemberSchema,
   latSchema,
   lonSchema,
@@ -12,6 +13,8 @@ import {
 const MIN_WORKSPACE_KEY_LEN = 4;
 const MAX_WORKSPACE_KEY_LEN = 32;
 const MAX_MEMBER_ID_LEN = 24;
+const MAX_CUSTOM_TEXT_LEN = 120;
+const MAX_ACCURACY_METERS = 100_000;
 
 export const workspaceKeySchema = z
   .string()
@@ -70,11 +73,8 @@ const legacyTelegramLinkSchema = z.object({
   userId: z.string().max(VALIDATION_BOUNDS.MAX_CITY_QUERY_LEN).optional(),
 });
 
-const workspaceTelegramLinkSchema = z.object({
+const workspaceTelegramLinkSchema = workspaceSyncPostSchema.extend({
   workspaceKey: workspaceKeySchema.optional(),
-  payload: planRequestSchema,
-  activeMemberId: z.string().trim().min(1).max(MAX_MEMBER_ID_LEN).optional(),
-  userId: z.string().max(VALIDATION_BOUNDS.MAX_CITY_QUERY_LEN).optional(),
 });
 
 export const telegramLinkRequestSchema = z.union([
@@ -83,3 +83,28 @@ export const telegramLinkRequestSchema = z.union([
 ]);
 
 export type TelegramLinkRequest = z.infer<typeof telegramLinkRequestSchema>;
+
+export const customVerifyRequestSchema = z.object({
+  category: z.enum(['role', 'tightness', 'cookingFuel']),
+  customText: z
+    .string()
+    .trim()
+    .min(1)
+    .max(MAX_CUSTOM_TEXT_LEN)
+    .transform((val) => sanitizeUserText(val, MAX_CUSTOM_TEXT_LEN)),
+  language: supportedLanguageSchema.default('en'),
+});
+
+export const corridorPlanRequestSchema = z.object({
+  city: sanitizedCityField,
+  fromArea: sanitizedCityField,
+  toArea: sanitizedCityField,
+  commuteMode: commuteModeSchema.default('metro'),
+  language: supportedLanguageSchema.default('en'),
+});
+
+export const locateQuerySchema = z.object({
+  lat: latSchema.optional(),
+  lon: lonSchema.optional(),
+  accuracy: z.coerce.number().positive().max(MAX_ACCURACY_METERS).optional(),
+});

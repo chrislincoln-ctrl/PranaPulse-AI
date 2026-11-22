@@ -138,23 +138,17 @@ async function handleWorkspaceSyncGet(req: Request, res: Response, env: ServerEn
     res.status(HTTP_STATUS.OK).json({ found: false, changed: false });
     return;
   }
+  const base = { found: true, telegramLinked: Boolean(ws.telegramChatId), updatedAt: ws.updatedAt };
   if (since && ws.updatedAt <= since) {
-    res.status(HTTP_STATUS.OK).json({
-      found: true,
-      changed: false,
-      telegramLinked: Boolean(ws.telegramChatId),
-      updatedAt: ws.updatedAt,
-    });
+    res.status(HTTP_STATUS.OK).json({ ...base, changed: false });
     return;
   }
   res.status(HTTP_STATUS.OK).json({
-    found: true,
+    ...base,
     changed: true,
     workspaceKey: ws.workspaceKey,
     activeMemberId: ws.activeMemberId,
-    telegramLinked: Boolean(ws.telegramChatId),
     lastModifiedBy: ws.lastModifiedBy,
-    updatedAt: ws.updatedAt,
     payload: ws.payload,
   });
 }
@@ -207,27 +201,40 @@ async function runDailyBriefFanout(
   return { sentCount, skippedCount };
 }
 
-function registerTelegramRoutes(router: Router, env: ServerEnv): void {
-  router.post('/telegram/webhook', async (req: Request, res: Response) => {
-    const headerToken = req.header('x-telegram-bot-api-secret-token');
-    if (!verifyTelegramWebhookSecret(headerToken, env.TELEGRAM_WEBHOOK_SECRET)) {
-      res.status(HTTP_STATUS.FORBIDDEN).json({ error: 'Invalid Telegram webhook secret.' });
-      return;
-    }
-    const update = (
-      typeof req.body === 'object' && req.body !== null ? req.body : {}
-    ) as TelegramWebhookUpdate;
-    const outcome = await processTelegramUpdate(update, env);
-    res.status(HTTP_STATUS.OK).json({ ok: true, ...outcome });
-  });
+function registerTelegramRoutes(
+  router: Router,
+  env: ServerEnv,
+  webhookLimiter: SlidingWindowRateLimiter,
+  cronLimiter: SlidingWindowRateLimiter,
+): void {
+  router.post(
+    '/telegram/webhook',
+    webhookLimiter.middleware,
+    async (req: Request, res: Response) => {
+      const headerToken = req.header('x-telegram-bot-api-secret-token');
+      if (!verifyTelegramWebhookSecret(headerToken, env.TELEGRAM_WEBHOOK_SECRET)) {
+        res.status(HTTP_STATUS.FORBIDDEN).json({ error: 'Invalid Telegram webhook secret.' });
+        return;
+      }
+      const update = (
+        typeof req.body === 'object' && req.body !== null ? req.body : {}
+      ) as TelegramWebhookUpdate;
+      const outcome = await processTelegramUpdate(update, env);
+      res.status(HTTP_STATUS.OK).json({ ok: true, ...outcome });
+    },
+  );
 
-  router.get('/telegram/daily-brief', async (req: Request, res: Response) => {
-    if (!verifyBearerSecret(req.header('authorization'), env.CRON_SECRET)) {
-      res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: 'Unauthorized daily brief trigger.' });
-      return;
-    }
-    res.status(HTTP_STATUS.OK).json({ ok: true, ...(await runDailyBriefFanout(env)) });
-  });
+  router.get(
+    '/telegram/daily-brief',
+    cronLimiter.middleware,
+    async (req: Request, res: Response) => {
+      if (!verifyBearerSecret(req.header('authorization'), env.CRON_SECRET)) {
+        res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: 'Unauthorized daily brief trigger.' });
+        return;
+      }
+      res.status(HTTP_STATUS.OK).json({ ok: true, ...(await runDailyBriefFanout(env)) });
+    },
+  );
 }
 
 /** Creates the Express router handling companion chat, Telegram pairing, workspace sync, and cron briefs. */
@@ -247,6 +254,6 @@ export function createCompanionRouter(env: ServerEnv): Router {
   router.post('/companion/workspace-sync', syncLimiter.middleware, (req, res) =>
     handleWorkspaceSyncPost(req, res, env),
   );
-  registerTelegramRoutes(router, env);
+  registerTelegramRoutes(router, env, syncLimiter, limiter);
   return router;
 }

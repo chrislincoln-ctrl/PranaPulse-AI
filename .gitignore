@@ -9,6 +9,7 @@ test-results/
 .vercel/
 graphify-out/
 .hallmark/
+reference/
 .env
 .env.*
 !.env.example

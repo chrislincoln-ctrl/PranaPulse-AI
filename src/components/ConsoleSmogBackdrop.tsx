@@ -150,6 +150,28 @@ function SmogCssFallbackLayer(): ReactElement {
   );
 }
 
+/** Renders the 3 animated ambient smog plumes layered behind the WebGL smoke canvas and vignette. */
+export function AmbientSmogLayers({
+  canvasRef,
+  zClass = 'z-0',
+}: {
+  readonly canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  readonly zClass?: string;
+}): ReactElement {
+  return (
+    <div
+      aria-hidden="true"
+      className={`pointer-events-none fixed inset-0 ${zClass} overflow-hidden`}
+    >
+      <div className="console-smog-plume console-smog-plume-left" />
+      <div className="console-smog-plume console-smog-plume-right" />
+      <div className="console-smog-plume console-smog-plume-center" />
+      <canvas ref={canvasRef} className="relative z-[1] h-full w-full" />
+      <div className="console-smog-vignette absolute inset-0 z-[2]" />
+    </div>
+  );
+}
+
 /**
  * Full-viewport atmospheric billowing smog canvas filling wide-screen margins, inter-card gutters,
  * and idle dark regions across all 6 Console Workbench sections with AQI-reactive tinting.
@@ -171,13 +193,5 @@ export const ConsoleSmogBackdrop = memo(function ConsoleSmogBackdrop({
     return <SmogCssFallbackLayer />;
   }
 
-  return (
-    <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-      <div className="console-smog-plume console-smog-plume-left" />
-      <div className="console-smog-plume console-smog-plume-right" />
-      <div className="console-smog-plume console-smog-plume-center" />
-      <canvas ref={canvasRef} className="relative z-[1] h-full w-full" />
-      <div className="console-smog-vignette absolute inset-0 z-[2]" />
-    </div>
-  );
+  return <AmbientSmogLayers canvasRef={canvasRef} />;
 });

@@ -1,9 +1,13 @@
 /* eslint-disable */
 import { useEffect, useRef, useState, type RefObject } from 'react';
+import { AmbientSmogLayers } from '@/components/ConsoleSmogBackdrop';
 import {
   INTRO_DURATION as ORB_INTRO_DURATION,
   getDevIntroTime,
+  getIsDarkMode,
+  getPrefersReducedMotion,
   hasPlayedHeroIntro,
+  solveCubicBezier,
   subscribeHeroIntroStart,
 } from '@/components/ui/globe';
 
@@ -234,41 +238,7 @@ function evalSmokeIntroMultiplier(tSec: number): number {
 
 // Exact cubic-bezier(0.23, 1, 0.32, 1) matching the orb's section transition
 function cubicBezierSection(x: number): number {
-  if (x <= 0) return 0;
-  if (x >= 1) return 1;
-  const x1 = 0.23;
-  const y1 = 1.0;
-  const x2 = 0.32;
-  const y2 = 1.0;
-  let lo = 0;
-  let hi = 1;
-  let t = x;
-  for (let i = 0; i < 12; i++) {
-    const mt = 1 - t;
-    const bx = 3 * mt * mt * t * x1 + 3 * mt * t * t * x2 + t * t * t;
-    if (bx < x) {
-      lo = t;
-    } else {
-      hi = t;
-    }
-    t = 0.5 * (lo + hi);
-  }
-  const mt = 1 - t;
-  return 3 * mt * mt * t * y1 + 3 * mt * t * t * y2 + t * t * t;
-}
-
-function getIsDarkMode(): boolean {
-  if (typeof document === 'undefined') {
-    return true;
-  }
-  return document.documentElement.dataset.mode !== 'light';
-}
-
-function getPrefersReducedMotion(): boolean {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    return false;
-  }
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  return solveCubicBezier(x, 0.23, 1.0, 0.32, 1.0);
 }
 
 function measureHeroTextRect(
@@ -792,15 +762,7 @@ export function SmokeCanvas({ activeSection, scrollProgress, heroTextRef }: Smok
     );
   }
 
-  return (
-    <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[1] overflow-hidden">
-      <div className="console-smog-plume console-smog-plume-left" />
-      <div className="console-smog-plume console-smog-plume-right" />
-      <div className="console-smog-plume console-smog-plume-center" />
-      <canvas ref={canvasRef} className="relative z-[1] h-full w-full" />
-      <div className="console-smog-vignette absolute inset-0 z-[2]" />
-    </div>
-  );
+  return <AmbientSmogLayers canvasRef={canvasRef} zClass="z-[1]" />;
 }
 
 export default SmokeCanvas;

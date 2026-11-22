@@ -1,5 +1,4 @@
 import { COMMUTE_PHYSICS } from '../../src/config/physicsConstants.js';
-import { computePlanPhysics } from '../../src/domain/localBaseline.js';
 import type { MaskTypeId } from '../../src/domain/types.js';
 import type { ServerEnv } from '../env.js';
 import { planCityCorridor } from './corridorPlanner.js';
@@ -7,12 +6,12 @@ import { getActiveMember, type SyncedWorkspaceRecord } from './householdWorkspac
 import { ROLE_DISPLAY_NAMES } from './naturalSiteControlExtractor.js';
 import {
   buildWhatsAppUrl,
+  loadWorkspacePhysics,
   MASK_LABELS,
   prefixActiveUser,
   type TelegramReplyPayload,
 } from './telegramCardBuilders.js';
 import { buildTelegramMenuForMember, type TelegramInlineButton } from './telegramClient.js';
-import { getUrbanTelemetryBundle } from './telemetryClients.js';
 
 const MAX_COMMUTE_ROWS = 5;
 const MASK_KEYS: readonly MaskTypeId[] = ['n95-ffp2', 'surgical', 'cloth', 'none'];
@@ -22,14 +21,7 @@ export async function buildCommuteCard(
   ws: SyncedWorkspaceRecord,
   env: ServerEnv,
 ): Promise<TelegramReplyPayload> {
-  const active = getActiveMember(ws);
-  const telemetry = await getUrbanTelemetryBundle({
-    lat: ws.payload.lat,
-    lon: ws.payload.lon,
-    cityLabel: ws.payload.city,
-    env,
-  });
-  const physics = computePlanPhysics(ws.payload, telemetry);
+  const { active, physics } = await loadWorkspacePhysics(ws, env);
   const ranked = physics.commuteOptions.slice(0, MAX_COMMUTE_ROWS).map((opt, idx) => {
     const tag = opt.isParetoOptimal ? ' [Best]' : '';
     return `${String(idx + 1)}. ${opt.mode}${tag}: ${String(opt.durationMinutes)} min | ${String(opt.personalInhaledUg)} ug PM2.5 | ${String(opt.communityCo2Grams)}g CO2`;
@@ -77,14 +69,7 @@ export async function buildGearCard(
   ws: SyncedWorkspaceRecord,
   env: ServerEnv,
 ): Promise<TelegramReplyPayload> {
-  const member = getActiveMember(ws);
-  const telemetry = await getUrbanTelemetryBundle({
-    lat: ws.payload.lat,
-    lon: ws.payload.lon,
-    cityLabel: ws.payload.city,
-    env,
-  });
-  const physics = computePlanPhysics(ws.payload, telemetry);
+  const { active: member, telemetry, physics } = await loadWorkspacePhysics(ws, env);
   const pm25 = Math.round(telemetry.currentPollutants.pm25UgM3);
   const maskRows = MASK_KEYS.map((mk) => {
     const eff = Math.round(COMMUTE_PHYSICS.MASK_FILTRATION[mk] * 100);
@@ -112,14 +97,7 @@ export async function buildRwaCard(
   ws: SyncedWorkspaceRecord,
   env: ServerEnv,
 ): Promise<TelegramReplyPayload> {
-  const active = getActiveMember(ws);
-  const telemetry = await getUrbanTelemetryBundle({
-    lat: ws.payload.lat,
-    lon: ws.payload.lon,
-    cityLabel: ws.payload.city,
-    env,
-  });
-  const physics = computePlanPhysics(ws.payload, telemetry);
+  const { active, telemetry, physics } = await loadWorkspacePhysics(ws, env);
   const aqi = telemetry.stationCrossCheck.effectiveSafetyAqi;
   const notice = [
     `PranaPulse AI: ${ws.payload.city} RWA Notice`,

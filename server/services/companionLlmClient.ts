@@ -1,11 +1,11 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, type GenerateContentConfig } from '@google/genai';
 import {
   APP_META,
   SECURITY_LIMITS,
   UPSTREAM_ENDPOINTS,
   VALIDATION_BOUNDS,
 } from '../../src/config/constants.js';
-import { resolveMemberArchetype } from '../../src/domain/memberScheduleBuilder.js';
+import { formatHourRange, resolveMemberArchetype } from '../../src/domain/memberScheduleBuilder.js';
 import type { FamilyMemberInput, MemberDailySchedule } from '../../src/domain/types.js';
 import type { SupportedLanguage } from '../../src/validators/schemas.js';
 import type { ServerEnv } from '../env.js';
@@ -34,76 +34,63 @@ const SYMPTOM_RE =
   /\b(asthma|wheez\w*|inhaler|cough\w*|breathless\w*|throat|headache|eyes|symptom|chest)\b/i;
 const WINDOW_RE = /\b(window\w*|ventilat\w*|balcony|terrace|open|air out)\b/i;
 
-const DEFAULT_CLEAN_HOUR = 13;
-
-function formatCleanHours(hours: readonly number[]): string {
-  if (hours.length === 0) {
-    return '13:00 - 15:00';
-  }
-  const first = hours[0] ?? DEFAULT_CLEAN_HOUR;
-  const last = hours[hours.length - 1] ?? first;
-  return `${String(first).padStart(2, '0')}:00 - ${String(last).padStart(2, '0')}:59`;
-}
-
 function firstNameOf(label: string): string {
   const head = label.split('(')[0]?.trim();
   return head && head.length > 0 ? head : label;
 }
 
-function buildIndoorNightReply(ctx: CompanionReplyContext): string {
+function extractReplyFacts(ctx: CompanionReplyContext) {
   const { member, city, telemetry } = ctx;
-  const name = firstNameOf(member.label);
-  const aqi = telemetry.stationCrossCheck.effectiveSafetyAqi;
-  const pbl = telemetry.inversion.currentPblMeters;
-  const cleanWin = formatCleanHours(telemetry.inversion.bestWindowHours);
+  return {
+    name: firstNameOf(member.label),
+    city,
+    aqi: telemetry.stationCrossCheck.effectiveSafetyAqi,
+    pm25: Math.round(telemetry.currentPollutants.pm25UgM3),
+    pbl: telemetry.inversion.currentPblMeters,
+    cleanWin: formatHourRange(telemetry.inversion.bestWindowHours),
+    category: telemetry.assessment.cpcbCategory,
+    openNow: telemetry.inversion.openWindowsNow,
+  };
+}
+
+function buildIndoorNightReply(ctx: CompanionReplyContext): string {
+  const f = extractReplyFacts(ctx);
   return (
-    `Hi ${name}! You're doing the right thing staying indoors with windows closed in ${city} while the ${String(pbl)}m inversion traps NAQI ${String(aqi)} outside. ` +
-    `Keep your HEPA purifier on low and wait until ${cleanWin} before airing out.`
+    `Hi ${f.name}! You're doing the right thing staying indoors with windows closed in ${f.city} while the ${String(f.pbl)}m inversion traps NAQI ${String(f.aqi)} outside. ` +
+    `Keep your HEPA purifier on low and wait until ${f.cleanWin} before airing out.`
   );
 }
 
 function buildSymptomReply(ctx: CompanionReplyContext): string {
-  const { member, city, telemetry } = ctx;
-  const name = firstNameOf(member.label);
-  const aqi = telemetry.stationCrossCheck.effectiveSafetyAqi;
-  const pm25 = Math.round(telemetry.currentPollutants.pm25UgM3);
+  const f = extractReplyFacts(ctx);
   return (
-    `Hi ${name}, please rest indoors in ${city} right now (NAQI ${String(aqi)}, PM2.5 ${String(pm25)} ug/m3). ` +
+    `Hi ${f.name}, please rest indoors in ${f.city} right now (NAQI ${String(f.aqi)}, PM2.5 ${String(f.pm25)} ug/m3). ` +
     `Keep windows sealed, run your HEPA purifier, and keep your reliever inhaler nearby.`
   );
 }
 
 function buildWindowReply(ctx: CompanionReplyContext): string {
-  const { member, city, telemetry } = ctx;
-  const name = firstNameOf(member.label);
-  const aqi = telemetry.stationCrossCheck.effectiveSafetyAqi;
-  const pbl = telemetry.inversion.currentPblMeters;
-  const cleanWin = formatCleanHours(telemetry.inversion.bestWindowHours);
-  if (telemetry.inversion.openWindowsNow) {
+  const f = extractReplyFacts(ctx);
+  if (f.openNow) {
     return (
-      `Hi ${name}! Dispersion is open in ${city} right now (NAQI ${String(aqi)}, PBL ${String(pbl)}m). ` +
+      `Hi ${f.name}! Dispersion is open in ${f.city} right now (NAQI ${String(f.aqi)}, PBL ${String(f.pbl)}m). ` +
       `You can cross-ventilate for 15-20 minutes, then close up before evening.`
     );
   }
   return (
-    `Hi ${name}, hold off on opening windows in ${city} right now (shallow ${String(pbl)}m mixing layer, NAQI ${String(aqi)}). ` +
-    `The cleanest ventilation window today is ${cleanWin}.`
+    `Hi ${f.name}, hold off on opening windows in ${f.city} right now (shallow ${String(f.pbl)}m mixing layer, NAQI ${String(f.aqi)}). ` +
+    `The cleanest ventilation window today is ${f.cleanWin}.`
   );
 }
 
 function buildGeneralReply(ctx: CompanionReplyContext): string {
-  const { member, city, telemetry } = ctx;
-  const name = firstNameOf(member.label);
-  const aqi = telemetry.stationCrossCheck.effectiveSafetyAqi;
-  const pm25 = Math.round(telemetry.currentPollutants.pm25UgM3);
-  const cleanWin = formatCleanHours(telemetry.inversion.bestWindowHours);
+  const f = extractReplyFacts(ctx);
   const maskTip =
-    member.role === 'senior-respiratory'
+    ctx.member.role === 'senior-respiratory'
       ? 'Keep the outing brief and carry your inhaler.'
-      : `Wear your ${member.mask} mask outdoors.`;
-
+      : `Wear your ${ctx.member.mask} mask outdoors.`;
   return (
-    `Hi ${name}! In ${city}, NAQI is ${String(aqi)} (${telemetry.assessment.cpcbCategory}, PM2.5 ${String(pm25)} ug/m3) and the best window to head out is ${cleanWin}. ` +
+    `Hi ${f.name}! In ${f.city}, NAQI is ${String(f.aqi)} (${f.category}, PM2.5 ${String(f.pm25)} ug/m3) and the best window to head out is ${f.cleanWin}. ` +
     maskTip
   );
 }
@@ -130,7 +117,7 @@ function buildCompanionPrompt(ctx: CompanionReplyContext): string {
   const name = firstNameOf(member.label);
   const cur = telemetry.hourlySeries[0];
   const aqi = telemetry.stationCrossCheck.effectiveSafetyAqi;
-  const cleanWin = formatCleanHours(telemetry.inversion.bestWindowHours);
+  const cleanWin = formatHourRange(telemetry.inversion.bestWindowHours);
   const stepsText = updatedSchedule.dailyRoutine
     .map((s) => `${s.timeWindow}: ${s.actionTitle}`)
     .join(' | ');
@@ -145,7 +132,14 @@ function buildCompanionPrompt(ctx: CompanionReplyContext): string {
   ].join('\n');
 }
 
-async function tryGeminiCascade(prompt: string, env: ServerEnv): Promise<string | null> {
+/** Runs a Gemini model fallback cascade with per-attempt timeout and returns the first non-empty text. */
+export async function runGeminiTextCascade(params: {
+  readonly prompt: string;
+  readonly env: ServerEnv;
+  readonly config: GenerateContentConfig;
+  readonly timeoutMs?: number;
+}): Promise<string | null> {
+  const { prompt, env, config, timeoutMs = SECURITY_LIMITS.UPSTREAM_TIMEOUT_MS } = params;
   if (!env.GEMINI_API_KEY) {
     return null;
   }
@@ -154,12 +148,8 @@ async function tryGeminiCascade(prompt: string, env: ServerEnv): Promise<string 
   for (const model of models) {
     try {
       const response = await withTimeout(
-        ai.models.generateContent({
-          model,
-          contents: prompt,
-          config: { temperature: VALIDATION_BOUNDS.GEMINI_TEMPERATURE },
-        }),
-        SECURITY_LIMITS.UPSTREAM_TIMEOUT_MS,
+        ai.models.generateContent({ model, contents: prompt, config }),
+        timeoutMs,
       );
       const text = response.text?.trim();
       if (text && text.length > 0) {
@@ -172,38 +162,48 @@ async function tryGeminiCascade(prompt: string, env: ServerEnv): Promise<string 
   return null;
 }
 
-async function invokeGroqModelOnce(
+interface GroqCascadeParams {
+  readonly systemPrompt: string;
+  readonly userPrompt: string;
+  readonly env: ServerEnv;
+  readonly temperature: number;
+  readonly jsonMode?: boolean;
+  readonly timeoutMs?: number;
+}
+
+function buildGroqBody(model: string, params: GroqCascadeParams): string {
+  return JSON.stringify({
+    model,
+    temperature: params.temperature,
+    ...(params.jsonMode ? { response_format: { type: 'json_object' } } : {}),
+    messages: [
+      { role: 'system', content: params.systemPrompt },
+      { role: 'user', content: params.userPrompt },
+    ],
+  });
+}
+
+function extractGroqContent(json: GroqChatPayload): string | null {
+  return json.choices?.[0]?.message?.content?.trim() ?? null;
+}
+
+async function fetchGroqOnce(
   apiKey: string,
   model: string,
-  prompt: string,
+  params: GroqCascadeParams,
 ): Promise<string | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => {
     controller.abort();
-  }, SECURITY_LIMITS.UPSTREAM_TIMEOUT_MS);
+  }, params.timeoutMs ?? SECURITY_LIMITS.UPSTREAM_TIMEOUT_MS);
   try {
     const resp = await fetch(UPSTREAM_ENDPOINTS.GROQ_CHAT_COMPLETIONS, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model,
-        temperature: VALIDATION_BOUNDS.GEMINI_TEMPERATURE,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are PranaPulse Family Companion, a warm, scientifically grounded household air-quality and health companion.',
-          },
-          { role: 'user', content: prompt },
-        ],
-      }),
+      body: buildGroqBody(model, params),
       signal: controller.signal,
     });
-    if (!resp.ok) {
-      return null;
-    }
-    const json = (await resp.json()) as GroqChatPayload;
-    return json.choices?.[0]?.message?.content?.trim() ?? null;
+    return resp.ok ? extractGroqContent((await resp.json()) as GroqChatPayload) : null;
   } catch {
     return null;
   } finally {
@@ -211,14 +211,15 @@ async function invokeGroqModelOnce(
   }
 }
 
-async function tryGroqCascade(prompt: string, env: ServerEnv): Promise<string | null> {
-  if (!env.GROQ_API_KEY) {
+/** Invokes Groq Chat Completions across the configured fallback cascade with strict timeout. */
+export async function runGroqTextCascade(params: GroqCascadeParams): Promise<string | null> {
+  if (!params.env.GROQ_API_KEY) {
     return null;
   }
-  const models = [...new Set<string>([env.GROQ_MODEL, ...APP_META.GROQ_FALLBACK_MODELS])];
+  const models = [...new Set<string>([params.env.GROQ_MODEL, ...APP_META.GROQ_FALLBACK_MODELS])];
   for (const model of models) {
-    const text = await invokeGroqModelOnce(env.GROQ_API_KEY, model, prompt);
-    if (text && text.length > 0) {
+    const text = await fetchGroqOnce(params.env.GROQ_API_KEY, model, params);
+    if (text) {
       return text;
     }
   }
@@ -231,11 +232,21 @@ export async function generateCompanionReply(
   env: ServerEnv,
 ): Promise<{ readonly reply: string; readonly aiEnhanced: boolean }> {
   const prompt = buildCompanionPrompt(ctx);
-  const geminiText = await tryGeminiCascade(prompt, env);
+  const geminiText = await runGeminiTextCascade({
+    prompt,
+    env,
+    config: { temperature: VALIDATION_BOUNDS.GEMINI_TEMPERATURE },
+  });
   if (geminiText) {
     return { reply: geminiText, aiEnhanced: true };
   }
-  const groqText = await tryGroqCascade(prompt, env);
+  const groqText = await runGroqTextCascade({
+    systemPrompt:
+      'You are PranaPulse Family Companion, a warm, scientifically grounded household air-quality and health companion.',
+    userPrompt: prompt,
+    env,
+    temperature: VALIDATION_BOUNDS.GEMINI_TEMPERATURE,
+  });
   if (groqText) {
     return { reply: groqText, aiEnhanced: true };
   }

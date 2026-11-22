@@ -90,14 +90,20 @@ function registerStaticServing(app: Express, env: ServerEnv): void {
     express.static(DIST_DIR, {
       etag: true,
       maxAge: 0,
-      setHeaders: (res) => {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      setHeaders: (res, filePath) => {
+        const isHashedAsset = filePath.includes(`${path.sep}assets${path.sep}`);
+        res.setHeader(
+          'Cache-Control',
+          isHashedAsset
+            ? 'public, max-age=31536000, immutable'
+            : 'no-cache, no-store, must-revalidate',
+        );
       },
     }),
   );
   app.get('/{*splat}', (_req: Request, res: Response) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.sendFile(DIST_INDEX, { dotfiles: 'allow' });
+    res.sendFile(DIST_INDEX, { dotfiles: 'deny' });
   });
 }
 

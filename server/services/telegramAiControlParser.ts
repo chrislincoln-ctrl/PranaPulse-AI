@@ -1,5 +1,3 @@
-import { GoogleGenAI } from '@google/genai';
-import { APP_META, UPSTREAM_ENDPOINTS } from '../../src/config/constants.js';
 import type { FamilyMemberInput, FamilyRole } from '../../src/domain/types.js';
 import { sanitizeUserText } from '../../src/utils/inputSanitizer.js';
 import type { PlanRequestPayload } from '../../src/validators/schemas.js';
@@ -9,17 +7,13 @@ import {
   sanitizeAiControlPayload,
   type AiParsedSiteControls,
 } from './aiControlValidator.js';
-import { withTimeout } from './cacheAndLimiter.js';
 import type { ProfileHabitPatch } from './companionDbMapper.js';
+import { runGeminiTextCascade, runGroqTextCascade } from './companionLlmClient.js';
 import { verifyCustomOption } from './customOptionVerifier.js';
 import { getActiveMember, type SyncedWorkspaceRecord } from './householdWorkspaceStore.js';
 import { resolveRosterMembershipIntent } from './memberMatcher.js';
 import { extractSiteControlPatch } from './naturalSiteControlExtractor.js';
 import { searchUrbanLocations } from './telemetryClients.js';
-
-interface GroqJsonPayload {
-  readonly choices?: readonly { readonly message?: { readonly content?: string | null } }[];
-}
 
 export interface ResolvedFreeformControls {
   readonly targetMember: FamilyMemberInput;
@@ -87,96 +81,6 @@ function parseJsonObject(rawText: string | undefined | null): Record<string, unk
   }
 }
 
-async function tryGeminiControlParse(
-  prompt: string,
-  env: ServerEnv,
-): Promise<Record<string, unknown> | null> {
-  if (!env.GEMINI_API_KEY) {
-    return null;
-  }
-  const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
-  const models = [...new Set<string>([...APP_META.GEMINI_FALLBACK_MODELS, env.GEMINI_MODEL])];
-  for (const model of models) {
-    try {
-      const resp = await withTimeout(
-        ai.models.generateContent({
-          model,
-          contents: prompt,
-          config: {
-            responseMimeType: 'application/json',
-            responseSchema: AI_CONTROL_GEMINI_SCHEMA,
-            temperature: ZERO_TEMP,
-          },
-        }),
-        AI_PARSER_TIMEOUT_MS,
-      );
-      const parsed = parseJsonObject(resp.text);
-      if (parsed) {
-        return parsed;
-      }
-    } catch {
-      // Try next Gemini model in cascade.
-    }
-  }
-  return null;
-}
-
-async function invokeGroqJsonOnce(
-  apiKey: string,
-  model: string,
-  prompt: string,
-): Promise<Record<string, unknown> | null> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => {
-    controller.abort();
-  }, AI_PARSER_TIMEOUT_MS);
-  try {
-    const resp = await fetch(UPSTREAM_ENDPOINTS.GROQ_CHAT_COMPLETIONS, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model,
-        temperature: ZERO_TEMP,
-        response_format: { type: 'json_object' },
-        messages: [
-          {
-            role: 'system',
-            content: 'Return ONLY a single valid JSON object matching the schema.',
-          },
-          { role: 'user', content: prompt },
-        ],
-      }),
-      signal: controller.signal,
-    });
-    if (!resp.ok) {
-      return null;
-    }
-    const json = (await resp.json()) as GroqJsonPayload;
-    return parseJsonObject(json.choices?.[0]?.message?.content);
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-async function tryGroqControlParse(
-  prompt: string,
-  env: ServerEnv,
-): Promise<Record<string, unknown> | null> {
-  if (!env.GROQ_API_KEY) {
-    return null;
-  }
-  const models = [...new Set<string>([env.GROQ_MODEL, ...APP_META.GROQ_FALLBACK_MODELS])];
-  for (const model of models) {
-    const parsed = await invokeGroqJsonOnce(env.GROQ_API_KEY, model, prompt);
-    if (parsed) {
-      return parsed;
-    }
-  }
-  return null;
-}
-
 /** Uses Gemini structured JSON (with Groq JSON fallback) to extract multi-intent website controls. */
 export async function parseTelegramSiteControlsWithAi(
   message: string,
@@ -187,9 +91,30 @@ export async function parseTelegramSiteControlsWithAi(
     return null;
   }
   const prompt = buildControlExtractionPrompt(message, workspace);
-  const raw =
-    (await tryGeminiControlParse(prompt, env)) ?? (await tryGroqControlParse(prompt, env));
-  return raw ? sanitizeAiControlPayload(raw, workspace) : null;
+  const geminiRaw = await runGeminiTextCascade({
+    prompt,
+    env,
+    timeoutMs: AI_PARSER_TIMEOUT_MS,
+    config: {
+      responseMimeType: 'application/json',
+      responseSchema: AI_CONTROL_GEMINI_SCHEMA,
+      temperature: ZERO_TEMP,
+    },
+  });
+  const parsedGemini = parseJsonObject(geminiRaw);
+  if (parsedGemini) {
+    return sanitizeAiControlPayload(parsedGemini, workspace);
+  }
+  const groqRaw = await runGroqTextCascade({
+    systemPrompt: 'Return ONLY a single valid JSON object matching the schema.',
+    userPrompt: prompt,
+    env,
+    temperature: ZERO_TEMP,
+    jsonMode: true,
+    timeoutMs: AI_PARSER_TIMEOUT_MS,
+  });
+  const parsedGroq = parseJsonObject(groqRaw);
+  return parsedGroq ? sanitizeAiControlPayload(parsedGroq, workspace) : null;
 }
 
 async function resolveVerifiedCustomRole(

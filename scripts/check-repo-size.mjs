@@ -18,6 +18,7 @@ const EXCLUDED_DIRS = new Set([
   '.vercel',
   'graphify-out',
   '.hallmark',
+  'reference',
 ]);
 
 function walkTrackedOrWorkspaceFiles(rootDir) {

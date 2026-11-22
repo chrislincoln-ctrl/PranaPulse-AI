@@ -37,7 +37,8 @@ export function resolveMemberArchetype(member: FamilyMemberInput): MemberRoutine
   return 'home-caregiver';
 }
 
-function formatHourRange(hours: readonly number[]): string {
+/** Formats an hour-of-day array into a readable ventilation window range (e.g. "13:00 - 15:59"). */
+export function formatHourRange(hours: readonly number[]): string {
   if (hours.length === 0) {
     return '13:00 - 15:00';
   }

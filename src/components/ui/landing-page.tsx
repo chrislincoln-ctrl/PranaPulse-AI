@@ -245,33 +245,27 @@ export function ScrollGlobe({
               </div>
             )}
 
-            {index === 0 ? (
-              <h1 className="font-bold mb-4 sm:mb-7 leading-[1.08] tracking-tight text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl 2xl:text-8xl">
-                {section.subtitle ? (
-                  <div className="space-y-1 sm:space-y-2">
-                    <div className="text-foreground landing-orb-contrast">{section.title}</div>
-                    <div className="text-foreground/90 text-[0.58em] sm:text-[0.68em] font-semibold tracking-wider landing-orb-contrast">
-                      {section.subtitle}
+            {(() => {
+              const HeadingTag = index === 0 ? 'h1' : 'h2';
+              const headingClass =
+                index === 0
+                  ? 'font-bold mb-4 sm:mb-7 leading-[1.08] tracking-tight text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl 2xl:text-8xl'
+                  : 'font-bold mb-4 sm:mb-7 leading-[1.1] tracking-tight text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl 2xl:text-7xl';
+              return (
+                <HeadingTag className={headingClass}>
+                  {section.subtitle ? (
+                    <div className="space-y-1 sm:space-y-2">
+                      <div className="text-foreground landing-orb-contrast">{section.title}</div>
+                      <div className="text-foreground/90 text-[0.58em] sm:text-[0.68em] font-semibold tracking-wider landing-orb-contrast">
+                        {section.subtitle}
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="text-foreground landing-orb-contrast">{section.title}</div>
-                )}
-              </h1>
-            ) : (
-              <h2 className="font-bold mb-4 sm:mb-7 leading-[1.1] tracking-tight text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl 2xl:text-7xl">
-                {section.subtitle ? (
-                  <div className="space-y-1 sm:space-y-2">
+                  ) : (
                     <div className="text-foreground landing-orb-contrast">{section.title}</div>
-                    <div className="text-foreground/90 text-[0.58em] sm:text-[0.68em] font-semibold tracking-wider landing-orb-contrast">
-                      {section.subtitle}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-foreground landing-orb-contrast">{section.title}</div>
-                )}
-              </h2>
-            )}
+                  )}
+                </HeadingTag>
+              );
+            })()}
 
             <div
               className={cn(

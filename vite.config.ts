@@ -27,5 +27,32 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false,
     target: 'es2022',
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('@supabase')) {
+              return 'vendor-supabase';
+            }
+            if (id.includes('lucide-react')) {
+              return 'vendor-icons';
+            }
+            if (id.includes('/zod/')) {
+              return 'vendor-zod';
+            }
+            if (id.includes('react-dom') || id.includes('/react/') || id.includes('scheduler')) {
+              return 'vendor-react';
+            }
+          }
+          if (id.includes('/src/i18n/')) {
+            return 'app-i18n';
+          }
+          if (id.includes('/src/components/ui/') || id.includes('LandingPageView')) {
+            return 'app-landing';
+          }
+          return undefined;
+        },
+      },
+    },
   },
 });

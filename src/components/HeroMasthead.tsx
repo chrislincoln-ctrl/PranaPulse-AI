@@ -29,7 +29,7 @@ function splitHeadlineAccent(headline: string): {
   return { leading: words.slice(0, -1).join(' '), accent };
 }
 
-function CornerReticles(): ReactElement {
+export function CornerReticles(): ReactElement {
   return (
     <>
       <span className="hero-corner hero-corner-tl" aria-hidden="true" />
