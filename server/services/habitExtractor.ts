@@ -1,6 +1,6 @@
 import { VALIDATION_BOUNDS } from '../../src/config/constants.js';
 import type { CommuteModeId, FamilyMemberInput, MaskTypeId } from '../../src/domain/types.js';
-import { sanitizeUserText } from '../../src/utils/inputSanitizer.js';
+import { deriveOutdoorHoursFromTimes, sanitizeUserText } from '../../src/utils/inputSanitizer.js';
 import type { ProfileHabitPatch } from './companionDbMapper.js';
 
 const NOON_HOUR = 12;
@@ -234,4 +234,23 @@ export function extractHabitUpdates(message: string): ProfileHabitPatch {
 /** Checks whether a habit patch contains at least one actionable update field. */
 export function hasHabitPatch(patch: ProfileHabitPatch): boolean {
   return Object.values(patch).some((v) => v !== undefined);
+}
+
+/** Auto-calculates dailyOutdoorHours from leave/return window when times change and hours were not explicitly given. */
+export function enrichDerivedOutdoorHours(
+  patch: ProfileHabitPatch,
+  existing: Pick<FamilyMemberInput, 'leaveHomeTime' | 'returnHomeTime'> = {},
+): ProfileHabitPatch {
+  if (patch.dailyOutdoorHours !== undefined) {
+    return patch;
+  }
+  const hasTimeUpdate = Boolean(patch.leaveHomeTime ?? patch.returnHomeTime);
+  if (!hasTimeUpdate) {
+    return patch;
+  }
+  const derived = deriveOutdoorHoursFromTimes(
+    patch.leaveHomeTime ?? existing.leaveHomeTime,
+    patch.returnHomeTime ?? existing.returnHomeTime,
+  );
+  return derived === undefined ? patch : { ...patch, dailyOutdoorHours: derived };
 }

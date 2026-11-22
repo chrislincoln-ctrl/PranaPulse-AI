@@ -13,7 +13,11 @@ import type { PlanRequestPayload, SupportedLanguage } from '../../src/validators
 import type { ServerEnv } from '../env.js';
 import type { ProfileHabitPatch } from './companionDbMapper.js';
 import { generateCompanionReply } from './companionLlmClient.js';
-import { extractHabitUpdates, extractLocationMention } from './habitExtractor.js';
+import {
+  enrichDerivedOutdoorHours,
+  extractHabitUpdates,
+  extractLocationMention,
+} from './habitExtractor.js';
 import { applyMemberHabitPatch } from './memberMatcher.js';
 import { reverseGeocodeCoords } from './reverseGeocoder.js';
 import {
@@ -158,7 +162,7 @@ export async function handleCompanionCheckin(
   env: ServerEnv,
 ): Promise<CompanionCheckinResult> {
   const loc = await resolveCheckinLocation(input);
-  const habitPatch = extractHabitUpdates(input.message);
+  const habitPatch = enrichDerivedOutdoorHours(extractHabitUpdates(input.message), input.member);
   const member = mergeMemberWithPatch(input.member, habitPatch);
   const telemetry = await getUrbanTelemetryBundle({
     lat: loc.lat,

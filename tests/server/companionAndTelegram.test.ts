@@ -771,9 +771,36 @@ describe('Family Companion Chat, Telegram Webhook & Daily Brief Cron', () => {
       method: 'GET',
       url: '/api/companion/workspace-sync?workspaceKey=wroster01',
     });
+    expect(afterRemove.status).toBe(200);
     const payloadRemoved = (afterRemove.body as { payload: typeof DEFAULT_WORKSPACE_INPUT })
       .payload;
     expect(payloadRemoved.members).toHaveLength(3);
     expect(payloadRemoved.members.some((m) => m.label === 'Chris')).toBe(false);
+
+    const windowRes = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'roster-secret' },
+      body: {
+        message: {
+          chat: { id: 5511 },
+          text: 'Okay today I would be leaving home at 10 am and will come back home at 7 pm',
+        },
+      },
+    });
+    expect(windowRes.status).toBe(200);
+    const winReply = (windowRes.body as { replyText: string }).replyText;
+    expect(winReply).toContain('Leave 10:00');
+    expect(winReply).toContain('Return 19:00');
+    expect(winReply).toContain('Outdoor 9 hrs/day');
+
+    const afterWin = await invokeExpress(app, {
+      method: 'GET',
+      url: '/api/companion/workspace-sync?workspaceKey=wroster01',
+    });
+    const pWin = (afterWin.body as { payload: typeof DEFAULT_WORKSPACE_INPUT }).payload;
+    expect(pWin.members[2]?.leaveHomeTime).toBe('10:00');
+    expect(pWin.members[2]?.returnHomeTime).toBe('19:00');
+    expect(pWin.members[2]?.dailyOutdoorHours).toBe(9);
   });
 });

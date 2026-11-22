@@ -6,7 +6,7 @@ import type { LocaleDictionary } from '../i18n/translations.js';
 export interface MemberScheduleBarProps {
   readonly memberSchedules: readonly MemberDailySchedule[];
   readonly selectedMemberId: string | null;
-  readonly onSelectMemberId: (id: string | null) => void;
+  readonly onSelectMemberId: (id: string) => void;
   readonly activeSchedule: MemberDailySchedule | null;
   readonly t: LocaleDictionary;
 }
@@ -33,17 +33,6 @@ function MemberTabsStrip({
       aria-label={t.familySectionHeading}
       className="flex flex-wrap items-center gap-1.5"
     >
-      <button
-        type="button"
-        role="tab"
-        aria-selected={selectedMemberId === null}
-        onClick={() => {
-          onSelectMemberId(null);
-        }}
-        className={tabButtonClass(selectedMemberId === null)}
-      >
-        {t.scheduleAllHouseholdTab}
-      </button>
       {memberSchedules.map((sched) => {
         const isSelected = selectedMemberId === sched.memberId;
         return (

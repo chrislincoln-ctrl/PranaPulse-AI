@@ -4,7 +4,11 @@ import type { ServerEnv } from '../env.js';
 import type { ProfileHabitPatch } from './companionDbMapper.js';
 import { handleCompanionCheckin } from './familyCompanionAgent.js';
 import { recordCompanionCheckin } from './familyCompanionStore.js';
-import { hasHabitPatch, shouldPersistLocationMention } from './habitExtractor.js';
+import {
+  enrichDerivedOutdoorHours,
+  hasHabitPatch,
+  shouldPersistLocationMention,
+} from './habitExtractor.js';
 import {
   getActiveMember,
   updateWorkspaceFromTelegram,
@@ -223,16 +227,14 @@ export async function handleTelegramFreeformMessage(params: {
     },
     env,
   );
-  const combinedMemberPatch: ProfileHabitPatch = { ...result.habitPatch, ...ctrl.prePatch };
+  const combinedMemberPatch = enrichDerivedOutdoorHours(
+    { ...result.habitPatch, ...ctrl.prePatch },
+    ctrl.addMemberName ? undefined : ctrl.targetMember,
+  );
   const persisted = await persistFreeformChanges({
+    ...ctrl,
     workspace,
-    targetMember: ctrl.targetMember,
-    memberSwitched: ctrl.memberSwitched,
-    addMemberName: ctrl.addMemberName,
-    removeMember: ctrl.removeMember,
     combinedMemberPatch,
-    householdPatch: ctrl.householdPatch,
-    aiCityUpdate: ctrl.aiCityUpdate,
     promptText,
     gpsLat,
     result,

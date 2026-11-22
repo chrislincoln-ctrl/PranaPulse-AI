@@ -3,6 +3,7 @@ import { type ReactElement } from 'react';
 import { resolveMemberArchetype } from '../domain/memberScheduleBuilder.js';
 import type { CommuteModeId, FamilyMemberInput, MemberRoutineArchetype } from '../domain/types.js';
 import type { LocaleDictionary } from '../i18n/translations.js';
+import { deriveOutdoorHoursFromTimes } from '../utils/inputSanitizer.js';
 import { SelectField } from './FormFields.js';
 
 const ARCHETYPE_KEYS: readonly MemberRoutineArchetype[] = [
@@ -46,7 +47,9 @@ function HabitTimeInputs({
           type="time"
           value={member.leaveHomeTime ?? ''}
           onChange={(e) => {
-            onChange({ leaveHomeTime: e.target.value || undefined });
+            const leaveHomeTime = e.target.value || undefined;
+            const hrs = deriveOutdoorHoursFromTimes(leaveHomeTime, member.returnHomeTime);
+            onChange({ leaveHomeTime, ...(hrs !== undefined ? { dailyOutdoorHours: hrs } : {}) });
           }}
           className="field-control measured text-sm"
         />
@@ -60,7 +63,9 @@ function HabitTimeInputs({
           type="time"
           value={member.returnHomeTime ?? ''}
           onChange={(e) => {
-            onChange({ returnHomeTime: e.target.value || undefined });
+            const returnHomeTime = e.target.value || undefined;
+            const hrs = deriveOutdoorHoursFromTimes(member.leaveHomeTime, returnHomeTime);
+            onChange({ returnHomeTime, ...(hrs !== undefined ? { dailyOutdoorHours: hrs } : {}) });
           }}
           className="field-control measured text-sm"
         />

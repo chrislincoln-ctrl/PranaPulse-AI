@@ -220,7 +220,8 @@ export const ScheduleLedger = memo(function ScheduleLedger({
 }: ScheduleLedgerProps): ReactElement {
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const memberSchedules = aiPlan.memberSchedules ?? [];
-  const activeSchedule = memberSchedules.find((s) => s.memberId === selectedMemberId) ?? null;
+  const activeSchedule =
+    memberSchedules.find((s) => s.memberId === selectedMemberId) ?? memberSchedules[0] ?? null;
 
   return (
     <div className="surface-hairline p-4 sm:p-6">

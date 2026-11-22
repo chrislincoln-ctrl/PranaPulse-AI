@@ -83,8 +83,12 @@ describe('Per-member Family Routine UI, WhatsApp share & Companion Chat', () => 
       </>,
     );
 
-    // 1. Switch to Aarav's personal schedule tab and verify School steps + WhatsApp links
-    fireEvent.click(screen.getByRole('tab', { name: /Aarav \(School\)/i }));
+    // 1. Verify "All Household" tab is removed, Aarav is selected by default, and School steps + WhatsApp links render
+    expect(screen.queryByRole('tab', { name: /All Household/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Aarav \(School\)/i })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
     expect(screen.getByText(/School Departure & Fitted Mask Check/i)).toBeInTheDocument();
     const waLinks = screen.getAllByRole('link', { name: /Share on WhatsApp/i });
     expect(waLinks.length).toBeGreaterThanOrEqual(1);
