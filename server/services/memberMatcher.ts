@@ -1,5 +1,6 @@
 import { VALIDATION_BOUNDS } from '../../src/config/constants.js';
 import type { FamilyMemberInput, FamilyRole } from '../../src/domain/types.js';
+import { sanitizeUserText } from '../../src/utils/inputSanitizer.js';
 import type { ProfileHabitPatch } from './companionDbMapper.js';
 
 export const ROLE_DISPLAY_NAMES: Readonly<Record<FamilyRole, string>> = {
@@ -11,9 +12,18 @@ export const ROLE_DISPLAY_NAMES: Readonly<Record<FamilyRole, string>> = {
 
 const MIN_NAME_LEN = 3;
 const MIN_FUZZY_LEN = 4;
+const MAX_MEMBER_LABEL_LEN = 40;
+const DEFAULT_NEW_OUTDOOR_HRS = 2;
 
 export const RENAME_MEMBER_RE =
   /(?:rename\s+(?:me|my\s+profile|this\s+member)\s+to|(?:change|set|update)\s+my\s+name\s+to)\s+([A-Za-z][A-Za-z0-9\s()'-]{1,40}?)(?=[.,!?]|$|\s+(?:and|with|who)\b)/i;
+
+const ADD_MEMBER_PRIMARY_RE =
+  /\b(?:add|create|register|include)\s+(?:a\s+)?(?:new\s+)?(?:family\s+)?member(?:\s+(?:named|called))?[,:\s-]+([A-Za-z][A-Za-z0-9\s()'-]{1,36}?)(?=[.,!?]|\s+(?:who|he|she|they|is|has|wears|takes|uses|leaves|returns|with|as|aged|for|and)\b|$)/i;
+const ADD_MEMBER_ALT_RE =
+  /\badd\s+([A-Za-z][A-Za-z'-]{1,28})\s+(?:as\s+(?:a\s+)?(?:new\s+)?(?:family\s+)?member|to\s+(?:the\s+|my\s+|our\s+)?(?:family|roster|household))\b/i;
+const REMOVE_MEMBER_RE =
+  /\b(?:remove|delete)\s+(?:(?:family\s+)?member\s+)?([A-Za-z0-9#][A-Za-z0-9\s#'-]{1,28}?)(?=[.,!?]|\s+from\b|$)/i;
 
 const MEMBER_NUM_RE = /\bmember\s*#?\s*(\d+)\b/i;
 
@@ -173,4 +183,96 @@ export function summarizeMemberPatchNotes(
     ...summarizeIdentityNotes(patch, updatedCity, roleDisplayNames),
     ...summarizeRoutineNotes(patch),
   ];
+}
+
+/** Extracts a requested new family member name from natural phrases like "Add a new member, Chris". */
+export function extractAddMemberName(message: string): string | undefined {
+  const raw = ADD_MEMBER_PRIMARY_RE.exec(message)?.[1] ?? ADD_MEMBER_ALT_RE.exec(message)?.[1];
+  const clean = raw ? sanitizeUserText(raw.trim(), MAX_MEMBER_LABEL_LEN) : '';
+  return clean.length >= 2 ? clean : undefined;
+}
+
+/** Resolves an existing family member targeted by a "remove/delete <name>" request. */
+export function extractRemoveMemberIntent(
+  message: string,
+  members: readonly FamilyMemberInput[],
+): FamilyMemberInput | null {
+  const target = REMOVE_MEMBER_RE.exec(message)?.[1];
+  return target ? detectMemberSwitchIntent(target, members) : null;
+}
+
+/** Builds a new household member with a collision-free ID and all attributes extracted from chat. */
+export function createNewFamilyMember(
+  name: string,
+  patch: ProfileHabitPatch,
+  members: readonly FamilyMemberInput[],
+): FamilyMemberInput {
+  let maxId = members.length;
+  for (const m of members) {
+    const num = Number.parseInt(m.id.replace(/\D/g, ''), VALIDATION_BOUNDS.DECIMAL_BASE);
+    if (Number.isFinite(num) && num > maxId) {
+      maxId = num;
+    }
+  }
+  const base: FamilyMemberInput = {
+    id: `m${String(maxId + 1)}`,
+    label: sanitizeUserText(name, MAX_MEMBER_LABEL_LEN),
+    role: patch.role ?? 'commuter',
+    mask: patch.mask ?? 'n95-ffp2',
+    dailyOutdoorHours: patch.dailyOutdoorHours ?? DEFAULT_NEW_OUTDOOR_HRS,
+  };
+  return applyMemberHabitPatch(base, { ...patch, label: base.label });
+}
+
+function findMemberById(
+  members: readonly FamilyMemberInput[],
+  id: string | undefined,
+): FamilyMemberInput | null {
+  return id ? (members.find((m) => m.id === id) ?? null) : null;
+}
+
+function resolveSwitchedMember(
+  promptText: string,
+  members: readonly FamilyMemberInput[],
+  aiSwitchId: string | undefined,
+  blocked: boolean,
+): FamilyMemberInput | null {
+  if (blocked) {
+    return null;
+  }
+  return detectMemberSwitchIntent(promptText, members) ?? findMemberById(members, aiSwitchId);
+}
+
+/** Resolves add-member, remove-member, or sticky active-member switching from hybrid AI + regex output. */
+export function resolveRosterMembershipIntent(params: {
+  readonly promptText: string;
+  readonly members: readonly FamilyMemberInput[];
+  readonly activeMember: FamilyMemberInput;
+  readonly aiAddName?: string | undefined;
+  readonly aiRemoveId?: string | undefined;
+  readonly aiSwitchId?: string | undefined;
+}): {
+  readonly addMemberName?: string | undefined;
+  readonly removeMember: FamilyMemberInput | null;
+  readonly targetMember: FamilyMemberInput;
+  readonly memberSwitched: boolean;
+} {
+  const { promptText, members, activeMember } = params;
+  const addMemberName = params.aiAddName ?? extractAddMemberName(promptText);
+  const removeMember = addMemberName
+    ? null
+    : (findMemberById(members, params.aiRemoveId) ??
+      extractRemoveMemberIntent(promptText, members));
+  const switched = resolveSwitchedMember(
+    promptText,
+    members,
+    params.aiSwitchId,
+    Boolean(addMemberName ?? removeMember),
+  );
+  return {
+    ...(addMemberName ? { addMemberName } : {}),
+    removeMember,
+    targetMember: switched ?? activeMember,
+    memberSwitched: Boolean(switched && switched.id !== activeMember.id),
+  };
 }

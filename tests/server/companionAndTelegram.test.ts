@@ -690,4 +690,90 @@ describe('Family Companion Chat, Telegram Webhook & Daily Brief Cron', () => {
     expect(p2.areaM2).toBe(40);
     expect(p2.haltLeafBurning).toBe(false);
   });
+
+  it('adds a new family member with all attributes without overwriting active user, and supports removing members via Telegram', async () => {
+    mockCompanionUpstreamFetch();
+    const env = loadServerEnv({
+      NODE_ENV: 'test',
+      TELEGRAM_BOT_TOKEN: 'test-bot-token',
+      TELEGRAM_BOT_USERNAME: 'PranaPulseBot',
+      TELEGRAM_WEBHOOK_SECRET: 'roster-secret',
+    });
+    const app = createApp(env);
+
+    const linkRes = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/companion/telegram-link',
+      body: {
+        workspaceKey: 'wroster01',
+        payload: {
+          ...DEFAULT_WORKSPACE_INPUT,
+          city: 'Shimultala, Kolkata',
+          lat: 22.57,
+          lon: 88.36,
+        },
+        activeMemberId: 'm3',
+      },
+    });
+    const { linkCode } = linkRes.body as { linkCode: string };
+    await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'roster-secret' },
+      body: { message: { chat: { id: 5511 }, text: `/start ${linkCode}` } },
+    });
+
+    const addRes = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'roster-secret' },
+      body: {
+        message: {
+          chat: { id: 5511 },
+          text: "Add a new member, Chris. He's a college-going student. He wears an N95 mask. The outdoor ass he stays is a 6 and he takes a metro to commute",
+        },
+      },
+    });
+    expect(addRes.status).toBe(200);
+    const addReply = (addRes.body as { replyText: string }).replyText;
+    expect(addReply).toContain('Added member: Chris');
+    expect(addReply).toContain('Outdoor 6 hrs/day');
+    expect(addReply).toContain('Mode metro');
+    expect(addReply).toContain('Mask n95-ffp2');
+
+    const afterAdd = await invokeExpress(app, {
+      method: 'GET',
+      url: '/api/companion/workspace-sync?workspaceKey=wroster01',
+    });
+    const payloadAdded = (afterAdd.body as { payload: typeof DEFAULT_WORKSPACE_INPUT }).payload;
+    expect(payloadAdded.members).toHaveLength(4);
+    expect(payloadAdded.members[2]?.label).toBe('Rohan (Commuter)');
+    expect(payloadAdded.members[2]?.dailyOutdoorHours).toBe(
+      DEFAULT_WORKSPACE_INPUT.members[2]?.dailyOutdoorHours,
+    );
+    const chris = payloadAdded.members[3];
+    expect(chris?.label).toBe('Chris');
+    expect(chris?.role).toBe('commuter');
+    expect(chris?.mask).toBe('n95-ffp2');
+    expect(chris?.dailyOutdoorHours).toBe(6);
+    expect(chris?.commuteMode).toBe('metro');
+
+    const removeRes = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'roster-secret' },
+      body: { message: { chat: { id: 5511 }, text: 'Remove Chris from the family roster' } },
+    });
+    expect(removeRes.status).toBe(200);
+    expect((removeRes.body as { replyText: string }).replyText).toContain('Removed member: Chris');
+
+    const afterRemove = await invokeExpress(app, {
+      method: 'GET',
+      url: '/api/companion/workspace-sync?workspaceKey=wroster01',
+    });
+    const payloadRemoved = (afterRemove.body as { payload: typeof DEFAULT_WORKSPACE_INPUT })
+      .payload;
+    expect(payloadRemoved.members).toHaveLength(3);
+    expect(payloadRemoved.members.some((m) => m.label === 'Chris')).toBe(false);
+  });
 });

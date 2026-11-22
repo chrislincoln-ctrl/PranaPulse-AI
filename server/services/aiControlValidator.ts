@@ -15,6 +15,8 @@ import type { SyncedWorkspaceRecord } from './householdWorkspaceStore.js';
 
 export interface AiParsedSiteControls {
   readonly switchToMemberId?: string | undefined;
+  readonly addMemberName?: string | undefined;
+  readonly removeMemberId?: string | undefined;
   readonly memberPatch: ProfileHabitPatch;
   readonly householdPatch: Partial<PlanRequestPayload>;
   readonly cityQuery?: string | undefined;
@@ -56,6 +58,8 @@ export const AI_CONTROL_GEMINI_SCHEMA: Schema = {
   type: Type.OBJECT,
   properties: {
     switchToMemberId: { type: Type.STRING, nullable: true },
+    addMemberName: { type: Type.STRING, nullable: true },
+    removeMemberId: { type: Type.STRING, nullable: true },
     cityQuery: { type: Type.STRING, nullable: true },
     label: { type: Type.STRING, nullable: true },
     role: { type: Type.STRING, nullable: true },
@@ -194,14 +198,20 @@ function extractSafeCommunityHousehold(raw: Record<string, unknown>): Partial<Pl
   };
 }
 
+function pickRosterId(val: unknown, validIds: ReadonlySet<string>): string | undefined {
+  const id = typeof val === 'string' ? val.trim() : '';
+  return validIds.has(id) ? id : undefined;
+}
+
 /** Validates and clamps AI-extracted site control JSON into strict domain-safe patches. */
 export function sanitizeAiControlPayload(
   raw: Record<string, unknown>,
   workspace: SyncedWorkspaceRecord,
 ): AiParsedSiteControls {
   const validIds = new Set(workspace.payload.members.map((m) => m.id));
-  const rawSwitch = typeof raw.switchToMemberId === 'string' ? raw.switchToMemberId.trim() : '';
-  const switchToMemberId = validIds.has(rawSwitch) ? rawSwitch : undefined;
+  const switchToMemberId = pickRosterId(raw.switchToMemberId, validIds);
+  const addMemberName = pickSafeText(raw.addMemberName, MAX_LABEL_LEN);
+  const removeMemberId = pickRosterId(raw.removeMemberId, validIds);
   const cityQuery = pickSafeText(raw.cityQuery, VALIDATION_BOUNDS.MAX_CITY_QUERY_LEN);
   const memberPatch = extractSafeMemberPatch(raw);
   const householdPatch: Partial<PlanRequestPayload> = {
@@ -210,6 +220,8 @@ export function sanitizeAiControlPayload(
   };
   return {
     ...(switchToMemberId ? { switchToMemberId } : {}),
+    ...(addMemberName ? { addMemberName } : {}),
+    ...(removeMemberId ? { removeMemberId } : {}),
     memberPatch,
     householdPatch,
     ...(cityQuery ? { cityQuery } : {}),

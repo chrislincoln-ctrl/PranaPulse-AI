@@ -26,7 +26,7 @@ const ROLE_RULES: readonly {
   readonly archetype: MemberRoutineArchetype;
 }[] = [
   {
-    re: /\b(?:college|university|undergrad\w*|grad(?:uate)?|engineering|medical|law|mba|b\.?tech|b\.?sc|b\.?a\.?)\s+student\b|\bin\s+college\b|\bcollege\s+goer\b/i,
+    re: /\b(?:college(?:[- ]going)?|university|undergrad\w*|grad(?:uate)?|engineering|medical|law|mba|b\.?tech|b\.?sc|b\.?a\.?)\s+student\b|\bin\s+college\b|\bcollege(?:[- ]going|\s+goer)\b/i,
     role: 'commuter',
     archetype: 'office-commuter',
   },
@@ -60,7 +60,7 @@ const ROLE_RULES: readonly {
 const EXPLICIT_ROLE_RE =
   /(?:vulnerability\s+profile|health\s+profile|my\s+profile|my\s+role)\s*(?:to|is|as|:)\s*([A-Za-z][A-Za-z0-9\s/-]{2,36}?)(?=[.,!?]|$|\s+and\b)/i;
 const OUTDOOR_HRS_RE =
-  /(?:outdoor\s+(?:hours?|time)[^0-9]{0,16}(\d+(?:\.\d+)?)|(?:spend\w*|stay\w*|outside|outdoors)\s+(?:for\s+)?(?:approx\.?\s+|about\s+|around\s+|roughly\s+)?(\d+(?:\.\d+)?)\s*(?:hrs?|hours?)(?:\s*(?:approx\.?|approximately|about|around|a\s+day|per\s+day|daily))*\s*(?:outside|outdoors)?)/i;
+  /(?:outdoor\s+(?:hours?|hrs?|time|\S+\s+(?:he|she|they|i)\s+(?:stays?|spends?))[^0-9]{0,18}(\d+(?:\.\d+)?)|(?:spend\w*|stay\w*|outside|outdoors)\s+(?:for\s+)?(?:approx\.?\s+|about\s+|around\s+|roughly\s+)?(\d+(?:\.\d+)?)\s*(?:hrs?|hours?)(?:\s*(?:approx\.?|approximately|about|around|a\s+day|per\s+day|daily))*\s*(?:outside|outdoors)?)/i;
 const HOURS_BEFORE_OUTSIDE_RE =
   /\b(\d+(?:\.\d+)?)\s*(?:hrs?|hours?)(?:\s*(?:approx\.?|approximately|about|around|a\s+day|per\s+day|daily))*\s*(?:outside|outdoors)\b/i;
 const OUTDOOR_WORD_RE = /\b(?:outdoor|outdoors|outside)\b/i;

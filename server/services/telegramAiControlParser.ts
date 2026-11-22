@@ -13,7 +13,7 @@ import { withTimeout } from './cacheAndLimiter.js';
 import type { ProfileHabitPatch } from './companionDbMapper.js';
 import { verifyCustomOption } from './customOptionVerifier.js';
 import { getActiveMember, type SyncedWorkspaceRecord } from './householdWorkspaceStore.js';
-import { detectMemberSwitchIntent } from './memberMatcher.js';
+import { resolveRosterMembershipIntent } from './memberMatcher.js';
 import { extractSiteControlPatch } from './naturalSiteControlExtractor.js';
 import { searchUrbanLocations } from './telemetryClients.js';
 
@@ -24,6 +24,8 @@ interface GroqJsonPayload {
 export interface ResolvedFreeformControls {
   readonly targetMember: FamilyMemberInput;
   readonly memberSwitched: boolean;
+  readonly addMemberName?: string | undefined;
+  readonly removeMember: FamilyMemberInput | null;
   readonly prePatch: ProfileHabitPatch;
   readonly householdPatch: Partial<PlanRequestPayload>;
   readonly aiCityUpdate: {
@@ -49,12 +51,14 @@ function buildControlExtractionPrompt(message: string, ws: SyncedWorkspaceRecord
     'Rules (CRITICAL):',
     '- Users often combine MULTIPLE updates in one message (e.g. mask + commute mode + outdoor hours + role + participating homes + shared transit shift + room area + purifier CADR + timings). Extract ALL of them.',
     '- Return ONLY fields EXPLICITLY stated or requested in <user_message>. Set every unmentioned field to null or omit it. NEVER copy unchanged defaults.',
-    '- switchToMemberId: ONLY set to an existing roster id (e.g. "m2") if the user introduces themselves as or asks to switch to that family member (phonetic matches like Mira->Meera allowed).',
-    '- label: ONLY set if the user explicitly asks to rename their profile.',
-    '- role: strictly one of "child" (school student/child/infant/pregnant), "senior-respiratory" (senior/elderly/asthma patient/COPD/heart patient), "commuter" (college student/university student/adult commuter/office worker/runner/delivery), "caregiver" (homemaker/WFH/home caregiver).',
+    '- switchToMemberId: ONLY set to an existing roster id (e.g. "m2") if the user introduces themselves as or asks to switch to that family member (phonetic matches like Mira->Meera allowed). Do NOT set when adding/removing a member.',
+    '- addMemberName: ONLY set to the new person name (e.g. "Chris") if the user asks to add/create a new family member. Put that new member attributes (role, mask, dailyOutdoorHours, commuteMode, timings) in the member fields below.',
+    '- removeMemberId: ONLY set to an existing roster id if the user explicitly asks to remove/delete that family member.',
+    '- label: ONLY set if the user explicitly asks to rename their existing profile.',
+    '- role: strictly one of "child" (school student/child/infant/pregnant), "senior-respiratory" (senior/elderly/asthma patient/COPD/heart patient), "commuter" (college/college-going/university student/adult commuter/office worker/runner/delivery), "caregiver" (homemaker/WFH/home caregiver).',
     '- archetype: strictly one of "school-student", "office-commuter", "senior-homebound", "outdoor-active", "home-caregiver".',
     '- mask: strictly one of "none", "cloth", "surgical", "n95-ffp2".',
-    '- dailyOutdoorHours: number 0..24 when user mentions hours spent outside/outdoors per day (e.g. "staying 7 hours a day outside" -> 7, "10 hours approx outside" -> 10).',
+    '- dailyOutdoorHours: number 0..24 when user mentions hours spent outside/outdoors per day (forgive voice-dictation typos like "outdoor ass/ours he stays is a 6" -> 6, "staying 10 hours approx outside" -> 10).',
     '- leaveHomeTime / returnHomeTime: 24-hour "HH:MM" strings (e.g. "10:20", "23:41").',
     '- commuteMode: strictly one of "metro", "electric-bus", "ev-car", "petrol-car", "two-wheeler", "cycling", "walking".',
     '- areaM2 (4..500), cadrM3Hr (0..2500), tightness ("leaky"|"standard"|"weather-sealed"), cookingFuel ("induction"|"lpg-vented"|"lpg-unvented"|"solid-biomass").',
@@ -214,17 +218,6 @@ async function resolveAiCityQuery(
   return top ? { city: top.name, lat: top.lat, lon: top.lon } : null;
 }
 
-function pickSwitchedMember(
-  promptText: string,
-  aiSwitchId: string | undefined,
-  ws: SyncedWorkspaceRecord,
-): FamilyMemberInput | null {
-  return (
-    detectMemberSwitchIntent(promptText, ws.payload.members) ??
-    (aiSwitchId ? (ws.payload.members.find((m) => m.id === aiSwitchId) ?? null) : null)
-  );
-}
-
 function mergeControlPatches(
   detSite: ReturnType<typeof extractSiteControlPatch>,
   aiControls: AiParsedSiteControls | null,
@@ -248,14 +241,19 @@ export async function resolveFullSiteControls(
 ): Promise<ResolvedFreeformControls> {
   const detSite = extractSiteControlPatch(promptText);
   const aiControls = await parseTelegramSiteControlsWithAi(promptText, workspace, env);
-  const switched = pickSwitchedMember(promptText, aiControls?.switchToMemberId, workspace);
-  const targetMember = switched ?? getActiveMember(workspace);
-  const memberSwitched = Boolean(switched && switched.id !== workspace.activeMemberId);
+  const roster = resolveRosterMembershipIntent({
+    promptText,
+    members: workspace.payload.members,
+    activeMember: getActiveMember(workspace),
+    aiAddName: aiControls?.addMemberName,
+    aiRemoveId: aiControls?.removeMemberId,
+    aiSwitchId: aiControls?.switchToMemberId,
+  });
   const hasRole = Boolean(detSite.memberPatch.role ?? aiControls?.memberPatch.role);
   const verifiedRole = hasRole
     ? undefined
     : await resolveVerifiedCustomRole(detSite.customRoleCandidate, workspace, env);
   const { prePatch, householdPatch } = mergeControlPatches(detSite, aiControls, verifiedRole);
   const aiCityUpdate = await resolveAiCityQuery(aiControls?.cityQuery, workspace.payload.city);
-  return { targetMember, memberSwitched, prePatch, householdPatch, aiCityUpdate };
+  return { ...roster, prePatch, householdPatch, aiCityUpdate };
 }

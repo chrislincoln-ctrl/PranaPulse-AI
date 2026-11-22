@@ -10,85 +10,51 @@ import {
   updateWorkspaceFromTelegram,
   type SyncedWorkspaceRecord,
 } from './householdWorkspaceStore.js';
-import {
-  applyMemberHabitPatch,
-  ROLE_DISPLAY_NAMES,
-  summarizeMemberPatchNotes,
-} from './memberMatcher.js';
-import { summarizeHouseholdChanges } from './naturalSiteControlExtractor.js';
+import { applyMemberHabitPatch } from './memberMatcher.js';
 import { resolveFullSiteControls } from './telegramAiControlParser.js';
 import { prefixActiveUser, type TelegramReplyPayload } from './telegramCardBuilders.js';
 import { buildTelegramMenuForMember } from './telegramClient.js';
+import { applyRosterMutation, formatTelegramSyncFooter } from './telegramRosterMutation.js';
 
 type CheckinResult = Awaited<ReturnType<typeof handleCompanionCheckin>>;
-
-function formatSyncFooter(params: {
-  readonly memberLabel: string;
-  readonly memberPatch: ProfileHabitPatch;
-  readonly householdPatch: Partial<PlanRequestPayload>;
-  readonly updatedCity: string | null;
-}): string {
-  const notes = [
-    ...summarizeMemberPatchNotes(params.memberPatch, params.updatedCity, ROLE_DISPLAY_NAMES),
-    ...summarizeHouseholdChanges(params.householdPatch),
-  ];
-  if (notes.length === 0) {
-    return hasHabitPatch(params.memberPatch) ? `\n\nSynced to website: ${params.memberLabel}` : '';
-  }
-  return `\n\nSynced to website (${params.memberLabel}): ${notes.join(' | ')}`;
-}
+type LocationUpdate = { readonly city: string; readonly lat: number; readonly lon: number } | null;
 
 function buildUpdatedPayload(params: {
   readonly base: PlanRequestPayload;
-  readonly targetId: string;
+  readonly members: readonly FamilyMemberInput[];
   readonly memberPatch: ProfileHabitPatch;
   readonly householdPatch: Partial<PlanRequestPayload>;
-  readonly locationUpdate: {
-    readonly city: string;
-    readonly lat: number;
-    readonly lon: number;
-  } | null;
+  readonly locationUpdate: LocationUpdate;
+  readonly rosterMutated: boolean;
 }): PlanRequestPayload {
-  const { base, targetId, memberPatch, householdPatch, locationUpdate } = params;
-  const members = hasHabitPatch(memberPatch)
-    ? base.members.map((m) =>
-        m.id === targetId ? applyMemberHabitPatch(m, memberPatch as Record<string, unknown>) : m,
-      )
-    : base.members;
+  const { base, members, memberPatch, householdPatch, locationUpdate, rosterMutated } = params;
   return {
     ...base,
     ...householdPatch,
-    ...(memberPatch.mask ? { mask: memberPatch.mask } : {}),
-    ...(memberPatch.commuteMode ? { commuteMode: memberPatch.commuteMode } : {}),
+    ...(!rosterMutated && memberPatch.mask ? { mask: memberPatch.mask } : {}),
+    ...(!rosterMutated && memberPatch.commuteMode ? { commuteMode: memberPatch.commuteMode } : {}),
     ...(locationUpdate ?? {}),
-    members,
+    members: [...members],
   };
 }
 
-async function logTelegramCheckin(params: {
-  readonly savedId: string;
-  readonly promptText: string;
-  readonly memberPatch: ProfileHabitPatch;
-  readonly result: CheckinResult;
-  readonly env: ServerEnv;
-}): Promise<void> {
+async function logTelegramCheckin(savedId: string, params: PersistFreeformInput): Promise<void> {
   await recordCompanionCheckin(
     {
-      memberProfileId: params.savedId,
+      memberProfileId: savedId,
       channel: 'telegram',
       direction: 'inbound',
       messageText: params.promptText,
       detectedCity: params.result.resolvedCity,
       detectedLat: params.result.resolvedLat,
       detectedLon: params.result.resolvedLon,
-      extractedHabitNote: params.memberPatch.dailyHabitsNote ?? params.memberPatch.healthNotes,
+      extractedHabitNote:
+        params.combinedMemberPatch.dailyHabitsNote ?? params.combinedMemberPatch.healthNotes,
       aqiSnapshot: params.result.aqi,
     },
     params.env,
   );
 }
-
-type LocationUpdate = { readonly city: string; readonly lat: number; readonly lon: number } | null;
 
 function resolveLocationUpdate(params: {
   readonly currentCity: string;
@@ -117,6 +83,8 @@ interface PersistFreeformInput {
   readonly workspace: SyncedWorkspaceRecord;
   readonly targetMember: FamilyMemberInput;
   readonly memberSwitched: boolean;
+  readonly addMemberName?: string | undefined;
+  readonly removeMember: FamilyMemberInput | null;
   readonly combinedMemberPatch: ProfileHabitPatch;
   readonly householdPatch: Partial<PlanRequestPayload>;
   readonly aiCityUpdate: LocationUpdate;
@@ -126,9 +94,30 @@ interface PersistFreeformInput {
   readonly env: ServerEnv;
 }
 
+interface PersistFreeformOutcome {
+  readonly saved: SyncedWorkspaceRecord;
+  readonly locationChanged: boolean;
+  readonly rosterTag?: string | undefined;
+  readonly rosterWarning?: string | undefined;
+  readonly isRemove: boolean;
+}
+
+function shouldSaveWorkspace(
+  params: PersistFreeformInput,
+  rosterChanged: boolean,
+  locationChanged: boolean,
+): boolean {
+  const isRosterCmd = Boolean(params.addMemberName ?? params.removeMember);
+  const hasProfileEdit = !isRosterCmd && hasHabitPatch(params.combinedMemberPatch);
+  const hasHouseholdEdit = Object.keys(params.householdPatch).length > 0;
+  return (
+    params.memberSwitched || rosterChanged || locationChanged || hasProfileEdit || hasHouseholdEdit
+  );
+}
+
 async function persistFreeformChanges(
   params: PersistFreeformInput,
-): Promise<{ readonly saved: SyncedWorkspaceRecord; readonly locationChanged: boolean }> {
+): Promise<PersistFreeformOutcome> {
   const { workspace, targetMember, combinedMemberPatch, householdPatch, promptText, result, env } =
     params;
   const locationUpdate = resolveLocationUpdate({
@@ -138,35 +127,38 @@ async function persistFreeformChanges(
     aiCityUpdate: params.aiCityUpdate,
     result,
   });
+  const roster = applyRosterMutation({
+    baseMembers: workspace.payload.members,
+    targetId: targetMember.id,
+    addMemberName: params.addMemberName,
+    removeMember: params.removeMember,
+    memberPatch: combinedMemberPatch,
+  });
   const locationChanged = locationUpdate !== null;
-  const needsSave =
-    params.memberSwitched ||
-    locationChanged ||
-    hasHabitPatch(combinedMemberPatch) ||
-    Object.keys(householdPatch).length > 0;
   let saved = workspace;
-  if (needsSave) {
+  if (shouldSaveWorkspace(params, roster.changed, locationChanged)) {
     const nextPayload = buildUpdatedPayload({
       base: workspace.payload,
-      targetId: targetMember.id,
+      members: roster.members,
       memberPatch: combinedMemberPatch,
       householdPatch,
       locationUpdate,
+      rosterMutated: Boolean(params.addMemberName ?? params.removeMember),
     });
     saved = await updateWorkspaceFromTelegram(
       workspace,
-      { activeMemberId: targetMember.id, payload: nextPayload },
+      { activeMemberId: roster.activeId, payload: nextPayload },
       env,
     );
   }
-  await logTelegramCheckin({
-    savedId: saved.id,
-    promptText,
-    memberPatch: combinedMemberPatch,
-    result,
-    env,
-  });
-  return { saved, locationChanged };
+  await logTelegramCheckin(saved.id, params);
+  return {
+    saved,
+    locationChanged,
+    rosterTag: roster.tag,
+    rosterWarning: roster.warning,
+    isRemove: Boolean(params.removeMember && roster.changed),
+  };
 }
 
 function buildFreeformReplyPayload(params: {
@@ -175,17 +167,23 @@ function buildFreeformReplyPayload(params: {
   readonly combinedMemberPatch: ProfileHabitPatch;
   readonly householdPatch: Partial<PlanRequestPayload>;
   readonly locationChanged: boolean;
+  readonly rosterTag?: string | undefined;
+  readonly rosterWarning?: string | undefined;
+  readonly isRemove: boolean;
   readonly result: CheckinResult;
 }): TelegramReplyPayload {
   const activeNow = getActiveMember(params.saved);
   const switchNote = params.memberSwitched
     ? `Switched active user to ${activeNow.label}. Staying on ${activeNow.label} until you tap "Change User".\n`
     : '';
-  const footer = formatSyncFooter({
+  const footer = formatTelegramSyncFooter({
     memberLabel: activeNow.label,
     memberPatch: params.combinedMemberPatch,
     householdPatch: params.householdPatch,
     updatedCity: params.locationChanged ? params.saved.payload.city : null,
+    rosterTag: params.rosterTag,
+    rosterWarning: params.rosterWarning,
+    isRemove: params.isRemove,
   });
   return {
     text: prefixActiveUser(params.saved, `${switchNote}${params.result.reply}${footer}`),
@@ -193,7 +191,7 @@ function buildFreeformReplyPayload(params: {
   };
 }
 
-/** Handles natural-language Telegram messages with AI multi-intent parsing, sticky user switching, and full-site sync. */
+/** Handles natural-language Telegram messages with AI multi-intent parsing, add/remove members, and full-site sync. */
 export async function handleTelegramFreeformMessage(params: {
   readonly workspace: SyncedWorkspaceRecord;
   readonly text: string;
@@ -206,9 +204,12 @@ export async function handleTelegramFreeformMessage(params: {
     params.text.trim() || 'I shared my current GPS location. How is the air and weather here?';
   const ctrl = await resolveFullSiteControls(promptText, workspace, env);
   const activeCity = ctrl.aiCityUpdate ?? workspace.payload;
+  const checkinMember = ctrl.addMemberName
+    ? ctrl.targetMember
+    : applyMemberHabitPatch(ctrl.targetMember, ctrl.prePatch as Record<string, unknown>);
   const result = await handleCompanionCheckin(
     {
-      member: applyMemberHabitPatch(ctrl.targetMember, ctrl.prePatch as Record<string, unknown>),
+      member: checkinMember,
       message: promptText,
       city: activeCity.city,
       lat: activeCity.lat,
@@ -227,6 +228,8 @@ export async function handleTelegramFreeformMessage(params: {
     workspace,
     targetMember: ctrl.targetMember,
     memberSwitched: ctrl.memberSwitched,
+    addMemberName: ctrl.addMemberName,
+    removeMember: ctrl.removeMember,
     combinedMemberPatch,
     householdPatch: ctrl.householdPatch,
     aiCityUpdate: ctrl.aiCityUpdate,
