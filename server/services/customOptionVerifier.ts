@@ -1,6 +1,6 @@
 import { GoogleGenAI, Type, type Schema } from '@google/genai';
 import { APP_META, VALIDATION_BOUNDS } from '../../src/config/constants.js';
-import { sanitizeUserText } from '../../src/utils/inputSanitizer.js';
+import { formatCustomDisplayLabel, sanitizeUserText } from '../../src/utils/inputSanitizer.js';
 import type { SupportedLanguage } from '../../src/validators/schemas.js';
 import type { ServerEnv } from '../env.js';
 
@@ -16,6 +16,7 @@ export interface CustomVerifyResponse {
   readonly isValid: boolean;
   readonly mappedValue: string;
   readonly explanation: string;
+  readonly displayLabel?: string;
 }
 
 const ALLOWED_TARGETS: Record<CustomCategory, readonly string[]> = {
@@ -35,9 +36,10 @@ const VERIFY_RESPONSE_SCHEMA: Schema = {
   properties: {
     isValid: { type: Type.BOOLEAN },
     mappedValue: { type: Type.STRING },
+    displayLabel: { type: Type.STRING },
     explanation: { type: Type.STRING },
   },
-  required: ['isValid', 'mappedValue', 'explanation'],
+  required: ['isValid', 'mappedValue', 'displayLabel', 'explanation'],
 };
 
 const REJECTION_MESSAGES: Record<SupportedLanguage, Record<CustomCategory, string>> = {
@@ -129,12 +131,14 @@ function sanitizeCustomEntry(raw: string): string {
 
 export function verifyCustomDeterministically(req: CustomVerifyRequest): CustomVerifyResponse {
   const cleaned = sanitizeCustomEntry(req.customText);
+  const displayLabel = formatCustomDisplayLabel(cleaned);
   for (const rule of KEYWORD_MATCHERS[req.category]) {
     if (rule.re.test(cleaned)) {
       return {
         isValid: true,
         mappedValue: rule.target,
-        explanation: `${APPROVAL_PREFIX[req.language]} "${cleaned}" (${rule.target}).`,
+        displayLabel,
+        explanation: `${APPROVAL_PREFIX[req.language]} "${displayLabel}" (${rule.target}).`,
       };
     }
   }
@@ -153,10 +157,38 @@ function buildVerificationPrompt(req: CustomVerifyRequest): string {
     '- Category "role": must be a genuine human health condition, age group, occupation, or physical activity profile relevant to air pollution.',
     '- Category "tightness": must be a genuine window, door, room, or building envelope sealing description.',
     '- Category "cookingFuel": must be a genuine cooking fuel, stove, or kitchen heating appliance.',
-    `If genuine, set isValid=true, set mappedValue to the closest physics match strictly from [${allowed}], and write a concise 1-sentence explanation in language "${req.language}".`,
-    `If gibberish, unrelated, random words, or invalid, set isValid=false, set mappedValue="${DEFAULT_TARGET[req.category]}", and write a polite 1-sentence rejection in language "${req.language}" stating that the entry does not satisfy the required condition.`,
+    `If genuine, set isValid=true, set mappedValue strictly from [${allowed}], set displayLabel to a clean, correctly spelled 1-4 word Title-Case label (e.g. "Kerosene", "Pregnant Mother"), and write a concise 1-sentence explanation in language "${req.language}".`,
+    `If gibberish, unrelated, random words, or invalid, set isValid=false, set mappedValue="${DEFAULT_TARGET[req.category]}", set displayLabel="", and write a polite 1-sentence rejection in language "${req.language}" stating that the entry does not satisfy the required condition.`,
     `<user_entry>${sanitizeCustomEntry(req.customText)}</user_entry>`,
   ].join('\n');
+}
+
+function resolveVerifiedDisplayLabel(parsedLabel: unknown, fallbackText: string): string {
+  const normalized = typeof parsedLabel === 'string' ? formatCustomDisplayLabel(parsedLabel) : '';
+  return normalized || formatCustomDisplayLabel(fallbackText);
+}
+
+function parseModelVerifyResponse(
+  rawText: string | undefined,
+  req: CustomVerifyRequest,
+): CustomVerifyResponse | null {
+  const parsed = rawText ? (JSON.parse(rawText) as Partial<CustomVerifyResponse>) : null;
+  if (!parsed || typeof parsed.isValid !== 'boolean' || typeof parsed.explanation !== 'string') {
+    return null;
+  }
+  const allowedSet = new Set(ALLOWED_TARGETS[req.category]);
+  const mapped =
+    typeof parsed.mappedValue === 'string' && allowedSet.has(parsed.mappedValue)
+      ? parsed.mappedValue
+      : DEFAULT_TARGET[req.category];
+  return {
+    isValid: parsed.isValid,
+    mappedValue: mapped,
+    explanation: parsed.explanation,
+    ...(parsed.isValid
+      ? { displayLabel: resolveVerifiedDisplayLabel(parsed.displayLabel, req.customText) }
+      : {}),
+  };
 }
 
 async function tryVerifyWithModel(
@@ -174,18 +206,7 @@ async function tryVerifyWithModel(
         temperature: VALIDATION_BOUNDS.GEMINI_TEMPERATURE,
       },
     });
-    const parsed = response.text
-      ? (JSON.parse(response.text) as Partial<CustomVerifyResponse>)
-      : null;
-    if (!parsed || typeof parsed.isValid !== 'boolean' || typeof parsed.explanation !== 'string') {
-      return null;
-    }
-    const allowedSet = new Set(ALLOWED_TARGETS[req.category]);
-    const mapped =
-      typeof parsed.mappedValue === 'string' && allowedSet.has(parsed.mappedValue)
-        ? parsed.mappedValue
-        : DEFAULT_TARGET[req.category];
-    return { isValid: parsed.isValid, mappedValue: mapped, explanation: parsed.explanation };
+    return parseModelVerifyResponse(response.text, req);
   } catch {
     return null;
   }

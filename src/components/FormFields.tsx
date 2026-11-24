@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from 'react';
+import { useState, type ReactElement, type ReactNode } from 'react';
 import type { BuildingTightness, CookingFuelType } from '../domain/types.js';
 import type { LocaleDictionary } from '../i18n/translations.js';
 import type { PlanRequestPayload } from '../validators/schemas.js';
@@ -112,6 +112,7 @@ export interface SelectFieldProps<T extends string> {
   readonly options: readonly SelectOptionItem<T>[];
   readonly onChangeValue: (nextValue: T) => void;
   readonly labelClassName?: string;
+  readonly labelAddon?: ReactNode;
 }
 
 /**
@@ -124,12 +125,22 @@ export function SelectField<T extends string>({
   options,
   onChangeValue,
   labelClassName = 'mb-1 block text-sm text-ink-2',
+  labelAddon,
 }: SelectFieldProps<T>): ReactElement {
   return (
     <div>
-      <label htmlFor={id} className={labelClassName}>
-        {label}
-      </label>
+      {labelAddon ? (
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <label htmlFor={id} className={labelClassName.replace(/\bmb-1\b/g, '').trim()}>
+            {label}
+          </label>
+          {labelAddon}
+        </div>
+      ) : (
+        <label htmlFor={id} className={labelClassName}>
+          {label}
+        </label>
+      )}
       <select
         id={id}
         value={value}
@@ -176,6 +187,7 @@ export function HousingEnvelopeSelects({
         id={`${idPrefix}-tightness-select`}
         label={t.tightnessLabel}
         category="tightness"
+        scopeKey="tightness"
         value={input.tightness}
         language={input.language}
         options={TIGHTNESS_KEYS.map((k) => ({ value: k, label: t.tightnessOptions[k] }))}
@@ -188,6 +200,7 @@ export function HousingEnvelopeSelects({
         id={`${idPrefix}-fuel-select`}
         label={t.fuelLabel}
         category="cookingFuel"
+        scopeKey="cookingFuel"
         value={input.cookingFuel}
         language={input.language}
         options={FUEL_KEYS.map((k) => ({ value: k, label: t.fuelOptions[k] }))}

@@ -86,7 +86,10 @@ describe('API route Zod security boundaries, Telegram command suite & roster inv
       body: { category: 'role', customText: 'college student', language: 'en' },
     });
     expect(okVerify.status).toBe(200);
-    expect((okVerify.body as { isValid: boolean }).isValid).toBe(true);
+    expect(okVerify.body as { isValid: boolean; displayLabel?: string }).toMatchObject({
+      isValid: true,
+      displayLabel: 'College Student',
+    });
 
     const badMode = await invokeExpress(app, {
       method: 'POST',

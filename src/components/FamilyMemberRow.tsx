@@ -86,6 +86,7 @@ function MemberIdentityRow(props: FamilyMemberRowProps): ReactElement {
           label={t.memberRoleLabel}
           labelClassName="mb-1 block text-xs text-muted"
           category="role"
+          scopeKey={`role:${member.id}`}
           value={member.role}
           language={language}
           options={ROLE_KEYS.map((rk) => ({ value: rk, label: t.roleOptions[rk] }))}

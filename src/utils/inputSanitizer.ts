@@ -16,6 +16,25 @@ const MINUTES_PER_HOUR = 60;
 const MINUTES_PER_DAY = VALIDATION_BOUNDS.MAX_DAILY_HOURS * MINUTES_PER_HOUR;
 const HALF_HOUR_STEP = 2;
 const MIN_DERIVED_OUTDOOR_HOURS = 0.5;
+const MAX_CUSTOM_LABEL_LEN = 40;
+const LOWER_WORD_RE = /^[a-z]/;
+
+/**
+ * Formats a sanitized custom dropdown entry into a clean Title-Case label
+ * while preserving uppercase acronyms (e.g. UPVC, PNG, COPD).
+ */
+export function formatCustomDisplayLabel(raw: string): string {
+  const cleaned = sanitizeUserText(raw, MAX_CUSTOM_LABEL_LEN);
+  if (!cleaned) {
+    return '';
+  }
+  return cleaned
+    .split(' ')
+    .map((word) =>
+      LOWER_WORD_RE.test(word) ? `${word.charAt(0).toUpperCase()}${word.slice(1)}` : word,
+    )
+    .join(' ');
+}
 
 /**
  * Strips XML/HTML tags, ASCII control characters, and known prompt-injection cues.

@@ -1,47 +1,33 @@
 import { AlertTriangle, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
-import { useState, type ReactElement } from 'react';
+import type { ReactElement } from 'react';
 import { VALIDATION_BOUNDS } from '../config/constants.js';
+import {
+  OTHER_SENTINEL,
+  resolveCustomSelectValue,
+  useCustomVerifyController,
+  type VerifyApiResult,
+} from '../hooks/useCustomVerifyController.js';
+import type {
+  CustomVerifyCategory,
+  VerifiedCustomOption,
+} from '../hooks/useVerifiedCustomOptions.js';
 import type { LocaleDictionary } from '../i18n/translations.js';
 import type { SupportedLanguage } from '../validators/schemas.js';
 import { SelectField, type SelectOptionItem } from './FormFields.js';
 
-export type CustomVerifyCategory = 'role' | 'tightness' | 'cookingFuel';
-
-interface VerifyApiResult {
-  readonly isValid: boolean;
-  readonly mappedValue: string;
-  readonly explanation: string;
-}
+export type { CustomVerifyCategory };
 
 export interface CustomVerifiedSelectProps<T extends string> {
   readonly id: string;
   readonly label: string;
   readonly category: CustomVerifyCategory;
+  readonly scopeKey?: string;
   readonly value: T;
   readonly options: readonly SelectOptionItem<T>[];
   readonly language: SupportedLanguage;
   readonly onChangeValue: (nextValue: T) => void;
   readonly t: LocaleDictionary;
   readonly labelClassName?: string;
-}
-
-const OTHER_SENTINEL = '__other__';
-
-async function requestCustomVerification(params: {
-  readonly category: CustomVerifyCategory;
-  readonly customText: string;
-  readonly language: SupportedLanguage;
-}): Promise<VerifyApiResult | null> {
-  try {
-    const res = await fetch('/api/verify-custom', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params),
-    });
-    return res.ok ? ((await res.json()) as VerifyApiResult) : null;
-  } catch {
-    return null;
-  }
 }
 
 export function VerificationBanner({
@@ -64,6 +50,29 @@ export function VerificationBanner({
       )}
       <span>{message}</span>
     </div>
+  );
+}
+
+function VerifiedNotePill({
+  expanded,
+  explanation,
+  onToggle,
+}: {
+  readonly expanded: boolean;
+  readonly explanation: string;
+  readonly onToggle: () => void;
+}): ReactElement {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={expanded}
+      title={explanation}
+      className="inline-flex shrink-0 items-center gap-1 rounded border border-ok/40 bg-paper-2 px-1.5 py-0 text-[11px] leading-4 font-medium text-ok transition-colors hover:border-ok"
+    >
+      <CheckCircle2 className="h-3 w-3 shrink-0" aria-hidden="true" />
+      <span>AI</span>
+    </button>
   );
 }
 
@@ -118,57 +127,55 @@ function CustomEntryDrawer(props: {
   );
 }
 
-function useCustomVerifyController(
-  category: CustomVerifyCategory,
-  language: SupportedLanguage,
-  onChangeValue: (nextValue: string) => void,
-) {
-  const [isOtherOpen, setIsOtherOpen] = useState(false);
-  const [customText, setCustomText] = useState('');
-  const [verifying, setVerifying] = useState(false);
-  const [feedback, setFeedback] = useState<VerifyApiResult | null>(null);
+function buildVerifiedAddon(
+  matchedActive: VerifiedCustomOption | null,
+  showNote: boolean,
+  onToggle: () => void,
+): ReactElement | undefined {
+  if (!matchedActive) {
+    return undefined;
+  }
+  return (
+    <VerifiedNotePill
+      expanded={showNote}
+      explanation={matchedActive.explanation}
+      onToggle={onToggle}
+    />
+  );
+}
 
-  const runVerify = (): void => {
-    const trimmed = customText.trim();
-    if (!trimmed) {
-      return;
-    }
-    setVerifying(true);
-    void requestCustomVerification({ category, customText: trimmed, language })
-      .then((res) => {
-        if (res) {
-          setFeedback(res);
-          if (res.isValid) {
-            onChangeValue(res.mappedValue);
-          }
-        }
-      })
-      .finally(() => {
-        setVerifying(false);
-      });
-  };
+function buildExtendedOptions<T extends string>(
+  options: readonly SelectOptionItem<T>[],
+  customOptions: readonly VerifiedCustomOption[],
+  otherLabel: string,
+): readonly SelectOptionItem<string>[] {
+  return [
+    ...options,
+    ...customOptions.map((item) => ({ value: item.id, label: item.label })),
+    { value: OTHER_SENTINEL, label: otherLabel },
+  ];
+}
 
-  const selectOption = (picked: string): void => {
-    setFeedback(null);
-    if (picked === OTHER_SENTINEL) {
-      setIsOtherOpen(true);
-    } else {
-      setIsOtherOpen(false);
-      onChangeValue(picked);
-    }
-  };
-
-  return { isOtherOpen, customText, verifying, feedback, setCustomText, runVerify, selectOption };
+function resolveMatchedActive(
+  isOtherOpen: boolean,
+  activeCustom: VerifiedCustomOption | null,
+  value: string,
+): VerifiedCustomOption | null {
+  if (isOtherOpen || activeCustom?.mappedValue !== value) {
+    return null;
+  }
+  return activeCustom;
 }
 
 /**
  * Select dropdown with an "Other (Add your own)" option that verifies user-entered
- * preferences against the attached Gemini API key and rejects invalid entries.
+ * preferences with Gemini, adds verified entries into the dropdown, and minimizes automatically.
  */
 export function CustomVerifiedSelect<T extends string>({
   id,
   label,
   category,
+  scopeKey,
   value,
   options,
   language,
@@ -176,13 +183,16 @@ export function CustomVerifiedSelect<T extends string>({
   t,
   labelClassName = 'mb-1 block text-sm text-ink-2',
 }: CustomVerifiedSelectProps<T>): ReactElement {
-  const ctrl = useCustomVerifyController(category, language, (nextVal) => {
-    onChangeValue(nextVal as T);
+  const ctrl = useCustomVerifyController({
+    category,
+    scopeKey: scopeKey ?? category,
+    language,
+    onChangeValue: (nextVal) => {
+      onChangeValue(nextVal as T);
+    },
   });
-  const extendedOptions: readonly SelectOptionItem<string>[] = [
-    ...options,
-    { value: OTHER_SENTINEL, label: t.otherOptionLabel },
-  ];
+  const matchedActive = resolveMatchedActive(ctrl.isOtherOpen, ctrl.activeCustom, value);
+  const extendedOptions = buildExtendedOptions(options, ctrl.customOptions, t.otherOptionLabel);
 
   return (
     <div>
@@ -190,10 +200,14 @@ export function CustomVerifiedSelect<T extends string>({
         id={id}
         label={label}
         labelClassName={labelClassName}
-        value={ctrl.isOtherOpen ? OTHER_SENTINEL : value}
+        labelAddon={buildVerifiedAddon(matchedActive, ctrl.showNote, ctrl.toggleNote)}
+        value={resolveCustomSelectValue(ctrl.isOtherOpen, matchedActive, value)}
         options={extendedOptions}
         onChangeValue={ctrl.selectOption}
       />
+      {matchedActive && ctrl.showNote && (
+        <VerificationBanner isValid message={matchedActive.explanation} />
+      )}
       {ctrl.isOtherOpen && (
         <CustomEntryDrawer
           id={id}
