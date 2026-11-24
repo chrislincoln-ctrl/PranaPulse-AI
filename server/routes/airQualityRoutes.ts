@@ -143,9 +143,9 @@ async function buildPlanPayload(
 function registerPlanRoute(
   router: Router,
   env: ServerEnv,
-  limiter: SlidingWindowRateLimiter,
+  limiters: Pick<RateLimiterPair, 'ai' | 'chat'>,
 ): void {
-  router.post('/plan', limiter.middleware, async (req: Request, res: Response) => {
+  router.post('/plan', limiters.ai.middleware, async (req: Request, res: Response) => {
     const parsed = planRequestSchema.safeParse(req.body);
     if (!parsed.success) {
       sendValidationError(res, 'Invalid household or exposure simulation payload.');
@@ -160,7 +160,7 @@ function registerPlanRoute(
     res.status(HTTP_STATUS.OK).json(payload);
   });
 
-  router.post('/verify-custom', limiter.middleware, async (req: Request, res: Response) => {
+  router.post('/verify-custom', limiters.chat.middleware, async (req: Request, res: Response) => {
     const parsed = customVerifyRequestSchema.safeParse(req.body);
     if (!parsed.success || parsed.data.customText.length === 0) {
       sendValidationError(res, 'Provide a valid category and custom text to verify.');
@@ -170,7 +170,7 @@ function registerPlanRoute(
     res.status(HTTP_STATUS.OK).json(result);
   });
 
-  router.post('/corridor-plan', limiter.middleware, async (req: Request, res: Response) => {
+  router.post('/corridor-plan', limiters.ai.middleware, async (req: Request, res: Response) => {
     const parsed = corridorPlanRequestSchema.safeParse(req.body);
     if (!parsed.success) {
       sendValidationError(res, 'Provide city, starting area (fromArea), and destination (toArea).');
@@ -234,7 +234,7 @@ export function createAirQualityRouter(env: ServerEnv): {
   };
 
   registerGeocodeAndTelemetry(router, env, limiters.telemetry);
-  registerPlanRoute(router, env, limiters.ai);
+  registerPlanRoute(router, env, limiters);
   registerAssistantStreamRoute(router, env, limiters.chat);
 
   return { router, limiters };

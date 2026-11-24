@@ -1,10 +1,20 @@
 import { GoogleGenAI, Type, type Schema } from '@google/genai';
-import { APP_META, VALIDATION_BOUNDS } from '../../src/config/constants.js';
+import { CACHE_TTL_MS, VALIDATION_BOUNDS } from '../../src/config/constants.js';
 import { formatCustomDisplayLabel, sanitizeUserText } from '../../src/utils/inputSanitizer.js';
 import type { SupportedLanguage } from '../../src/validators/schemas.js';
 import type { ServerEnv } from '../env.js';
+import { BoundedTtlCache } from './cacheAndLimiter.js';
+import {
+  ALLOWED_CUSTOM_TARGETS,
+  CUSTOM_APPROVAL_PREFIX,
+  CUSTOM_KEYWORD_MATCHERS,
+  CUSTOM_REJECTION_MESSAGES,
+  DEFAULT_CUSTOM_TARGET,
+  type CustomCategory,
+} from './customVerifyRules.js';
+import { requestGroqCustomVerifyText } from './groqCustomVerifier.js';
 
-export type CustomCategory = 'role' | 'tightness' | 'cookingFuel';
+export type { CustomCategory };
 
 export interface CustomVerifyRequest {
   readonly category: CustomCategory;
@@ -19,17 +29,15 @@ export interface CustomVerifyResponse {
   readonly displayLabel?: string;
 }
 
-const ALLOWED_TARGETS: Record<CustomCategory, readonly string[]> = {
-  role: ['child', 'senior-respiratory', 'commuter', 'caregiver'],
-  tightness: ['leaky', 'standard', 'weather-sealed'],
-  cookingFuel: ['induction', 'lpg-vented', 'lpg-unvented', 'solid-biomass'],
-};
+const VERIFY_GEMINI_MODEL = 'gemini-3.5-flash-lite';
+const VERIFY_GEMINI_TIMEOUT_MS = 4_500;
+const VERIFY_MAX_OUTPUT_TOKENS = 160;
+const VERIFY_CACHE_CAPACITY = 200;
 
-const DEFAULT_TARGET: Record<CustomCategory, string> = {
-  role: 'senior-respiratory',
-  tightness: 'standard',
-  cookingFuel: 'lpg-unvented',
-};
+const verifyCache = new BoundedTtlCache<CustomVerifyResponse>(
+  CACHE_TTL_MS.PLAN_MS,
+  VERIFY_CACHE_CAPACITY,
+);
 
 const VERIFY_RESPONSE_SCHEMA: Schema = {
   type: Type.OBJECT,
@@ -42,89 +50,6 @@ const VERIFY_RESPONSE_SCHEMA: Schema = {
   required: ['isValid', 'mappedValue', 'displayLabel', 'explanation'],
 };
 
-const REJECTION_MESSAGES: Record<SupportedLanguage, Record<CustomCategory, string>> = {
-  en: {
-    role: 'This entry does not satisfy the required condition for a valid health or vulnerability profile. Please enter a genuine profile (e.g., pregnant woman, infant, bronchitis patient, outdoor athlete).',
-    tightness:
-      'This entry does not satisfy the required condition for window or building sealing. Please enter a genuine envelope type (e.g., double-glazed UPVC, wooden shutters, AC sealed room).',
-    cookingFuel:
-      'This entry does not satisfy the required condition for a cooking fuel or stove. Please enter a genuine fuel or appliance (e.g., biogas, piped PNG, kerosene stove, microwave).',
-  },
-  hi: {
-    role: 'यह प्रविष्टि वैध स्वास्थ्य या संवेदनशीलता प्रोफ़ाइल की आवश्यक शर्त को पूरा नहीं करती है। कृपया सही विवरण दर्ज करें (जैसे गर्भवती महिला, शिशु, ब्रोंकाइटिस रोगी, धावक)।',
-    tightness:
-      'यह प्रविष्टि खिड़की या भवन सीलिंग की आवश्यक शर्त को पूरा नहीं करती है। कृपया सही खिड़की/कमरा प्रकार लिखें (जैसे डबल-ग्लेज़्ड UPVC, लकड़ी की खिड़की)।',
-    cookingFuel:
-      'यह प्रविष्टि खाना पकाने के ईंधन या चूल्हे की आवश्यक शर्त को पूरा नहीं करती है। कृपया सही ईंधन लिखें (जैसे बायोगैस, PNG गैस, केरोसिन स्टोव, माइक्रोवेव)।',
-  },
-  ta: {
-    role: 'இந்த உள்ளீடு சரியான உடல்நலம் அல்லது பாதிப்பு நிலைக்கான நிபந்தனையை பூர்த்தி செய்யவில்லை. சரியான விவரத்தை உள்ளிடவும் (எ.கா. கர்ப்பிணி, குழந்தை, மூச்சுக்குழாய் நோயாளி).',
-    tightness:
-      'இந்த உள்ளீடு ஜன்னல் அல்லது கட்டிட அடைப்புக்கான நிபந்தனையை பூர்த்தி செய்யவில்லை. சரியான ஜன்னல் வகையை உள்ளிடவும் (எ.கா. UPVC கண்ணாடி ஜன்னல், மர ஜன்னல்).',
-    cookingFuel:
-      'இந்த உள்ளீடு சமையல் எரிபொருள் அல்லது அடுப்புக்கான நிபந்தனையை பூர்த்தி செய்யவில்லை. சரியான எரிபொருளை உள்ளிடவும் (எ.கா. உயிரிவாயு, மண்ணெண்ணெய் அடுப்பு, மைக்ரோவேவ்).',
-  },
-};
-
-const APPROVAL_PREFIX: Record<SupportedLanguage, string> = {
-  en: 'Verified custom profile applied:',
-  hi: 'सत्यापित कस्टम विकल्प लागू:',
-  ta: 'சரிபார்க்கப்பட்ட தனிப்பயன் விருப்பம்:',
-};
-
-const KEYWORD_MATCHERS: Record<CustomCategory, readonly { re: RegExp; target: string }[]> = {
-  role: [
-    {
-      re: /pregnant|infant|baby|toddler|newborn|kid|teen|school|गर्भवती|शिशु|बच्चा|கர்ப்பிணி|குழந்தை/i,
-      target: 'child',
-    },
-    {
-      re: /asthma|copd|bronchitis|heart|cardiac|lung|elder|senior|patient|smoker|allergy|sinus|diabetic|अस्थमा|हृदय|बुजुर्ग|रोगी|ஆஸ்துமா|இதய|நோயாளி/i,
-      target: 'senior-respiratory',
-    },
-    {
-      re: /college|university|undergrad|grad|student|runner|athlete|cyclist|delivery|driver|police|guard|worker|jogger|commuter|धावक|पुलिस|मजदूर|ஓட்டப்பந்தய|தொழிலாளி/i,
-      target: 'commuter',
-    },
-    {
-      re: /adult|office|remote|wfh|homemaker|parent|teacher|वयस्क|गृहिणी|शिक्षक|பெரியவர்|ஆசிரியர்/i,
-      target: 'caregiver',
-    },
-  ],
-  tightness: [
-    {
-      re: /upvc|double|glazed|airtight|weather|ac\b|insulated|tape|sealed|डबल|सीलबंद|கண்ணாடி/i,
-      target: 'weather-sealed',
-    },
-    {
-      re: /open|broken|jali|mesh|bamboo|curtain|old|wooden|draft|gap|crack|टूटी|जाली|खुली|பழைய|மர/i,
-      target: 'leaky',
-    },
-    {
-      re: /window|door|apartment|flat|slider|aluminum|glass|room|खिड़की|फ्लैट|ஜன்னல்|அறை/i,
-      target: 'standard',
-    },
-  ],
-  cookingFuel: [
-    {
-      re: /microwave|oven|air\s*fryer|kettle|electric|heater|infrared|solar|माइक्रोवेव|इलेक्ट्रिक|सोलर|மின்சார|மைக்ரோவேவ்/i,
-      target: 'induction',
-    },
-    {
-      re: /png|piped|chimney|hood|exhaust|biogas|बायोगैस|पाइप|चिमनी|உயிரிவாயு/i,
-      target: 'lpg-vented',
-    },
-    {
-      re: /kerosene|stove|cylinder|gas|butane|केरोसिन|गैस|स्टोव|மண்ணெண்ணெய்|கேஸ்/i,
-      target: 'lpg-unvented',
-    },
-    {
-      re: /coal|charcoal|wood|dung|angithi|tandoor|pellet|sawdust|कोयला|लकड़ी|अंगीठी|उपले|நிலக்கரி|விறகு/i,
-      target: 'solid-biomass',
-    },
-  ],
-};
-
 function sanitizeCustomEntry(raw: string): string {
   return sanitizeUserText(raw, VALIDATION_BOUNDS.MAX_CITY_QUERY_LEN);
 }
@@ -132,33 +57,33 @@ function sanitizeCustomEntry(raw: string): string {
 export function verifyCustomDeterministically(req: CustomVerifyRequest): CustomVerifyResponse {
   const cleaned = sanitizeCustomEntry(req.customText);
   const displayLabel = formatCustomDisplayLabel(cleaned);
-  for (const rule of KEYWORD_MATCHERS[req.category]) {
+  for (const rule of CUSTOM_KEYWORD_MATCHERS[req.category]) {
     if (rule.re.test(cleaned)) {
       return {
         isValid: true,
         mappedValue: rule.target,
         displayLabel,
-        explanation: `${APPROVAL_PREFIX[req.language]} "${displayLabel}" (${rule.target}).`,
+        explanation: `${CUSTOM_APPROVAL_PREFIX[req.language]} "${displayLabel}" (${rule.target}).`,
       };
     }
   }
   return {
     isValid: false,
-    mappedValue: DEFAULT_TARGET[req.category],
-    explanation: REJECTION_MESSAGES[req.language][req.category],
+    mappedValue: DEFAULT_CUSTOM_TARGET[req.category],
+    explanation: CUSTOM_REJECTION_MESSAGES[req.language][req.category],
   };
 }
 
 function buildVerificationPrompt(req: CustomVerifyRequest): string {
-  const allowed = ALLOWED_TARGETS[req.category].join(', ');
+  const allowed = ALLOWED_CUSTOM_TARGETS[req.category].join(', ');
   return [
     'You are PranaPulse AI, a strict public-health and building-physics validator.',
-    `Evaluate whether <user_entry> is a genuine, realistic entry for category "${req.category}".`,
-    '- Category "role": must be a genuine human health condition, age group, occupation, or physical activity profile relevant to air pollution.',
-    '- Category "tightness": must be a genuine window, door, room, or building envelope sealing description.',
-    '- Category "cookingFuel": must be a genuine cooking fuel, stove, or kitchen heating appliance.',
-    `If genuine, set isValid=true, set mappedValue strictly from [${allowed}], set displayLabel to a clean, correctly spelled 1-4 word Title-Case label (e.g. "Kerosene", "Pregnant Mother"), and write a concise 1-sentence explanation in language "${req.language}".`,
-    `If gibberish, unrelated, random words, or invalid, set isValid=false, set mappedValue="${DEFAULT_TARGET[req.category]}", set displayLabel="", and write a polite 1-sentence rejection in language "${req.language}" stating that the entry does not satisfy the required condition.`,
+    `Evaluate whether <user_entry> is a genuine, realistic entry for category "${req.category}". Minor spelling typos (like "kersosene" for "Kerosene") are valid.`,
+    '- Category "role": genuine human health condition, age group, occupation, or physical activity profile relevant to air pollution (e.g., pregnant mother, asthma patient, college student, outdoor runner).',
+    '- Category "tightness": genuine window, door, room, or building envelope sealing description.',
+    '- Category "cookingFuel": genuine cooking fuel, stove, or kitchen heating appliance (e.g., kerosene, biogas, microwave, tandoor).',
+    `If genuine, set isValid=true, map mappedValue to the CLOSEST physics equivalent strictly from [${allowed}], set displayLabel to a clean, correctly spelled 1-4 word Title-Case label (e.g. "Kerosene", "Pregnant Mother"), and write a concise 1-sentence explanation in language "${req.language}".`,
+    `If gibberish, unrelated, random words, or invalid, set isValid=false, set mappedValue="${DEFAULT_CUSTOM_TARGET[req.category]}", set displayLabel="", and write a polite 1-sentence rejection in language "${req.language}" stating that the entry does not satisfy the required condition.`,
     `<user_entry>${sanitizeCustomEntry(req.customText)}</user_entry>`,
   ].join('\n');
 }
@@ -168,53 +93,113 @@ function resolveVerifiedDisplayLabel(parsedLabel: unknown, fallbackText: string)
   return normalized || formatCustomDisplayLabel(fallbackText);
 }
 
+function resolveMappedTarget(category: CustomCategory, rawMapped: unknown): string {
+  const allowedSet = new Set(ALLOWED_CUSTOM_TARGETS[category]);
+  return typeof rawMapped === 'string' && allowedSet.has(rawMapped)
+    ? rawMapped
+    : DEFAULT_CUSTOM_TARGET[category];
+}
+
 function parseModelVerifyResponse(
   rawText: string | undefined,
   req: CustomVerifyRequest,
 ): CustomVerifyResponse | null {
-  const parsed = rawText ? (JSON.parse(rawText) as Partial<CustomVerifyResponse>) : null;
-  if (!parsed || typeof parsed.isValid !== 'boolean' || typeof parsed.explanation !== 'string') {
+  try {
+    const parsed = rawText ? (JSON.parse(rawText) as Partial<CustomVerifyResponse>) : null;
+    if (!parsed || typeof parsed.isValid !== 'boolean' || typeof parsed.explanation !== 'string') {
+      return null;
+    }
+    const mappedValue = resolveMappedTarget(req.category, parsed.mappedValue);
+    if (!parsed.isValid) {
+      return { isValid: false, mappedValue, explanation: parsed.explanation };
+    }
+    return {
+      isValid: true,
+      mappedValue,
+      explanation: parsed.explanation,
+      displayLabel: resolveVerifiedDisplayLabel(parsed.displayLabel, req.customText),
+    };
+  } catch {
     return null;
   }
-  const allowedSet = new Set(ALLOWED_TARGETS[req.category]);
-  const mapped =
-    typeof parsed.mappedValue === 'string' && allowedSet.has(parsed.mappedValue)
-      ? parsed.mappedValue
-      : DEFAULT_TARGET[req.category];
-  return {
-    isValid: parsed.isValid,
-    mappedValue: mapped,
-    explanation: parsed.explanation,
-    ...(parsed.isValid
-      ? { displayLabel: resolveVerifiedDisplayLabel(parsed.displayLabel, req.customText) }
-      : {}),
-  };
 }
 
-async function tryVerifyWithModel(
-  ai: GoogleGenAI,
-  model: string,
+async function tryGeminiVerifyWithTimeout(
+  prompt: string,
   req: CustomVerifyRequest,
-): Promise<CustomVerifyResponse | null> {
+  apiKey: string,
+): Promise<CustomVerifyResponse> {
+  const ai = new GoogleGenAI({ apiKey });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error('Gemini verify timeout'));
+    }, VERIFY_GEMINI_TIMEOUT_MS);
+  });
   try {
-    const response = await ai.models.generateContent({
-      model,
-      contents: buildVerificationPrompt(req),
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: VERIFY_RESPONSE_SCHEMA,
-        temperature: VALIDATION_BOUNDS.GEMINI_TEMPERATURE,
-      },
-    });
-    return parseModelVerifyResponse(response.text, req);
+    const response = await Promise.race([
+      ai.models.generateContent({
+        model: VERIFY_GEMINI_MODEL,
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: VERIFY_RESPONSE_SCHEMA,
+          temperature: VALIDATION_BOUNDS.GEMINI_TEMPERATURE,
+          maxOutputTokens: VERIFY_MAX_OUTPUT_TOKENS,
+        },
+      }),
+      timeoutPromise,
+    ]);
+    const parsed = parseModelVerifyResponse(response.text, req);
+    if (!parsed) {
+      throw new Error('Invalid Gemini verify JSON');
+    }
+    return parsed;
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+}
+
+async function tryGroqVerify(
+  prompt: string,
+  req: CustomVerifyRequest,
+  env: ServerEnv,
+): Promise<CustomVerifyResponse> {
+  const raw = await requestGroqCustomVerifyText(prompt, env);
+  const parsed = parseModelVerifyResponse(raw ?? undefined, req);
+  if (!parsed) {
+    throw new Error('Invalid Groq verify JSON');
+  }
+  return parsed;
+}
+
+async function raceLiveAiVerifiers(
+  req: CustomVerifyRequest,
+  env: ServerEnv,
+): Promise<CustomVerifyResponse | null> {
+  const prompt = buildVerificationPrompt(req);
+  const candidates: Promise<CustomVerifyResponse>[] = [];
+  if (env.GROQ_API_KEY) {
+    candidates.push(tryGroqVerify(prompt, req, env));
+  }
+  if (env.GEMINI_API_KEY) {
+    candidates.push(tryGeminiVerifyWithTimeout(prompt, req, env.GEMINI_API_KEY));
+  }
+  if (candidates.length === 0) {
+    return null;
+  }
+  try {
+    return await Promise.any(candidates);
   } catch {
     return null;
   }
 }
 
 /**
- * Verifies a user-supplied custom dropdown option using Gemini structured outputs
- * with deterministic keyword fallback when offline.
+ * Verifies a user-supplied custom dropdown option by racing timeout-bounded Gemini & Groq
+ * structured JSON verifiers (~300ms-1.2s) with TTL caching and instant deterministic fallback.
  */
 export async function verifyCustomOption(
   req: CustomVerifyRequest,
@@ -224,23 +209,17 @@ export async function verifyCustomOption(
   if (cleaned.length < 2) {
     return {
       isValid: false,
-      mappedValue: DEFAULT_TARGET[req.category],
-      explanation: REJECTION_MESSAGES[req.language][req.category],
+      mappedValue: DEFAULT_CUSTOM_TARGET[req.category],
+      explanation: CUSTOM_REJECTION_MESSAGES[req.language][req.category],
     };
   }
-  if (!env.GEMINI_API_KEY) {
-    return verifyCustomDeterministically(req);
+  const cacheKey = `${req.category}|${req.language}|${cleaned.toLowerCase()}`;
+  const cached = verifyCache.get(cacheKey);
+  if (cached) {
+    return cached;
   }
-
-  const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
-  const models = [
-    ...new Set(['gemini-3.5-flash-lite', env.GEMINI_MODEL, ...APP_META.GEMINI_FALLBACK_MODELS]),
-  ];
-  for (const model of models) {
-    const candidate = await tryVerifyWithModel(ai, model, req);
-    if (candidate) {
-      return candidate;
-    }
-  }
-  return verifyCustomDeterministically(req);
+  const live = await raceLiveAiVerifiers(req, env);
+  const result = live ?? verifyCustomDeterministically(req);
+  verifyCache.set(cacheKey, result);
+  return result;
 }

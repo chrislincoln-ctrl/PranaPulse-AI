@@ -31,20 +31,34 @@ interface DrawerResetters {
   readonly setShowNote: (open: boolean) => void;
 }
 
+const CLIENT_VERIFY_TIMEOUT_MS = 10_000;
+const NETWORK_FALLBACK_MSG =
+  'Verification request timed out or was rate-limited. Please try again.';
+
 async function requestCustomVerification(params: {
   readonly category: CustomVerifyCategory;
   readonly customText: string;
   readonly language: SupportedLanguage;
-}): Promise<VerifyApiResult | null> {
+}): Promise<VerifyApiResult> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    controller.abort();
+  }, CLIENT_VERIFY_TIMEOUT_MS);
   try {
     const res = await fetch('/api/verify-custom', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
+      signal: controller.signal,
     });
-    return res.ok ? ((await res.json()) as VerifyApiResult) : null;
+    if (res.ok) {
+      return (await res.json()) as VerifyApiResult;
+    }
+    return { isValid: false, mappedValue: '', explanation: NETWORK_FALLBACK_MSG };
   } catch {
-    return null;
+    return { isValid: false, mappedValue: '', explanation: NETWORK_FALLBACK_MSG };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -109,9 +123,7 @@ function executeVerification(rawText: string, ctx: VerifyFlowContext): void {
     language: ctx.language,
   })
     .then((res) => {
-      if (res) {
-        commitVerifyResponse(res, trimmed, ctx.store, ctx);
-      }
+      commitVerifyResponse(res, trimmed, ctx.store, ctx);
     })
     .finally(() => {
       ctx.setVerifying(false);

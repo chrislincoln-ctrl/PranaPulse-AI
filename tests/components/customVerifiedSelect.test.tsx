@@ -163,4 +163,20 @@ describe('CustomVerifiedSelect auto-minimize & shared dropdown option flow', () 
     expect(remountedSelect.value).toBe('custom:kerosene-stove');
     expect(screen.getByRole('option', { name: 'Kerosene Stove' })).toBeInTheDocument();
   });
+
+  it('surfaces a visible error alert instead of failing silently on HTTP 504/429', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('Gateway Timeout', { status: 504 }),
+    );
+    render(<CookingFuelHarness />);
+    fireEvent.change(screen.getByLabelText('Cooking fuel'), { target: { value: '__other__' } });
+    fireEvent.change(screen.getByPlaceholderText(TRANSLATIONS.en.customInputPlaceholder), {
+      target: { value: 'kerosene' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: TRANSLATIONS.en.verifyCustomButton }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/timed out|try again/i);
+    });
+  });
 });
