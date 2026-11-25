@@ -48,7 +48,7 @@ function buildGpsPromptReply(ws: SyncedWorkspaceRecord): TelegramReplyPayload {
   return {
     text: prefixActiveUser(
       ws,
-      'Tap "Share Live GPS" on your quick keyboard below (or send a location pin) to switch your city and sync live with the website.',
+      'Tap "Share My Live GPS Location" below (or send a location pin) to switch your city and sync live with the website.',
     ),
     buttons: buildTelegramMenuForMember(active.label),
     requestGpsKeyboard: true,
@@ -95,7 +95,6 @@ const SIMPLE_HANDLERS: Readonly<Record<string, SimpleHandler>> = {
   '/help': (ws) => Promise.resolve(buildControlsCard(ws, DEFAULT_WEB_APP_URL)),
   'gps:ask': (ws) => Promise.resolve(buildGpsPromptReply(ws)),
   '/gps': (ws) => Promise.resolve(buildGpsPromptReply(ws)),
-  '/keyboard': (ws) => Promise.resolve(buildGpsPromptReply(ws)),
 };
 
 async function handleDistanceCommand(

@@ -2,11 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../server/app.js';
 import { loadServerEnv } from '../../server/env.js';
 import { clearCompanionStore } from '../../server/services/familyCompanionStore.js';
-import {
-  resolveTelegramFeedback,
-  TELEGRAM_DOCK_WELCOME_TEXT,
-  TELEGRAM_REPLY_KEYBOARD,
-} from '../../server/services/telegramFeedback.js';
+import { resolveTelegramFeedback } from '../../server/services/telegramFeedback.js';
 import { clearTelemetryCaches } from '../../server/services/telemetryClients.js';
 import { DEFAULT_WORKSPACE_INPUT } from '../../src/config/uiConstants.js';
 import { invokeExpress } from '../helpers/invokeExpress.js';
@@ -138,7 +134,7 @@ describe('Telegram instant feedback UX & persistent quick-reply keyboard', () =>
     expect(protoKey.progressText).toContain('Got your message');
   });
 
-  it('sends persistent bottom Reply Keyboard on /start and updates inline callback progress bubbles in-place', async () => {
+  it('clears any bottom Reply Keyboard on /start and updates inline callback progress bubbles in-place', async () => {
     const calls = mockTelegramAndTelemetry();
     const env = loadServerEnv({
       NODE_ENV: 'test',
@@ -165,7 +161,7 @@ describe('Telegram instant feedback UX & persistent quick-reply keyboard', () =>
     });
     const { linkCode } = linkRes.body as { linkCode: string };
 
-    // 1. /start attaches persistent bottom ReplyKeyboardMarkup AND delivers inline member picker last
+    // 1. /start sends remove_keyboard: true (no bottom Reply Keyboard) and edits in-place into member picker
     const startRes = await invokeExpress(app, {
       method: 'POST',
       url: '/api/telegram/webhook',
@@ -176,18 +172,17 @@ describe('Telegram instant feedback UX & persistent quick-reply keyboard', () =>
     expect(calls.some((c) => c.method === 'sendChatAction' && c.body.action === 'typing')).toBe(
       true,
     );
-    const dockCall = calls.find(
-      (c) => c.method === 'sendMessage' && c.body.text === TELEGRAM_DOCK_WELCOME_TEXT,
-    );
-    expect(dockCall).toBeDefined();
-    expect(dockCall?.body.reply_markup).toMatchObject({
-      keyboard: TELEGRAM_REPLY_KEYBOARD,
-      resize_keyboard: true,
-      is_persistent: true,
-    });
+    const startProgress = calls.find((c) => c.method === 'sendMessage');
+    expect(startProgress?.body.reply_markup).toEqual({ remove_keyboard: true });
+    expect(
+      calls.some((c) =>
+        Boolean((c.body.reply_markup as { keyboard?: unknown } | undefined)?.keyboard),
+      ),
+    ).toBe(false);
+    expect(calls.at(-1)?.method).toBe('editMessageText');
     expect(JSON.stringify(calls.at(-1)?.body.reply_markup)).toContain('member:m3');
 
-    // 2. Inline callback ("cmd:air") triggers toast + typing + instant progress bubble -> edited in-place
+    // 2. Inline callback ("cmd:air") triggers toast + typing + instant progress bubble (remove_keyboard) -> edited in-place
     calls.length = 0;
     const cbRes = await invokeExpress(app, {
       method: 'POST',
@@ -212,15 +207,16 @@ describe('Telegram instant feedback UX & persistent quick-reply keyboard', () =>
 
     const progressSend = calls.find((c) => c.method === 'sendMessage');
     expect(progressSend?.body.text).toContain('You selected: Live Air');
+    expect(progressSend?.body.reply_markup).toEqual({ remove_keyboard: true });
     expect(calls.filter((c) => c.method === 'sendMessage')).toHaveLength(1);
 
     const editCall = calls.at(-1);
     expect(editCall?.method).toBe('editMessageText');
-    expect(editCall?.body.message_id).toBe(7003);
+    expect(editCall?.body.message_id).toBe(7002);
     expect(editCall?.body.text).toContain('Live Air & Dashboard: Shimultala, Kolkata');
     expect(JSON.stringify(editCall?.body.reply_markup)).toContain('Change User (Rohan)');
 
-    // 3. Every persistent Reply Keyboard label routes cleanly and edits its progress bubble in-place
+    // 3. Plain-text quick command labels still route cleanly and edit their progress bubble in-place
     const replyButtonExpectations: readonly (readonly [string, string])[] = [
       ['Live Air', 'Live Air & Dashboard'],
       ['My Schedule', 'PranaPulse Daily Air Brief'],
@@ -250,7 +246,7 @@ describe('Telegram instant feedback UX & persistent quick-reply keyboard', () =>
       expect(calls.at(-1)?.method).toBe('editMessageText');
     }
 
-    // 4. gps:ask deletes temporary progress bubble and sends persistent Reply Keyboard with Share Live GPS
+    // 4. gps:ask deletes temporary progress bubble and sends ONLY a single one-time GPS location button
     calls.length = 0;
     const gpsAskRes = await invokeExpress(app, {
       method: 'POST',
@@ -264,9 +260,10 @@ describe('Telegram instant feedback UX & persistent quick-reply keyboard', () =>
     expect(calls.some((c) => c.method === 'deleteMessage')).toBe(true);
     const gpsPromptCall = calls.at(-1);
     expect(gpsPromptCall?.method).toBe('sendMessage');
-    expect(gpsPromptCall?.body.reply_markup).toMatchObject({
-      keyboard: TELEGRAM_REPLY_KEYBOARD,
-      is_persistent: true,
+    expect(gpsPromptCall?.body.reply_markup).toEqual({
+      keyboard: [[{ text: 'Share My Live GPS Location', request_location: true }]],
+      resize_keyboard: true,
+      one_time_keyboard: true,
     });
   });
 

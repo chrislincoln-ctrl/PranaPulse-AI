@@ -12,15 +12,10 @@ import {
   sendTelegramLocationPrompt,
   sendTelegramMessage,
   sendTelegramMessageWithId,
-  sendTelegramReplyKeyboard,
   type TelegramWebhookUpdate,
 } from './telegramClient.js';
 import { routeTelegramCommand } from './telegramCommandRouter.js';
-import {
-  resolveTelegramFeedback,
-  TELEGRAM_DOCK_WELCOME_TEXT,
-  TELEGRAM_REPLY_KEYBOARD,
-} from './telegramFeedback.js';
+import { resolveTelegramFeedback } from './telegramFeedback.js';
 import { handleTelegramFreeformMessage } from './telegramFreeformHandler.js';
 
 export { buildLiveScheduleBrief } from './telegramCardBuilders.js';
@@ -102,7 +97,7 @@ async function dispatchReply(
     if (progressMsgId !== null) {
       await deleteTelegramMessage(token, chatId, progressMsgId);
     }
-    await sendTelegramLocationPrompt(token, chatId, reply.text, TELEGRAM_REPLY_KEYBOARD);
+    await sendTelegramLocationPrompt(token, chatId, reply.text);
     return;
   }
   if (progressMsgId !== null) {
@@ -131,17 +126,16 @@ export async function processTelegramUpdate(
   }
   const startMatch = START_COMMAND_RE.exec(ctx.text);
   if (startMatch) {
-    const [, , reply] = await Promise.all([
+    const [, progressMsgId, reply] = await Promise.all([
       sendTelegramChatAction(env.TELEGRAM_BOT_TOKEN, ctx.chatId, 'typing'),
-      sendTelegramReplyKeyboard(
+      sendTelegramMessageWithId(
         env.TELEGRAM_BOT_TOKEN,
         ctx.chatId,
-        TELEGRAM_DOCK_WELCOME_TEXT,
-        TELEGRAM_REPLY_KEYBOARD,
+        'Connecting to PranaPulse AI...',
       ),
       handleStartCommand(ctx.chatId, startMatch[1], env),
     ]);
-    await dispatchReply(ctx.chatId, reply, env, null);
+    await dispatchReply(ctx.chatId, reply, env, progressMsgId);
     return { handled: 'start', replyText: reply.text };
   }
   const [progressMsgId, workspace] = await Promise.all([

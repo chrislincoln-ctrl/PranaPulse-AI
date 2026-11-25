@@ -8,11 +8,6 @@ export interface TelegramInlineButton {
   readonly url?: string | undefined;
 }
 
-export interface TelegramReplyKeyboardButton {
-  readonly text: string;
-  readonly request_location?: boolean | undefined;
-}
-
 export interface EditTelegramMessageParams {
   readonly token: string | undefined;
   readonly chatId: string | number;
@@ -160,21 +155,21 @@ export async function sendTelegramMessage(
   );
 }
 
-/** Sends a Telegram message and returns its `message_id` for in-place editing when available. */
+/** Sends a temporary progress message (clearing any stale bottom Reply Keyboard) and returns its `message_id`. */
 export async function sendTelegramMessageWithId(
   token: string | undefined,
   chatId: string | number,
   text: string,
-  inlineButtons?: readonly (readonly TelegramInlineButton[])[],
+  removeReplyKeyboard = true,
 ): Promise<number | null> {
   if (!token) {
     return null;
   }
-  const res = await postTelegramApiJson(
-    token,
-    'sendMessage',
-    buildTextMessagePayload(chatId, text, inlineButtons),
-  );
+  const payload = buildTextMessagePayload(chatId, text);
+  if (removeReplyKeyboard) {
+    payload.reply_markup = { remove_keyboard: true };
+  }
+  const res = await postTelegramApiJson(token, 'sendMessage', payload);
   return res.ok ? res.messageId : null;
 }
 
@@ -189,7 +184,7 @@ export async function editTelegramMessage(params: EditTelegramMessageParams): Pr
   });
 }
 
-/** Deletes a temporary Telegram progress message when replaced by a Reply Keyboard prompt. */
+/** Deletes a temporary Telegram progress message when replaced by a one-time GPS location prompt. */
 export async function deleteTelegramMessage(
   token: string | undefined,
   chatId: string | number,
@@ -219,12 +214,11 @@ export async function sendTelegramChatAction(
   });
 }
 
-/** Sends a persistent bottom Reply Keyboard so button taps immediately show right-side user bubbles. */
-export async function sendTelegramReplyKeyboard(
+/** Sends a native 1-tap Telegram GPS location request keyboard for mobile live-location updates. */
+export async function sendTelegramLocationPrompt(
   token: string | undefined,
   chatId: string | number,
   text: string,
-  keyboard: readonly (readonly TelegramReplyKeyboardButton[])[],
 ): Promise<boolean> {
   if (!token) {
     return false;
@@ -232,25 +226,12 @@ export async function sendTelegramReplyKeyboard(
   return await postTelegramApi(token, 'sendMessage', {
     chat_id: String(chatId),
     text: text.slice(0, MAX_TELEGRAM_TEXT_LEN),
-    disable_web_page_preview: true,
     reply_markup: {
-      keyboard,
+      keyboard: [[{ text: 'Share My Live GPS Location', request_location: true }]],
       resize_keyboard: true,
-      is_persistent: true,
-      input_field_placeholder: 'Tap a quick button or type any update...',
+      one_time_keyboard: true,
     },
   });
-}
-
-/** Sends a native 1-tap Telegram GPS location request keyboard for mobile live-location updates. */
-export async function sendTelegramLocationPrompt(
-  token: string | undefined,
-  chatId: string | number,
-  text: string,
-  keyboard?: readonly (readonly TelegramReplyKeyboardButton[])[],
-): Promise<boolean> {
-  const rows = keyboard ?? [[{ text: 'Share Live GPS', request_location: true }]];
-  return await sendTelegramReplyKeyboard(token, chatId, text, rows);
 }
 
 /** Acknowledges an inline button press with an optional top toast and clears the button spinner. */

@@ -1,5 +1,3 @@
-import type { TelegramReplyKeyboardButton } from './telegramClient.js';
-
 export interface TelegramActionFeedback {
   readonly toast: string;
   readonly progressText: string;
@@ -10,18 +8,6 @@ interface ActionDescriptor {
   readonly toast: string;
   readonly activity: string;
 }
-
-export const TELEGRAM_DOCK_WELCOME_TEXT =
-  'Quick controls enabled below — tap any button anytime for instant status & live replies.';
-
-/** Persistent bottom Reply Keyboard so every tap posts an immediate user bubble at 0ms. */
-export const TELEGRAM_REPLY_KEYBOARD: readonly (readonly TelegramReplyKeyboardButton[])[] = [
-  [{ text: 'Live Air' }, { text: 'My Schedule' }],
-  [{ text: 'Family Roster' }, { text: 'Indoor & Windows' }],
-  [{ text: 'Commute' }, { text: 'Masks & Gear' }],
-  [{ text: 'RWA Notice' }, { text: 'Controls & GPS' }],
-  [{ text: 'Change User' }, { text: 'Share Live GPS', request_location: true }],
-];
 
 const LIVE_AIR_ACTION: ActionDescriptor = {
   label: 'Live Air',
