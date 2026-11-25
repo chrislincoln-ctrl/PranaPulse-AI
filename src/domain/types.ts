@@ -141,6 +141,7 @@ export interface CorridorRouteComparison {
   readonly exposureSavedUg: number;
   readonly exposureSavedPct: number;
   readonly segments: readonly CorridorSegment[];
+  readonly directSegments?: readonly CorridorSegment[];
 }
 
 export interface FamilyMemberInput {

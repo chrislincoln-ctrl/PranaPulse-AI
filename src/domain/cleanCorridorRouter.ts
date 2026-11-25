@@ -192,5 +192,6 @@ export function findLowestExposureCorridor(
     exposureSavedUg,
     exposureSavedPct,
     segments: cleanest.segments,
+    directSegments: direct.segments,
   };
 }

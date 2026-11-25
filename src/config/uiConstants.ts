@@ -96,8 +96,8 @@ export const CORRIDOR_NODE_POSITIONS: readonly CorridorNodeLayout[] = [
   { id: 'home-sector', x: 85, y: 130, labelPosition: 'above' },
   { id: 'arterial-junction', x: 260, y: 68, labelPosition: 'above' },
   { id: 'ring-flyover', x: 460, y: 68, labelPosition: 'above' },
-  { id: 'green-parkway', x: 260, y: 192, labelPosition: 'below' },
-  { id: 'metro-concourse', x: 460, y: 192, labelPosition: 'below' },
+  { id: 'green-parkway', x: 360, y: 196, labelPosition: 'below' },
+  { id: 'metro-concourse', x: 360, y: 196, labelPosition: 'below' },
   { id: 'civic-hub', x: 635, y: 130, labelPosition: 'below' },
 ] as const;
 

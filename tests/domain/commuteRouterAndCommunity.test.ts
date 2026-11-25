@@ -1,6 +1,7 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { buildClientGoogleMapsUrl, extractMetroCity } from '../../src/config/cityCorridors.js';
+import { resolveDirectionalCorridor } from '../../src/config/cityDirectionalWaypoints.js';
 import { findLowestExposureCorridor } from '../../src/domain/cleanCorridorRouter.js';
 import {
   evaluateFamilyMember,
@@ -332,5 +333,23 @@ describe('commutePareto, cleanCorridorRouter, and communityImpact engines', () =
     expect(carUrl).toContain('origin=Salt%20Lake%20Sector%20V%2C%20Kolkata');
     expect(carUrl).toContain('destination=Howrah%20Station%2C%20Howrah');
     expect(carUrl).not.toContain('Shimultala');
+
+    // Preserve exact user-entered destination & return per-segment direct arterial doses
+    const kolkataDir = resolveDirectionalCorridor({
+      city: 'Kolkata',
+      fromArea: 'Garia',
+      toArea: 'Park Street / BBD Bagh',
+      commuteMode: 'electric-bus',
+    });
+    expect(kolkataDir?.nodes['home-sector']).toBe('Garia');
+    expect(kolkataDir?.nodes['civic-hub']).toBe('Park Street / BBD Bagh');
+    expect(kolkataDir?.intermediateMetroStops).not.toContain('Park Street Metro');
+
+    const busRoute = findLowestExposureCorridor('home-sector', 'civic-hub', 100, {
+      commuteMode: 'electric-bus',
+      mask: 'n95-ffp2',
+      distanceKm: 12,
+    });
+    expect(busRoute.directSegments).toHaveLength(3);
   });
 });

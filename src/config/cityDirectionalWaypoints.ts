@@ -48,7 +48,6 @@ const KOLKATA_POOL: CityWaypointPool = {
     pt('Gariahat / Ballygunge', 22.519, 88.365, 'ballygunge|gariahat'),
     pt('Rabindra Sadan', 22.541, 88.347, 'rabindra sadan|nandan'),
     pt('Maidan', 22.55, 88.349, 'maidan'),
-    pt('Esplanade / BBD Bagh', 22.568, 88.351, 'park street / bbd bagh'),
     pt('Park Street', 22.553, 88.352, 'park street|park st'),
     pt('Esplanade / BBD Bagh', 22.568, 88.351, 'esplanade|bbd bagh|dalhousie|dharmatala'),
     pt('Salt Lake Sector V', 22.577, 88.431, 'salt lake|bidhannagar|sector v|new town'),
@@ -204,6 +203,23 @@ function selectCityPool(city: string): CityWaypointPool | null {
   return lower.includes('delhi') ? DELHI_POOL : null;
 }
 
+function buildExcludeTokens(labels: readonly string[]): Set<string> {
+  const out = new Set<string>();
+  for (const raw of labels) {
+    const lower = raw.toLowerCase().trim();
+    if (lower) {
+      out.add(lower);
+    }
+    for (const part of lower.split(/[/,]/)) {
+      const token = part.trim();
+      if (token.length >= 4) {
+        out.add(token);
+      }
+    }
+  }
+  return out;
+}
+
 function buildDirectionalNodes(
   pool: CityWaypointPool,
   origin: GeoLocality,
@@ -211,10 +227,10 @@ function buildDirectionalNodes(
   fromLabel: string,
   toLabel: string,
 ): Record<CorridorNodeId, string> {
-  const exclude = new Set<string>([fromLabel.toLowerCase(), toLabel.toLowerCase()]);
+  const exclude = buildExcludeTokens([fromLabel, toLabel, origin.label, dest.label]);
   const greenParkway = pickDirectionalWaypoint(pool.greenWaypoints, origin, dest, 0.42, exclude);
   exclude.add(greenParkway.toLowerCase());
-  const metroConcourse = pickDirectionalWaypoint(pool.metroWaypoints, origin, dest, 0.84, exclude);
+  const metroConcourse = pickDirectionalWaypoint(pool.metroWaypoints, origin, dest, 0.52, exclude);
   exclude.add(metroConcourse.toLowerCase());
   const arterialJunction = pickDirectionalWaypoint(
     pool.arterialWaypoints,
@@ -268,11 +284,16 @@ export function resolveDirectionalCorridor(params: {
   const originMatch = matchLocality(params.fromArea, pool.localities, pool.defaultOrigin);
   const destMatch = matchLocality(params.toArea, pool.localities, pool.defaultDest);
 
-  const fromLabel = params.fromArea.trim() ? originMatch.loc.label : pool.defaultOrigin.label;
-  const toLabel = params.toArea.trim() ? destMatch.loc.label : pool.defaultDest.label;
+  const fromLabel = params.fromArea.trim() || pool.defaultOrigin.label;
+  const toLabel = params.toArea.trim() || pool.defaultDest.label;
   const nodes = buildDirectionalNodes(pool, originMatch.loc, destMatch.loc, fromLabel, toLabel);
   const distanceKm = estimateRoadDistanceKm(originMatch.loc, destMatch.loc);
-  const exclude = new Set<string>([fromLabel.toLowerCase(), toLabel.toLowerCase()]);
+  const exclude = buildExcludeTokens([
+    fromLabel,
+    toLabel,
+    originMatch.loc.label,
+    destMatch.loc.label,
+  ]);
   const intermediateMetroStops = listIntermediateMetroStops(
     pool,
     originMatch.loc,
