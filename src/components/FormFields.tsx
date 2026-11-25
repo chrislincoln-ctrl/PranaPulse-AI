@@ -62,7 +62,7 @@ function DirectNumberInput(
           commit((e.target as HTMLInputElement).value);
         }
       }}
-      className="measured w-20 rounded border border-rule-2 bg-paper-3 px-2 py-1 text-right text-xs text-ink"
+      className="measured min-h-[44px] w-20 rounded border border-rule-2 bg-paper-3 px-2.5 py-2 text-right text-sm text-ink sm:min-h-[36px] sm:px-2 sm:py-1 sm:text-xs"
     />
   );
 }
@@ -76,9 +76,11 @@ export function RangeField(props: RangeFieldProps): ReactElement {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-ink-2">
-        <label htmlFor={id}>{label}</label>
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2 text-sm text-ink-2">
+        <label htmlFor={id} className="min-w-0 flex-1 leading-snug">
+          {label}
+        </label>
+        <div className="flex shrink-0 items-center gap-2">
           <DirectNumberInput {...props} draft={draft} setDraft={setDraft} />
           <span className="measured text-xs font-medium text-ink">{valueText}</span>
         </div>

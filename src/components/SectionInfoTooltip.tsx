@@ -111,7 +111,7 @@ export const TabInfoIcon = memo(function TabInfoIcon({
         aria-hidden="true"
         onMouseEnter={open}
         onMouseLeave={close}
-        className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-rule-2/80 bg-paper-3/70 text-ink-2 transition-colors hover:border-accent hover:bg-accent-soft hover:text-accent"
+        className="hidden h-5 w-5 shrink-0 items-center justify-center rounded-full border border-rule-2/80 bg-paper-3/70 text-ink-2 transition-colors hover:border-accent hover:bg-accent-soft hover:text-accent sm:inline-flex"
       >
         <Info className="h-3 w-3" />
       </span>

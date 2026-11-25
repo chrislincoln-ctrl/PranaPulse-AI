@@ -31,7 +31,7 @@ function AppMainContent({
   readonly t: LocaleDictionary;
 }): ReactElement {
   return (
-    <main id="main-content" className="container relative z-[2] flex-1 pb-36 sm:pb-40">
+    <main id="main-content" className="container relative z-[2] flex-1 pb-12 sm:pb-28">
       <div className="pt-3 pb-3 sm:pt-4 sm:pb-4">
         <SegmentedTabs activeTab={activeTab} onSelectTab={onSelectTab} t={t} />
       </div>
@@ -57,7 +57,7 @@ function AppMainContent({
 function AppFooter(p: { readonly notice: string; readonly dock: boolean }): ReactElement {
   return (
     <footer
-      className={`relative z-[40] border-t border-rule bg-paper-3/95 px-4 pt-4 text-center text-xs font-medium text-ink-2 backdrop-blur-md ${p.dock ? 'pb-24 sm:pb-4' : 'pb-4'}`}
+      className={`relative z-[40] border-t border-rule bg-paper-3/95 px-4 pt-4 text-center text-xs font-medium text-ink-2 backdrop-blur-md ${p.dock ? 'pb-36 sm:pb-4' : 'pb-4'}`}
     >
       <div className="container">
         {APP_META.DISPLAY_NAME} v{APP_META.VERSION}: {p.notice}

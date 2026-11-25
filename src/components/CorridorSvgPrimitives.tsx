@@ -31,7 +31,7 @@ export function EdgeDoseLabel(p: {
       y={labelY}
       textAnchor="middle"
       fill={p.isClean ? 'var(--color-accent)' : 'var(--color-muted)'}
-      fontSize="10"
+      fontSize="11"
       fontWeight="600"
       className="measured"
     >
@@ -85,7 +85,7 @@ export function NodeBadgePill(p: {
         y={labelY}
         textAnchor="middle"
         fill="var(--color-ink)"
-        fontSize="11"
+        fontSize="12"
         fontWeight={p.isClean ? '600' : '500'}
       >
         {p.label}

@@ -72,7 +72,7 @@ function LanguageSelectControl({
         onChange={(e) => {
           onChangeLanguage(e.target.value as SupportedLanguage);
         }}
-        className="field-control w-auto px-1.5 text-xs sm:px-3 sm:text-sm"
+        className="field-control w-auto max-w-[74px] px-1.5 text-[11px] sm:max-w-none sm:px-3 sm:text-sm"
       >
         {SUPPORTED_LANGUAGES.map((code) => (
           <option key={code} value={code}>
@@ -95,14 +95,14 @@ function BrandLogoButton({
     <button
       type="button"
       onClick={onReturnLanding}
-      className="group flex shrink-0 cursor-pointer items-center gap-1.5 text-left transition-opacity hover:opacity-85 focus:outline-hidden sm:gap-3"
+      className="touch-target group flex min-w-0 shrink items-center gap-1 text-left transition-opacity hover:opacity-85 focus:outline-hidden sm:shrink-0 sm:gap-3"
       aria-label={`${APP_META.DISPLAY_NAME} - ${returnSuffix}`}
     >
       <Wind
-        className="h-5 w-5 shrink-0 text-cool transition-transform group-hover:scale-105 sm:h-6 sm:w-6"
+        className="h-4 w-4 shrink-0 text-cool transition-transform group-hover:scale-105 sm:h-6 sm:w-6"
         aria-hidden="true"
       />
-      <span className="text-[13px] font-semibold whitespace-nowrap text-ink sm:text-lg">
+      <span className="truncate text-xs font-semibold tracking-tight whitespace-nowrap text-ink sm:text-lg">
         {APP_META.DISPLAY_NAME}
       </span>
     </button>
@@ -116,7 +116,7 @@ function BrandLogoButton({
 export const AppHeaderBar = memo(function AppHeaderBar(props: AppHeaderBarProps): ReactElement {
   return (
     <header className="sticky top-0 z-[300] border-b border-rule/80 bg-paper-3/95 shadow-sm backdrop-blur-lg">
-      <div className="container flex items-center justify-between gap-1.5 py-2 sm:gap-4 sm:py-3">
+      <div className="container flex items-center justify-between gap-1 px-2.5 py-2 sm:gap-4 sm:px-6 sm:py-3">
         <BrandLogoButton
           onReturnLanding={() => {
             props.onToggleViewMode('landing');

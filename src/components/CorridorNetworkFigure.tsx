@@ -80,13 +80,15 @@ export const CorridorNetworkFigure = memo(function CorridorNetworkFigure(
         stops={p.intermediateMetroStops}
         t={t}
       />
-      <CorridorSvgCanvas
-        corridor={corridor}
-        commuteMode={commuteMode}
-        activeNodes={p.activeNodes}
-        intermediateMetroStops={p.intermediateMetroStops}
-        heading={t.corridorHeading}
-      />
+      <div className="-mx-1 overflow-x-auto px-1 pb-1">
+        <CorridorSvgCanvas
+          corridor={corridor}
+          commuteMode={commuteMode}
+          activeNodes={p.activeNodes}
+          intermediateMetroStops={p.intermediateMetroStops}
+          heading={t.corridorHeading}
+        />
+      </div>
       <SrDataTable
         caption={t.corridorHeading}
         headers={[t.ui.srTableFrom, t.ui.srTableTo, t.ui.srTableExposureUg, t.ui.srTableMinutes]}

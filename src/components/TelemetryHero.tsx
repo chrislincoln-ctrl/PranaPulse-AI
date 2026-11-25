@@ -66,7 +66,7 @@ function PrimaryAqiPanels({
 
   return (
     <>
-      <div className="panel flex items-center justify-between gap-2">
+      <div className="panel flex flex-wrap items-center justify-between gap-2 sm:flex-nowrap">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 text-xs text-ink-2">
             <Activity className="h-3.5 w-3.5 text-cool" aria-hidden="true" />

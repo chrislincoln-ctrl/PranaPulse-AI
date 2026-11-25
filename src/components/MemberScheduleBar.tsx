@@ -14,7 +14,7 @@ export interface MemberScheduleBarProps {
 const COPY_RESET_MS = 2_000;
 
 function tabButtonClass(active: boolean): string {
-  return `rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+  return `min-h-[44px] rounded-full border px-3.5 py-2 text-xs font-medium transition-colors sm:min-h-[36px] sm:px-3 sm:py-1.5 ${
     active
       ? 'border-accent bg-accent text-accent-ink'
       : 'border-rule bg-paper-2 text-ink-2 hover:border-accent hover:text-ink'
@@ -70,7 +70,7 @@ function ShareActionButtons(p: {
         href={p.waUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="btn-secondary inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-ok"
+        className="btn-secondary inline-flex min-h-[44px] items-center gap-1.5 px-3 py-2 text-xs font-semibold text-ok sm:min-h-[36px] sm:px-2.5 sm:py-1"
       >
         <Share2 className="h-3.5 w-3.5" aria-hidden="true" />
         <span>{p.t.shareWhatsAppButton}</span>
@@ -78,7 +78,7 @@ function ShareActionButtons(p: {
       <button
         type="button"
         onClick={p.onCopy}
-        className="btn-secondary inline-flex items-center gap-1.5 px-2.5 py-1 text-xs"
+        className="btn-secondary inline-flex min-h-[44px] items-center gap-1.5 px-3 py-2 text-xs sm:min-h-[36px] sm:px-2.5 sm:py-1"
       >
         <CopyIcon
           className={`h-3.5 w-3.5 ${p.copied ? 'text-ok' : 'text-muted'}`}
@@ -90,7 +90,7 @@ function ShareActionButtons(p: {
         type="button"
         aria-expanded={p.showPreview}
         onClick={p.onTogglePreview}
-        className="btn-secondary inline-flex items-center gap-1 px-2.5 py-1 text-xs text-ink-2"
+        className="btn-secondary inline-flex min-h-[44px] items-center gap-1 px-3 py-2 text-xs text-ink-2 sm:min-h-[36px] sm:px-2.5 sm:py-1"
       >
         <PreviewIcon className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
         <span>{p.t.ui.whatsappBriefPreviewButton}</span>

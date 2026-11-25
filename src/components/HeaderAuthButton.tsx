@@ -54,7 +54,7 @@ export const HeaderAuthButton = memo(function HeaderAuthButton({
       onClick={onOpenModal}
       disabled={isInitializing}
       aria-label={t.auth.headerSignInAria}
-      className="btn-primary touch-target inline-flex items-center gap-1 px-2.5 text-xs whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm"
+      className="btn-primary touch-target inline-flex items-center gap-1 px-2 text-[11px] whitespace-nowrap sm:gap-2 sm:px-4 sm:text-sm"
     >
       <LogIn className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" aria-hidden="true" />
       <span>{t.auth.headerSignIn}</span>

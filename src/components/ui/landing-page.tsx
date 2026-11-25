@@ -194,15 +194,17 @@ export function ScrollGlobe({
       />
 
       {/* Ultra-smooth Globe with responsive scaling & contrast-safe mode/mobile opacity */}
-      <div
-        data-dim={activeSection === 3 ? 'true' : undefined}
-        className="landing-globe-backdrop fixed z-10 pointer-events-none will-change-transform transition-all duration-[1400ms] ease-[cubic-bezier(0.23,1,0.32,1)]"
-        style={{
-          transform: globeTransform,
-        }}
-      >
-        <div className="scale-75 sm:scale-90 lg:scale-100">
-          <Globe />
+      <div className="fixed inset-0 z-10 overflow-hidden pointer-events-none">
+        <div
+          data-dim={activeSection === 3 ? 'true' : undefined}
+          className="landing-globe-backdrop absolute will-change-transform transition-all duration-[1400ms] ease-[cubic-bezier(0.23,1,0.32,1)]"
+          style={{
+            transform: globeTransform,
+          }}
+        >
+          <div className="scale-75 sm:scale-90 lg:scale-100">
+            <Globe />
+          </div>
         </div>
       </div>
 
@@ -217,7 +219,7 @@ export function ScrollGlobe({
             'relative flex flex-col justify-center px-4 sm:px-6 md:px-8 lg:px-12 z-20',
             index === 0
               ? 'min-h-[calc(100svh-4rem)] pt-5 pb-10 sm:pt-14 sm:pb-16'
-              : 'min-h-screen pt-16 pb-14 sm:pt-24 sm:pb-20',
+              : 'py-14 sm:min-h-screen sm:pt-24 sm:pb-20',
             'w-full max-w-full overflow-hidden',
             section.align === 'center' && 'items-center text-center',
             section.align === 'right' && 'items-end text-right',
@@ -226,10 +228,7 @@ export function ScrollGlobe({
         >
           <div
             ref={index === 0 ? heroTextRef : undefined}
-            className={cn(
-              'w-full max-w-sm sm:max-w-lg md:max-w-2xl lg:max-w-4xl xl:max-w-5xl will-change-transform transition-all duration-700',
-              'opacity-100 translate-y-0',
-            )}
+            className={cn('w-full max-w-sm sm:max-w-lg md:max-w-2xl lg:max-w-4xl xl:max-w-5xl')}
           >
             {section.badge && (
               <div
@@ -313,7 +312,7 @@ export function ScrollGlobe({
                   <div
                     key={feature.title}
                     className={cn(
-                      'group p-4 sm:p-5 rounded-xl border border-border/75 bg-card/78 backdrop-blur-md hover:bg-card/92 transition-all duration-300 hover:shadow-xl hover:shadow-primary/10',
+                      'group p-4 sm:p-5 rounded-xl border border-border/75 bg-card/90 sm:bg-card/78 backdrop-blur-md hover:bg-card/92 transition-colors duration-300 hover:shadow-xl hover:shadow-primary/10',
                       'hover:border-primary/45 hover:-translate-y-0.5',
                     )}
                     style={{ animationDelay: `${featureIndex * 0.08}s` }}

@@ -84,11 +84,8 @@ function TabButton({
  * Accessible horizontal segmented workbench selector adapted from the 21st.dev
  * Segmented Control pattern with full WAI-ARIA roving tabindex keyboard navigation.
  */
-export const SegmentedTabs = memo(function SegmentedTabs({
-  activeTab,
-  onSelectTab,
-  t,
-}: SegmentedTabsProps): ReactElement {
+export const SegmentedTabs = memo(function SegmentedTabs(props: SegmentedTabsProps): ReactElement {
+  const { activeTab, onSelectTab, t } = props;
   const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   useEffect(() => {
@@ -114,25 +111,27 @@ export const SegmentedTabs = memo(function SegmentedTabs({
   );
 
   return (
-    <div role="tablist" aria-label={t.heroHeadline} className="segmented-rail">
-      {WORKBENCH_TABS.map((tabId, index) => (
-        <TabButton
-          key={tabId}
-          tabId={tabId}
-          label={getWorkbenchTabLabel(tabId, t)}
-          selected={activeTab === tabId}
-          assignRef={(el) => {
-            buttonRefs.current[index] = el;
-          }}
-          onSelect={() => {
-            onSelectTab(tabId);
-          }}
-          onKeyDown={(e) => {
-            handleKeyDown(index, e);
-          }}
-          t={t}
-        />
-      ))}
+    <div className="segmented-rail-wrap">
+      <div role="tablist" aria-label={t.heroHeadline} className="segmented-rail">
+        {WORKBENCH_TABS.map((tabId, index) => (
+          <TabButton
+            key={tabId}
+            tabId={tabId}
+            label={getWorkbenchTabLabel(tabId, t)}
+            selected={activeTab === tabId}
+            assignRef={(el) => {
+              buttonRefs.current[index] = el;
+            }}
+            onSelect={() => {
+              onSelectTab(tabId);
+            }}
+            onKeyDown={(e) => {
+              handleKeyDown(index, e);
+            }}
+            t={t}
+          />
+        ))}
+      </div>
     </div>
   );
 });

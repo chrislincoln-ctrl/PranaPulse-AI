@@ -143,7 +143,7 @@ export function CorridorSvgCanvas(p: {
       viewBox={`0 0 ${String(CORRIDOR_GRAPH_BOUNDS.WIDTH)} ${String(CORRIDOR_GRAPH_BOUNDS.HEIGHT)}`}
       role="img"
       aria-label={p.heading}
-      className="atmos-chart"
+      className="atmos-chart min-w-[460px] sm:min-w-0"
     >
       <CorridorEdgesLayer corridor={p.corridor} commuteMode={p.commuteMode} />
       {p.commuteMode === 'metro' && <MetroStationIconDots stops={p.intermediateMetroStops} />}

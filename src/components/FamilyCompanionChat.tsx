@@ -41,9 +41,9 @@ function CompanionDrawerHeader(p: {
         type="button"
         onClick={p.onClose}
         aria-label={p.closeAriaLabel}
-        className="btn-secondary inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full p-0 text-muted hover:text-ink"
+        className="btn-secondary inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full p-0 text-muted hover:text-ink"
       >
-        <X className="h-3.5 w-3.5" aria-hidden="true" />
+        <X className="h-4 w-4" aria-hidden="true" />
       </button>
     </div>
   );
@@ -60,7 +60,7 @@ function CompanionFloatingDrawer(p: {
     <section
       id="family-companion-drawer"
       aria-labelledby="companion-chat-title"
-      className="fixed right-4 bottom-32 z-[90] max-h-[calc(100dvh-10rem)] w-[calc(100vw-2rem)] max-w-md overflow-y-auto rounded-xl border border-rule-2 bg-paper-2 p-4 shadow-2xl sm:right-6 sm:bottom-40 sm:w-[440px]"
+      className="fixed inset-x-3 bottom-32 z-[90] max-h-[calc(100dvh-9.5rem)] overflow-y-auto rounded-xl border border-rule-2 bg-paper-2 p-4 shadow-2xl sm:inset-x-auto sm:right-6 sm:bottom-40 sm:w-[440px]"
     >
       <CompanionDrawerHeader
         heading={p.t.companionChatHeading}

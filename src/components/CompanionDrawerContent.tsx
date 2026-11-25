@@ -109,7 +109,7 @@ export function ChatMemberControls(p: {
             href={`https://wa.me/?text=${encodeURIComponent(p.shareBriefText)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="btn-secondary inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-ok"
+            className="btn-secondary inline-flex min-h-[44px] items-center gap-1.5 px-3 py-2 text-xs font-semibold text-ok sm:min-h-[36px] sm:px-2.5 sm:py-1.5"
           >
             <Share2 className="h-3.5 w-3.5" aria-hidden="true" />
             <span>{p.t.shareWhatsAppButton}</span>
@@ -120,7 +120,7 @@ export function ChatMemberControls(p: {
           onClick={p.onToggleGps}
           disabled={p.isLocatingGps}
           data-loading={p.isLocatingGps ? 'true' : undefined}
-          className={`btn-secondary inline-flex items-center gap-1 px-2.5 py-1.5 text-xs ${p.gpsPoint ? 'border-accent text-accent' : ''}`}
+          className={`btn-secondary inline-flex min-h-[44px] items-center gap-1.5 px-3 py-2 text-xs sm:min-h-[36px] sm:px-2.5 sm:py-1.5 ${p.gpsPoint ? 'border-accent text-accent' : ''}`}
         >
           <GpsIcon
             className={`h-3.5 w-3.5 ${p.isLocatingGps ? 'icon-spin keep-motion text-accent' : ''}`}
@@ -139,7 +139,7 @@ export function CompanionChipsRow(p: {
   readonly onPick: (chip: string) => void;
 }): ReactElement {
   return (
-    <div className="mt-2.5 flex flex-wrap gap-1">
+    <div className="mt-2.5 flex flex-wrap gap-1.5">
       {p.chips.map((c) => (
         <button
           key={c}
@@ -148,7 +148,7 @@ export function CompanionChipsRow(p: {
           onClick={() => {
             p.onPick(c);
           }}
-          className="rounded-full border border-rule bg-paper-3 px-2.5 py-1 text-left text-[11px] text-ink-2 hover:border-accent hover:text-ink"
+          className="min-h-[44px] rounded-xl border border-rule bg-paper-3 px-3 py-2 text-left text-xs leading-snug text-ink-2 hover:border-accent hover:text-ink sm:min-h-[34px] sm:rounded-full sm:px-2.5 sm:py-1 sm:text-[11px]"
         >
           {c}
         </button>
@@ -165,7 +165,7 @@ export function CompanionChatForm(p: {
   readonly t: LocaleDictionary;
 }): ReactElement {
   return (
-    <form onSubmit={p.onSubmit} className="mt-3 flex gap-2">
+    <form onSubmit={p.onSubmit} className="mt-3 flex flex-col gap-2 sm:flex-row">
       <label htmlFor="companion-chat-input" className="sr-only">
         {p.t.companionChatPlaceholder}
       </label>
@@ -178,13 +178,13 @@ export function CompanionChatForm(p: {
         onChange={(e) => {
           p.onChangeDraft(e.target.value);
         }}
-        className="field-control flex-1 py-2 text-xs"
+        className="field-control w-full py-2 text-xs sm:flex-1"
       />
       <button
         type="submit"
         disabled={p.isSending || p.draft.trim().length === 0}
         data-loading={p.isSending ? 'true' : undefined}
-        className="btn-primary touch-target inline-flex shrink-0 items-center justify-center gap-1.5 px-3 text-xs"
+        className="btn-primary touch-target inline-flex w-full shrink-0 items-center justify-center gap-1.5 px-3 text-xs sm:w-auto"
       >
         {p.isSending ? (
           <Loader2 className="h-3.5 w-3.5 icon-spin keep-motion" aria-hidden="true" />

@@ -855,6 +855,18 @@
     width: 100%;
   }
 
+  select.field-control {
+    height: 44px;
+    padding-top: 0;
+    padding-bottom: 0;
+    line-height: normal;
+  }
+
+  .segmented-rail-wrap {
+    position: relative;
+    max-width: 100%;
+  }
+
   .segmented-rail {
     display: flex;
     flex-wrap: wrap;
@@ -903,6 +915,12 @@
   }
 
   @media (max-width: 40rem) {
+    .hero-hud-badge {
+      border-radius: 14px;
+      gap: 6px;
+      padding: 5px 10px;
+    }
+
     .panel {
       padding: var(--space-sm);
     }
@@ -916,9 +934,22 @@
       font-size: clamp(1.125rem, 1.5vw + 0.85rem, 1.4rem);
     }
 
+    .segmented-rail-wrap::after {
+      content: '';
+      position: absolute;
+      top: 1px;
+      right: 1px;
+      bottom: 1px;
+      width: 28px;
+      border-radius: 0 calc(var(--radius-card) - 1px) calc(var(--radius-card) - 1px) 0;
+      pointer-events: none;
+      background: linear-gradient(90deg, transparent, var(--color-paper-3) 86%);
+    }
+
     .segmented-rail {
       flex-wrap: nowrap;
       overflow-x: auto;
+      padding-right: 28px;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: none;
       scroll-snap-type: x proximity;
@@ -933,6 +964,10 @@
       scroll-snap-align: start;
       padding: var(--space-xs) var(--space-sm);
       font-size: 0.8125rem;
+    }
+
+    .auth-modal-banner {
+      padding: var(--space-md);
     }
   }
 
