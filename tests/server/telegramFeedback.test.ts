@@ -1,0 +1,297 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createApp } from '../../server/app.js';
+import { loadServerEnv } from '../../server/env.js';
+import { clearCompanionStore } from '../../server/services/familyCompanionStore.js';
+import {
+  resolveTelegramFeedback,
+  TELEGRAM_DOCK_WELCOME_TEXT,
+  TELEGRAM_REPLY_KEYBOARD,
+} from '../../server/services/telegramFeedback.js';
+import { clearTelemetryCaches } from '../../server/services/telemetryClients.js';
+import { DEFAULT_WORKSPACE_INPUT } from '../../src/config/uiConstants.js';
+import { invokeExpress } from '../helpers/invokeExpress.js';
+
+interface RecordedTelegramCall {
+  readonly method: string;
+  readonly body: Record<string, unknown>;
+}
+
+function getRequestUrl(urlArg: RequestInfo | URL): string {
+  if (typeof urlArg === 'string') {
+    return urlArg;
+  }
+  return urlArg instanceof URL ? urlArg.href : urlArg.url;
+}
+
+function mockTelegramAndTelemetry(opts?: { readonly failEdit?: boolean }) {
+  const times = Array.from(
+    { length: 24 },
+    (_, hr) => `2026-11-25T${String(hr).padStart(2, '0')}:00`,
+  );
+  const hourly = (value: number) => Array.from({ length: 24 }, () => value);
+  const calls: RecordedTelegramCall[] = [];
+  let nextMessageId = 7000;
+
+  vi.spyOn(globalThis, 'fetch').mockImplementation((urlArg, init) => {
+    const url = getRequestUrl(urlArg);
+    if (url.includes('api.telegram.org')) {
+      const method = url.split('/').at(-1) ?? '';
+      const body =
+        typeof init?.body === 'string' ? (JSON.parse(init.body) as Record<string, unknown>) : {};
+      calls.push({ method, body });
+      if (method === 'editMessageText' && opts?.failEdit) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ ok: false, description: 'Bad Request' }), { status: 400 }),
+        );
+      }
+      if (method === 'sendMessage') {
+        nextMessageId += 1;
+        return Promise.resolve(
+          new Response(JSON.stringify({ ok: true, result: { message_id: nextMessageId } }), {
+            status: 200,
+          }),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    }
+    if (url.includes('air-quality-api.open-meteo.com')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            hourly: {
+              time: times,
+              pm2_5: hourly(118),
+              pm10: hourly(186),
+              nitrogen_dioxide: hourly(42),
+              ozone: hourly(31),
+              sulphur_dioxide: hourly(11),
+              carbon_monoxide: hourly(980),
+            },
+          }),
+          { status: 200 },
+        ),
+      );
+    }
+    if (url.includes('api.open-meteo.com/v1/forecast')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            hourly: {
+              time: times,
+              boundary_layer_height: hourly(260),
+              wind_speed_10m: hourly(7),
+              relative_humidity_2m: hourly(70),
+            },
+          }),
+          { status: 200 },
+        ),
+      );
+    }
+    return Promise.resolve(
+      new Response(JSON.stringify({ address: { suburb: 'Salt Lake', city: 'Kolkata' } }), {
+        status: 200,
+      }),
+    );
+  });
+
+  return calls;
+}
+
+describe('Telegram instant feedback UX & persistent quick-reply keyboard', () => {
+  afterEach(() => {
+    clearCompanionStore();
+    clearTelemetryCaches();
+    vi.restoreAllMocks();
+  });
+
+  it('resolves descriptive toasts and progress messages for callbacks, reply buttons, GPS pins, and prototype keys', () => {
+    const cbAir = resolveTelegramFeedback({ rawText: 'cmd:air', isCallback: true, hasGps: false });
+    expect(cbAir.toast).toBe('Live Air requested...');
+    expect(cbAir.progressText).toContain('You selected: Live Air');
+    expect(cbAir.progressText).toContain('CPCB NAQI');
+
+    const kbAir = resolveTelegramFeedback({
+      rawText: 'Live Air',
+      isCallback: false,
+      hasGps: false,
+    });
+    expect(kbAir.progressText).not.toContain('You selected:');
+    expect(kbAir.progressText).toContain('CPCB NAQI');
+
+    const gpsPin = resolveTelegramFeedback({ rawText: '', isCallback: false, hasGps: true });
+    expect(gpsPin.progressText).toContain('GPS pin received');
+
+    const memberSwitch = resolveTelegramFeedback({
+      rawText: 'member:m2',
+      isCallback: true,
+      hasGps: false,
+    });
+    expect(memberSwitch.toast).toContain('Switching active member');
+    expect(memberSwitch.progressText).toContain('Switch Active User');
+
+    // Defensive check against Object.prototype keys
+    const protoKey = resolveTelegramFeedback({
+      rawText: 'toString',
+      isCallback: false,
+      hasGps: false,
+    });
+    expect(protoKey.progressText).toContain('Got your message');
+  });
+
+  it('sends persistent bottom Reply Keyboard on /start and updates inline callback progress bubbles in-place', async () => {
+    const calls = mockTelegramAndTelemetry();
+    const env = loadServerEnv({
+      NODE_ENV: 'test',
+      TELEGRAM_BOT_TOKEN: 'ux-bot-token',
+      TELEGRAM_BOT_USERNAME: 'PranaPulseBot',
+      TELEGRAM_WEBHOOK_SECRET: 'ux-secret',
+    });
+    const app = createApp(env);
+    const headers = { 'x-telegram-bot-api-secret-token': 'ux-secret' };
+
+    const linkRes = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/companion/telegram-link',
+      body: {
+        workspaceKey: 'wuxtest01',
+        payload: {
+          ...DEFAULT_WORKSPACE_INPUT,
+          city: 'Shimultala, Kolkata',
+          lat: 22.57,
+          lon: 88.36,
+        },
+        activeMemberId: 'm3',
+      },
+    });
+    const { linkCode } = linkRes.body as { linkCode: string };
+
+    // 1. /start attaches persistent bottom ReplyKeyboardMarkup AND delivers inline member picker last
+    const startRes = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers,
+      body: { message: { chat: { id: 4401 }, text: `/start ${linkCode}` } },
+    });
+    expect(startRes.status).toBe(200);
+    expect(calls.some((c) => c.method === 'sendChatAction' && c.body.action === 'typing')).toBe(
+      true,
+    );
+    const dockCall = calls.find(
+      (c) => c.method === 'sendMessage' && c.body.text === TELEGRAM_DOCK_WELCOME_TEXT,
+    );
+    expect(dockCall).toBeDefined();
+    expect(dockCall?.body.reply_markup).toMatchObject({
+      keyboard: TELEGRAM_REPLY_KEYBOARD,
+      resize_keyboard: true,
+      is_persistent: true,
+    });
+    expect(JSON.stringify(calls.at(-1)?.body.reply_markup)).toContain('member:m3');
+
+    // 2. Inline callback ("cmd:air") triggers toast + typing + instant progress bubble -> edited in-place
+    calls.length = 0;
+    const cbRes = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers,
+      body: {
+        callback_query: { id: 'cb-air-1', data: 'cmd:air', message: { chat: { id: 4401 } } },
+      },
+    });
+    expect(cbRes.status).toBe(200);
+    expect(
+      calls.some(
+        (c) =>
+          c.method === 'answerCallbackQuery' &&
+          c.body.callback_query_id === 'cb-air-1' &&
+          c.body.text === 'Live Air requested...',
+      ),
+    ).toBe(true);
+    expect(calls.some((c) => c.method === 'sendChatAction' && c.body.action === 'typing')).toBe(
+      true,
+    );
+
+    const progressSend = calls.find((c) => c.method === 'sendMessage');
+    expect(progressSend?.body.text).toContain('You selected: Live Air');
+    expect(calls.filter((c) => c.method === 'sendMessage')).toHaveLength(1);
+
+    const editCall = calls.at(-1);
+    expect(editCall?.method).toBe('editMessageText');
+    expect(editCall?.body.message_id).toBe(7003);
+    expect(editCall?.body.text).toContain('Live Air & Dashboard: Shimultala, Kolkata');
+    expect(JSON.stringify(editCall?.body.reply_markup)).toContain('Change User (Rohan)');
+
+    // 3. Every persistent Reply Keyboard label routes cleanly and edits its progress bubble in-place
+    const replyButtonExpectations: readonly (readonly [string, string])[] = [
+      ['Live Air', 'Live Air & Dashboard'],
+      ['My Schedule', 'PranaPulse Daily Air Brief'],
+      ['Family Roster', 'Family Care Roster'],
+      ['Indoor & Windows', 'Indoor & Windows'],
+      ['Commute', 'Commute & Route'],
+      ['Masks & Gear', 'Masks & Purifiers'],
+      ['RWA Notice', 'RWA Notice'],
+      ['Controls & GPS', 'Telegram Operating Hub'],
+      ['Change User', 'Who is chatting'],
+    ];
+    for (const [label, expectedFragment] of replyButtonExpectations) {
+      calls.length = 0;
+      const res = await invokeExpress(app, {
+        method: 'POST',
+        url: '/api/telegram/webhook',
+        headers,
+        body: { message: { chat: { id: 4401 }, text: label } },
+      });
+      expect(res.status).toBe(200);
+      expect((res.body as { handled: string; replyText: string }).handled).toBe('command');
+      expect((res.body as { replyText: string }).replyText).toContain(expectedFragment);
+      expect(calls.some((c) => c.method === 'sendChatAction' && c.body.action === 'typing')).toBe(
+        true,
+      );
+      expect(calls.filter((c) => c.method === 'sendMessage')).toHaveLength(1);
+      expect(calls.at(-1)?.method).toBe('editMessageText');
+    }
+
+    // 4. gps:ask deletes temporary progress bubble and sends persistent Reply Keyboard with Share Live GPS
+    calls.length = 0;
+    const gpsAskRes = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers,
+      body: {
+        callback_query: { id: 'cb-gps', data: 'gps:ask', message: { chat: { id: 4401 } } },
+      },
+    });
+    expect(gpsAskRes.status).toBe(200);
+    expect(calls.some((c) => c.method === 'deleteMessage')).toBe(true);
+    const gpsPromptCall = calls.at(-1);
+    expect(gpsPromptCall?.method).toBe('sendMessage');
+    expect(gpsPromptCall?.body.reply_markup).toMatchObject({
+      keyboard: TELEGRAM_REPLY_KEYBOARD,
+      is_persistent: true,
+    });
+  });
+
+  it('falls back cleanly to sendMessage if Telegram rejects editMessageText', async () => {
+    const calls = mockTelegramAndTelemetry({ failEdit: true });
+    const env = loadServerEnv({
+      NODE_ENV: 'test',
+      TELEGRAM_BOT_TOKEN: 'ux-bot-token',
+      TELEGRAM_WEBHOOK_SECRET: 'fallback-secret',
+    });
+    const app = createApp(env);
+
+    const res = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers: { 'x-telegram-bot-api-secret-token': 'fallback-secret' },
+      body: {
+        callback_query: { id: 'cb-fb', data: 'cmd:air', message: { chat: { id: 4402 } } },
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(calls.some((c) => c.method === 'editMessageText')).toBe(true);
+    const sendMessages = calls.filter((c) => c.method === 'sendMessage');
+    expect(sendMessages).toHaveLength(2);
+    expect(sendMessages[0]?.body.text).toContain('You selected: Live Air');
+    expect(sendMessages[1]?.body.text).toContain('Live Air & Dashboard');
+  });
+});

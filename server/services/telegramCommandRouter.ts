@@ -48,7 +48,7 @@ function buildGpsPromptReply(ws: SyncedWorkspaceRecord): TelegramReplyPayload {
   return {
     text: prefixActiveUser(
       ws,
-      'Tap "Share My Live GPS Location" below (or send a location pin) to switch your city and sync live with the website.',
+      'Tap "Share Live GPS" on your quick keyboard below (or send a location pin) to switch your city and sync live with the website.',
     ),
     buttons: buildTelegramMenuForMember(active.label),
     requestGpsKeyboard: true,
@@ -57,35 +57,45 @@ function buildGpsPromptReply(ws: SyncedWorkspaceRecord): TelegramReplyPayload {
 
 const SIMPLE_HANDLERS: Readonly<Record<string, SimpleHandler>> = {
   'cmd:switchuser': (ws) => Promise.resolve(buildWhoAreYouCard(ws)),
+  'change user': (ws) => Promise.resolve(buildWhoAreYouCard(ws)),
   '/switch': (ws) => Promise.resolve(buildWhoAreYouCard(ws)),
   '/user': (ws) => Promise.resolve(buildWhoAreYouCard(ws)),
   'cmd:air': buildLiveAirCard,
+  'live air': buildLiveAirCard,
   '/air': buildLiveAirCard,
   air: buildLiveAirCard,
   'cmd:schedule': buildScheduleCard,
+  'my schedule': buildScheduleCard,
   '/schedule': buildScheduleCard,
   schedule: buildScheduleCard,
   '/brief': buildScheduleCard,
   'cmd:family': buildFamilyRosterCard,
+  'family roster': buildFamilyRosterCard,
   '/family': buildFamilyRosterCard,
   'cmd:windows': buildWindowIndoorCard,
+  'indoor & windows': buildWindowIndoorCard,
   '/windows': buildWindowIndoorCard,
   windows: buildWindowIndoorCard,
   '/indoor': buildWindowIndoorCard,
   'cmd:commute': buildCommuteCard,
+  commute: buildCommuteCard,
   '/commute': buildCommuteCard,
   'cmd:gear': buildGearCard,
+  'masks & gear': buildGearCard,
   '/gear': buildGearCard,
   '/masks': buildGearCard,
   'cmd:rwa': buildRwaCard,
+  'rwa notice': buildRwaCard,
   '/rwa': buildRwaCard,
   'cmd:controls': (ws) => Promise.resolve(buildControlsCard(ws, DEFAULT_WEB_APP_URL)),
+  'controls & gps': (ws) => Promise.resolve(buildControlsCard(ws, DEFAULT_WEB_APP_URL)),
   '/controls': (ws) => Promise.resolve(buildControlsCard(ws, DEFAULT_WEB_APP_URL)),
   '/settings': (ws) => Promise.resolve(buildControlsCard(ws, DEFAULT_WEB_APP_URL)),
   '/menu': (ws) => Promise.resolve(buildControlsCard(ws, DEFAULT_WEB_APP_URL)),
   '/help': (ws) => Promise.resolve(buildControlsCard(ws, DEFAULT_WEB_APP_URL)),
   'gps:ask': (ws) => Promise.resolve(buildGpsPromptReply(ws)),
   '/gps': (ws) => Promise.resolve(buildGpsPromptReply(ws)),
+  '/keyboard': (ws) => Promise.resolve(buildGpsPromptReply(ws)),
 };
 
 async function handleDistanceCommand(
@@ -197,7 +207,7 @@ export async function routeTelegramCommand(
 ): Promise<TelegramReplyPayload | null> {
   const trimmed = rawText.trim();
   const lower = trimmed.toLowerCase();
-  const simple = SIMPLE_HANDLERS[lower];
+  const simple = Object.hasOwn(SIMPLE_HANDLERS, lower) ? SIMPLE_HANDLERS[lower] : undefined;
   if (simple) {
     return await simple(ws, env);
   }
@@ -208,6 +218,6 @@ export async function routeTelegramCommand(
   const spaceIdx = trimmed.indexOf(' ');
   const cmd = (spaceIdx === -1 ? trimmed : trimmed.slice(0, spaceIdx)).toLowerCase();
   const rest = spaceIdx === -1 ? '' : trimmed.slice(spaceIdx + 1).trim();
-  const argHandler = ARG_HANDLERS[cmd];
+  const argHandler = Object.hasOwn(ARG_HANDLERS, cmd) ? ARG_HANDLERS[cmd] : undefined;
   return argHandler ? await argHandler(rest, ws, env) : null;
 }

@@ -1,11 +1,24 @@
 import { timingSafeEqual } from 'node:crypto';
-import { SECURITY_LIMITS, UPSTREAM_ENDPOINTS } from '../../src/config/constants.js';
 import { memberShortName } from './memberMatcher.js';
+import { postTelegramApi, postTelegramApiJson } from './telegramApiTransport.js';
 
 export interface TelegramInlineButton {
   readonly text: string;
   readonly callback_data?: string | undefined;
   readonly url?: string | undefined;
+}
+
+export interface TelegramReplyKeyboardButton {
+  readonly text: string;
+  readonly request_location?: boolean | undefined;
+}
+
+export interface EditTelegramMessageParams {
+  readonly token: string | undefined;
+  readonly chatId: string | number;
+  readonly messageId: number;
+  readonly text: string;
+  readonly inlineButtons?: readonly (readonly TelegramInlineButton[])[] | undefined;
 }
 
 export interface TelegramLocation {
@@ -114,30 +127,20 @@ export function verifyBearerSecret(
   return timingSafeEqual(actualBuf, expectedBuf);
 }
 
-async function postTelegramApi(
-  token: string,
-  method: string,
-  body: Record<string, unknown>,
-): Promise<boolean> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => {
-    controller.abort();
-  }, SECURITY_LIMITS.UPSTREAM_TIMEOUT_MS);
-
-  try {
-    const url = `${UPSTREAM_ENDPOINTS.TELEGRAM_API_BASE}/bot${token}/${method}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-    return response.ok;
-  } catch {
-    return false;
-  } finally {
-    clearTimeout(timer);
+function buildTextMessagePayload(
+  chatId: string | number,
+  text: string,
+  inlineButtons?: readonly (readonly TelegramInlineButton[])[],
+): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
+    chat_id: String(chatId),
+    text: text.slice(0, MAX_TELEGRAM_TEXT_LEN),
+    disable_web_page_preview: true,
+  };
+  if (inlineButtons && inlineButtons.length > 0) {
+    payload.reply_markup = { inline_keyboard: inlineButtons };
   }
+  return payload;
 }
 
 /** Sends a plain-text message (with optional inline keyboard) via Telegram Bot API. */
@@ -150,22 +153,78 @@ export async function sendTelegramMessage(
   if (!token) {
     return false;
   }
-  const payload: Record<string, unknown> = {
-    chat_id: String(chatId),
-    text: text.slice(0, MAX_TELEGRAM_TEXT_LEN),
-    disable_web_page_preview: true,
-  };
-  if (inlineButtons && inlineButtons.length > 0) {
-    payload.reply_markup = { inline_keyboard: inlineButtons };
-  }
-  return await postTelegramApi(token, 'sendMessage', payload);
+  return await postTelegramApi(
+    token,
+    'sendMessage',
+    buildTextMessagePayload(chatId, text, inlineButtons),
+  );
 }
 
-/** Sends a native 1-tap Telegram GPS location request keyboard for mobile live-location updates. */
-export async function sendTelegramLocationPrompt(
+/** Sends a Telegram message and returns its `message_id` for in-place editing when available. */
+export async function sendTelegramMessageWithId(
   token: string | undefined,
   chatId: string | number,
   text: string,
+  inlineButtons?: readonly (readonly TelegramInlineButton[])[],
+): Promise<number | null> {
+  if (!token) {
+    return null;
+  }
+  const res = await postTelegramApiJson(
+    token,
+    'sendMessage',
+    buildTextMessagePayload(chatId, text, inlineButtons),
+  );
+  return res.ok ? res.messageId : null;
+}
+
+/** Edits an existing Telegram message in-place (turning an instant progress bubble into the live card). */
+export async function editTelegramMessage(params: EditTelegramMessageParams): Promise<boolean> {
+  if (!params.token) {
+    return false;
+  }
+  return await postTelegramApi(params.token, 'editMessageText', {
+    ...buildTextMessagePayload(params.chatId, params.text, params.inlineButtons),
+    message_id: params.messageId,
+  });
+}
+
+/** Deletes a temporary Telegram progress message when replaced by a Reply Keyboard prompt. */
+export async function deleteTelegramMessage(
+  token: string | undefined,
+  chatId: string | number,
+  messageId: number,
+): Promise<boolean> {
+  if (!token) {
+    return false;
+  }
+  return await postTelegramApi(token, 'deleteMessage', {
+    chat_id: String(chatId),
+    message_id: messageId,
+  });
+}
+
+/** Triggers Telegram's native "typing..." indicator immediately on webhook receipt. */
+export async function sendTelegramChatAction(
+  token: string | undefined,
+  chatId: string | number,
+  action = 'typing',
+): Promise<boolean> {
+  if (!token) {
+    return false;
+  }
+  return await postTelegramApi(token, 'sendChatAction', {
+    chat_id: String(chatId),
+    action,
+  });
+}
+
+/** Sends a persistent bottom Reply Keyboard so button taps immediately show right-side user bubbles. */
+export async function sendTelegramReplyKeyboard(
+  token: string | undefined,
+  chatId: string | number,
+  text: string,
+  keyboard: readonly (readonly TelegramReplyKeyboardButton[])[],
 ): Promise<boolean> {
   if (!token) {
     return false;
@@ -173,23 +232,39 @@ export async function sendTelegramLocationPrompt(
   return await postTelegramApi(token, 'sendMessage', {
     chat_id: String(chatId),
     text: text.slice(0, MAX_TELEGRAM_TEXT_LEN),
+    disable_web_page_preview: true,
     reply_markup: {
-      keyboard: [[{ text: 'Share My Live GPS Location', request_location: true }]],
+      keyboard,
       resize_keyboard: true,
-      one_time_keyboard: true,
+      is_persistent: true,
+      input_field_placeholder: 'Tap a quick button or type any update...',
     },
   });
 }
 
-/** Acknowledges an inline button press so Telegram immediately clears the loading indicator. */
+/** Sends a native 1-tap Telegram GPS location request keyboard for mobile live-location updates. */
+export async function sendTelegramLocationPrompt(
+  token: string | undefined,
+  chatId: string | number,
+  text: string,
+  keyboard?: readonly (readonly TelegramReplyKeyboardButton[])[],
+): Promise<boolean> {
+  const rows = keyboard ?? [[{ text: 'Share Live GPS', request_location: true }]];
+  return await sendTelegramReplyKeyboard(token, chatId, text, rows);
+}
+
+/** Acknowledges an inline button press with an optional top toast and clears the button spinner. */
 export async function answerTelegramCallbackQuery(
   token: string | undefined,
   callbackQueryId: string,
+  text?: string,
 ): Promise<boolean> {
   if (!token) {
     return false;
   }
-  return await postTelegramApi(token, 'answerCallbackQuery', {
-    callback_query_id: callbackQueryId,
-  });
+  const payload: Record<string, unknown> = { callback_query_id: callbackQueryId };
+  if (text) {
+    payload.text = text;
+  }
+  return await postTelegramApi(token, 'answerCallbackQuery', payload);
 }
