@@ -134,7 +134,7 @@ export function HabitEditorDrawer({
     <div className="surface-recessed mt-2.5 space-y-3 border-l-2 border-accent p-4">
       <div className="flex items-center gap-1.5 text-[11px] font-medium text-ok">
         <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        <span>Live-synced with personalized daily schedule &amp; Telegram</span>
+        <span>{t.ui.habitLiveSyncedNote}</span>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <SelectField

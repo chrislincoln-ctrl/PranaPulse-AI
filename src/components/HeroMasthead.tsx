@@ -58,7 +58,7 @@ function LiveTelemetryHudBadge({
         <span className={`relative inline-flex h-2 w-2 rounded-full ${dotTone}`} />
       </span>
       <span className="measured text-[11px] font-semibold tracking-wider text-ink uppercase">
-        {isSimulatedFallback ? 'Baseline Telemetry' : 'Live Telemetry'}
+        {isSimulatedFallback ? t.ui.baselineTelemetryBadge : t.ui.liveTelemetryBadge}
       </span>
       <span className="h-3 w-px bg-rule-2" aria-hidden="true" />
       <span className="measured text-[11px] font-medium text-ink-2">
@@ -68,20 +68,20 @@ function LiveTelemetryHudBadge({
   );
 }
 
-function CapabilityPills(): ReactElement {
+function CapabilityPills({ t }: { readonly t: LocaleDictionary }): ReactElement {
   return (
     <div className="mt-3.5 flex flex-wrap gap-1.5" aria-hidden="true">
       <span className="hero-cap-chip measured">
         <Layers className="h-3 w-3 text-cool" />
-        <span>PBL Inversion</span>
+        <span>{t.ui.capPblInversion}</span>
       </span>
       <span className="hero-cap-chip measured">
         <Wind className="h-3 w-3 text-accent" />
-        <span>CADR Mass-Balance</span>
+        <span>{t.ui.capCadrMassBalance}</span>
       </span>
       <span className="hero-cap-chip measured">
         <ShieldCheck className="h-3 w-3 text-ok" />
-        <span>Pulmonary Dose</span>
+        <span>{t.ui.capPulmonaryDose}</span>
       </span>
     </div>
   );
@@ -103,7 +103,7 @@ export function HeroMasthead({ telemetry, gpsCity, t }: HeroMastheadProps): Reac
       <div className="relative z-10">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <LiveTelemetryHudBadge telemetry={telemetry} t={t} />
-          <SectionInfoButton tabId="dashboard" sectionLabel={t.tabDashboard} />
+          <SectionInfoButton tabId="dashboard" sectionLabel={t.tabDashboard} t={t} />
         </div>
         <h1 id="hero-heading" className="hero-headline mt-3 text-ink">
           {leading && <span>{leading} </span>}
@@ -120,7 +120,7 @@ export function HeroMasthead({ telemetry, gpsCity, t }: HeroMastheadProps): Reac
         <p className="mt-2 max-w-[46ch] text-sm leading-relaxed text-ink-2 sm:text-[15px]">
           {t.heroLede}
         </p>
-        <CapabilityPills />
+        <CapabilityPills t={t} />
       </div>
     </div>
   );

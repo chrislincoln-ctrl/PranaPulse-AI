@@ -9,6 +9,7 @@ export interface ScrollGlobeProps {
   sections: {
     id: string;
     badge?: string;
+    navLabel?: string;
     title: string;
     subtitle?: string;
     description: string;
@@ -175,7 +176,7 @@ export function ScrollGlobe({
                     ? 'bg-primary border-primary shadow-lg before:animate-ping before:bg-primary/20'
                     : 'bg-transparent border-muted-foreground/40 hover:border-primary/60 hover:bg-primary/10',
                 )}
-                aria-label={`Go to ${section.badge || `section ${index + 1}`}`}
+                aria-label={section.navLabel || `Go to ${section.badge || `section ${index + 1}`}`}
               />
             </div>
           ))}

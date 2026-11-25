@@ -88,6 +88,26 @@ describe('Landing Page showcase, WCAG 2.2 AA accessibility & outdoor duration de
     expect(darkAxe.violations).toHaveLength(0);
   });
 
+  it('fully translates Landing Page sections into Hindi and Tamil without English section leaks', () => {
+    for (const lang of ['hi', 'ta'] as const) {
+      const { unmount } = render(
+        <LandingPageView
+          workspace={createMockWorkspace()}
+          auth={createMockAuth()}
+          onEnterConsole={vi.fn()}
+          t={TRANSLATIONS[lang]}
+        />,
+      );
+      expect(screen.queryByText(/Winter Smog Intelligence/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Trusted Live Telemetry/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/One Brain, Every Channel/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Return to Top/i)).not.toBeInTheDocument();
+      expect(screen.getByText(TRANSLATIONS[lang].landing.telemetryTitle)).toBeInTheDocument();
+      expect(screen.getByText(TRANSLATIONS[lang].landing.uspTitle)).toBeInTheDocument();
+      unmount();
+    }
+  });
+
   it('accurately derives daily outdoor hours from 24h leave/return windows including overnight wrap & bounds', () => {
     expect(deriveOutdoorHoursFromTimes('10:00', '19:00')).toBe(9);
     expect(deriveOutdoorHoursFromTimes('10:20', '23:41')).toBe(13.5);

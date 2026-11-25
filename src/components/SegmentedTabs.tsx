@@ -51,6 +51,7 @@ function TabButton({
   assignRef,
   onSelect,
   onKeyDown,
+  t,
 }: {
   readonly tabId: WorkbenchTabId;
   readonly label: string;
@@ -58,6 +59,7 @@ function TabButton({
   readonly assignRef: (el: HTMLButtonElement | null) => void;
   readonly onSelect: () => void;
   readonly onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void;
+  readonly t: LocaleDictionary;
 }): ReactElement {
   return (
     <button
@@ -73,7 +75,7 @@ function TabButton({
       className="segmented-tab touch-target inline-flex items-center gap-1.5 text-sm"
     >
       <span>{label}</span>
-      <TabInfoIcon tabId={tabId} />
+      <TabInfoIcon tabId={tabId} t={t} />
     </button>
   );
 }
@@ -128,6 +130,7 @@ export const SegmentedTabs = memo(function SegmentedTabs({
           onKeyDown={(e) => {
             handleKeyDown(index, e);
           }}
+          t={t}
         />
       ))}
     </div>

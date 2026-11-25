@@ -26,6 +26,7 @@ export interface FamilyCompanionChatProps {
 function CompanionDrawerHeader(p: {
   readonly heading: string;
   readonly subheading: string;
+  readonly closeAriaLabel: string;
   readonly onClose: () => void;
 }): ReactElement {
   return (
@@ -39,7 +40,7 @@ function CompanionDrawerHeader(p: {
       <button
         type="button"
         onClick={p.onClose}
-        aria-label="Close companion chat"
+        aria-label={p.closeAriaLabel}
         className="btn-secondary inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full p-0 text-muted hover:text-ink"
       >
         <X className="h-3.5 w-3.5" aria-hidden="true" />
@@ -64,6 +65,7 @@ function CompanionFloatingDrawer(p: {
       <CompanionDrawerHeader
         heading={p.t.companionChatHeading}
         subheading={p.t.companionChatSubheading}
+        closeAriaLabel={p.t.ui.closeCompanionChatAria}
         onClose={p.onClose}
       />
       <ChatMemberControls

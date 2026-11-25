@@ -44,8 +44,7 @@ function CorridorSummaryBar({
             M
           </span>
           <span>
-            Verified intermediate stops (hover icons):{' '}
-            <strong className="text-ink">{stops.join(' · ')}</strong>
+            {t.ui.verifiedMetroStopsLabel} <strong className="text-ink">{stops.join(' · ')}</strong>
           </span>
         </div>
       )}
@@ -90,7 +89,7 @@ export const CorridorNetworkFigure = memo(function CorridorNetworkFigure(
       />
       <SrDataTable
         caption={t.corridorHeading}
-        headers={['From', 'To', 'Exposure ug', 'Minutes']}
+        headers={[t.ui.srTableFrom, t.ui.srTableTo, t.ui.srTableExposureUg, t.ui.srTableMinutes]}
         rows={corridor.segments.map((seg) => [
           p.activeNodes[seg.from],
           p.activeNodes[seg.to],

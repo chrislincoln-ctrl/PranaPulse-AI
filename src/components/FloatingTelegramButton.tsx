@@ -105,9 +105,11 @@ function useOneClickTelegramConnect(
 
 function TelegramStatusNotices({
   syncedFromTelegram,
+  syncedBadgeLabel,
   pendingNote,
 }: {
   readonly syncedFromTelegram: boolean;
+  readonly syncedBadgeLabel: string;
   readonly pendingNote: string | null;
 }): ReactElement | null {
   if (!syncedFromTelegram && !pendingNote) {
@@ -122,7 +124,7 @@ function TelegramStatusNotices({
           className="inline-flex items-center gap-1.5 rounded-full border border-ok bg-paper-2 px-3 py-1 text-[11px] font-semibold text-ok shadow-lg"
         >
           <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>Synced from Telegram</span>
+          <span>{syncedBadgeLabel}</span>
         </div>
       )}
       {pendingNote && (
@@ -150,13 +152,15 @@ export const FloatingTelegramButton = memo(function FloatingTelegramButton(
     t.memberTelegramPendingHint,
   );
   const ButtonIcon = isConnecting ? Loader2 : Send;
-  const label = linked ? 'Telegram Synced' : t.memberConnectTelegramButton;
+  const label = linked ? t.ui.telegramSyncedButton : t.memberConnectTelegramButton;
   const showDot = linked && !isConnecting;
+  const cityLabel = t.cityNames[input.city] ?? input.city;
 
   return (
     <div className="flex flex-col items-end gap-1.5">
       <TelegramStatusNotices
         syncedFromTelegram={Boolean(props.syncedFromTelegram)}
+        syncedBadgeLabel={t.ui.syncedFromTelegramBadge}
         pendingNote={pendingNote}
       />
       <button
@@ -165,7 +169,7 @@ export const FloatingTelegramButton = memo(function FloatingTelegramButton(
         disabled={isConnecting}
         data-loading={isConnecting ? 'true' : undefined}
         aria-label={t.memberConnectTelegramButton}
-        title={`${t.memberConnectTelegramButton} (${input.city})`}
+        title={`${t.memberConnectTelegramButton} (${cityLabel})`}
         className="btn-secondary touch-target inline-flex items-center gap-2 rounded-full border-accent/65 bg-paper-2/90 px-3.5 py-2.5 text-xs font-semibold text-ink shadow-xl backdrop-blur-md transition-transform hover:-translate-y-0.5 hover:border-accent"
       >
         <span className="relative inline-flex items-center justify-center">

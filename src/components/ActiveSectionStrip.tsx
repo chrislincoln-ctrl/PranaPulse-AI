@@ -36,7 +36,11 @@ export const ActiveSectionStrip = memo(function ActiveSectionStrip({
         <h1 className="text-xl font-bold tracking-tight text-ink sm:text-2xl">
           {getWorkbenchTabLabel(activeTab, t)}
         </h1>
-        <SectionInfoButton tabId={activeTab} sectionLabel={getWorkbenchTabLabel(activeTab, t)} />
+        <SectionInfoButton
+          tabId={activeTab}
+          sectionLabel={getWorkbenchTabLabel(activeTab, t)}
+          t={t}
+        />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <span className="status-pill text-ink-2">

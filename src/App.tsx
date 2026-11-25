@@ -208,6 +208,7 @@ function AppShell(p: AppShellProps): ReactElement {
         }}
         onSignedInSuccess={openWorkbench}
         onContinueAsGuest={openWorkbench}
+        t={p.t}
       />
     </div>
   );

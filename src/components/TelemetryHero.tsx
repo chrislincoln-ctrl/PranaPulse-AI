@@ -174,12 +174,6 @@ function DispersionBriefCell({
   );
 }
 
-const SEVERITY_LABELS: Readonly<Record<string, string>> = {
-  'severe-inversion': 'Severe thermal inversion',
-  'moderate-trapping': 'Moderate trapping layer',
-  neutral: 'Neutral mixing layer',
-};
-
 function AtmosphericDispersionBrief({
   telemetry,
   t,
@@ -191,30 +185,31 @@ function AtmosphericDispersionBrief({
   const wind = Math.round(cur?.windKmh ?? 0);
   const rh = Math.round(cur?.rhPercent ?? 0);
   const windowLabel = formatBestWindowLabel(telemetry.inversion.bestWindowHours);
-  const severityLabel =
-    SEVERITY_LABELS[telemetry.inversion.currentSeverity] ?? telemetry.inversion.currentSeverity;
+  const severityLabel = t.inversionSeverities[telemetry.inversion.currentSeverity];
   return (
     <div className="surface-hairline mt-4 grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
       <DispersionBriefCell
         icon={<Clock className="mt-0.5 h-4 w-4 shrink-0 text-ok" aria-hidden="true" />}
-        label="Safest Airing Window"
+        label={t.ui.safestAiringWindowLabel}
         value={windowLabel}
         valueTone="text-ok"
         sub={telemetry.inversion.openWindowsNow ? t.openWindowsYes : t.openWindowsNo}
       />
       <DispersionBriefCell
         icon={<Droplets className="mt-0.5 h-4 w-4 shrink-0 text-cool" aria-hidden="true" />}
-        label="Surface Dispersion"
+        label={t.ui.surfaceDispersionLabel}
         value={`${String(wind)} km/h · ${String(rh)}% RH`}
         valueTone="text-ink"
         sub={severityLabel}
       />
       <DispersionBriefCell
         icon={<ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden="true" />}
-        label="Dominant Pollutant"
+        label={t.ui.dominantPollutantLabel}
         value={telemetry.assessment.dominantCpcbPollutant}
         valueTone="text-accent uppercase"
-        sub={telemetry.isSimulatedFallback ? 'Seasonal baseline' : 'Live sensor cross-check'}
+        sub={
+          telemetry.isSimulatedFallback ? t.ui.seasonalBaselineSub : t.ui.liveSensorCrossCheckSub
+        }
       />
     </div>
   );

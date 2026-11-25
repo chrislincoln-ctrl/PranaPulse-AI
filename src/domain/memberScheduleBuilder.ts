@@ -53,10 +53,13 @@ export function buildMemberShareBriefText(
   steps: readonly RoutineStepItem[],
   ctx: DeterministicBriefContext,
 ): string {
+  const t = TRANSLATIONS[ctx.request.language];
   const pack = MEMBER_SCHEDULE_STRINGS[ctx.request.language];
+  const cityLabel = t.cityNames[ctx.request.city] ?? ctx.request.city;
+  const catLabel = t.cpcbCategories[ctx.aqi.cpcbCategory];
   const lines = [
     `${pack.briefHeader}: ${member.label}`,
-    `${ctx.request.city} | CPCB NAQI ${String(ctx.effectiveAqi)} (${ctx.aqi.cpcbCategory}) | PBL ${String(ctx.inversion.currentPblMeters)}m`,
+    `${cityLabel} | CPCB NAQI ${String(ctx.effectiveAqi)} (${catLabel}) | PBL ${String(ctx.inversion.currentPblMeters)}m`,
     ...steps.map(
       (step) => `- ${step.timeWindow}: ${step.actionTitle} (${step.estimatedImpactLabel})`,
     ),
@@ -97,8 +100,10 @@ function buildStepVars(
 
 /** Builds individualized 4-step schedules and share briefs for every member in the household roster. */
 export function buildPerMemberSchedules(ctx: DeterministicBriefContext): MutableMemberSchedule[] {
+  const t = TRANSLATIONS[ctx.request.language];
   const pack = MEMBER_SCHEDULE_STRINGS[ctx.request.language];
   const cleanWindow = formatHourRange(ctx.inversion.bestWindowHours);
+  const cityLabel = t.cityNames[ctx.request.city] ?? ctx.request.city;
 
   return ctx.request.members.map((member) => {
     const archetype = resolveMemberArchetype(member);
@@ -108,7 +113,7 @@ export function buildPerMemberSchedules(ctx: DeterministicBriefContext): Mutable
       memberId: member.id,
       memberLabel: member.label,
       archetype,
-      summaryHeadline: `${member.label} (${pack.archetypeTitles[archetype]}) | ${ctx.request.city} NAQI ${String(ctx.effectiveAqi)}`,
+      summaryHeadline: `${member.label} (${pack.archetypeTitles[archetype]}) | ${cityLabel} NAQI ${String(ctx.effectiveAqi)}`,
       dailyRoutine,
       shareBriefText: buildMemberShareBriefText(member, dailyRoutine, ctx),
     };

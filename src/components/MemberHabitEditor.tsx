@@ -19,9 +19,13 @@ export interface MemberHabitEditorProps {
 function HabitTriggerBadges({
   timingSummary,
   open,
+  editLabel,
+  doneLabel,
 }: {
   readonly timingSummary: string;
   readonly open: boolean;
+  readonly editLabel: string;
+  readonly doneLabel: string;
 }): ReactElement {
   const ArrowIcon = open ? ChevronUp : ChevronDown;
   return (
@@ -31,7 +35,7 @@ function HabitTriggerBadges({
         <span>{timingSummary}</span>
       </span>
       <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-[11px] font-semibold text-accent-ink">
-        <span>{open ? 'Done' : 'Edit'}</span>
+        <span>{open ? doneLabel : editLabel}</span>
         <ArrowIcon className="h-3.5 w-3.5" aria-hidden="true" />
       </span>
     </span>
@@ -43,11 +47,13 @@ function HabitTriggerMeta({
   archetypeLabel,
   commuteLabel,
   hasHealthNote,
+  healthNoteLabel,
 }: {
   readonly title: string;
   readonly archetypeLabel: string;
   readonly commuteLabel: string | null;
   readonly hasHealthNote: boolean;
+  readonly healthNoteLabel: string;
 }): ReactElement {
   return (
     <span className="flex min-w-0 items-center gap-2.5">
@@ -70,7 +76,7 @@ function HabitTriggerMeta({
           {hasHealthNote && (
             <span className="inline-flex items-center gap-1 text-bad">
               <HeartPulse className="h-3 w-3 shrink-0" aria-hidden="true" />
-              <span>Health note</span>
+              <span>{healthNoteLabel}</span>
             </span>
           )}
         </span>
@@ -107,8 +113,14 @@ export const MemberHabitEditor = memo(function MemberHabitEditor(
           archetypeLabel={archetypeLabel}
           commuteLabel={commuteLabel}
           hasHealthNote={Boolean(member.healthNotes)}
+          healthNoteLabel={t.ui.habitHealthNoteChip}
         />
-        <HabitTriggerBadges timingSummary={timingSummary} open={open} />
+        <HabitTriggerBadges
+          timingSummary={timingSummary}
+          open={open}
+          editLabel={t.ui.habitEditButton}
+          doneLabel={t.ui.habitDoneButton}
+        />
       </button>
       {open && <HabitEditorDrawer member={member} onChange={onChange} t={t} />}
     </div>

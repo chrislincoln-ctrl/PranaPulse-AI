@@ -61,7 +61,13 @@ function resolveHackSearchQuery(hack: IndoorHackItem): string {
   return cleaned.length > 0 ? cleaned : hack.title;
 }
 
-function HackBuyLinks({ hack }: { readonly hack: IndoorHackItem }): ReactElement | null {
+function HackBuyLinks({
+  hack,
+  t,
+}: {
+  readonly hack: IndoorHackItem;
+  readonly t: LocaleDictionary;
+}): ReactElement | null {
   if (hack.estimatedCostInr <= 0) {
     return null;
   }
@@ -71,12 +77,12 @@ function HackBuyLinks({ hack }: { readonly hack: IndoorHackItem }): ReactElement
 
   return (
     <div className="mt-2 flex items-center justify-end gap-2 text-[11px] text-muted">
-      <span>Buy:</span>
+      <span>{t.ui.buyPrefix}</span>
       <a
         href={buildAmazonInUrl(query)}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label={`Buy ${hack.title} on Amazon.in`}
+        aria-label={t.ui.buyOnAmazonTemplate.replace('{title}', hack.title)}
         className={linkClass}
       >
         <span>Amazon</span>
@@ -87,7 +93,7 @@ function HackBuyLinks({ hack }: { readonly hack: IndoorHackItem }): ReactElement
         href={buildFlipkartUrl(query)}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label={`Buy ${hack.title} on Flipkart`}
+        aria-label={t.ui.buyOnFlipkartTemplate.replace('{title}', hack.title)}
         className={linkClass}
       >
         <span>Flipkart</span>
@@ -142,7 +148,7 @@ function HacksAndSwapsGrid({
                 </span>
               </div>
               <p className="mt-1.5 text-xs text-ink-2">{hack.howTo}</p>
-              <HackBuyLinks hack={hack} />
+              <HackBuyLinks hack={hack} t={t} />
             </li>
           ))}
         </ul>

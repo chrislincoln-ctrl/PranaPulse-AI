@@ -45,7 +45,7 @@ function DirectNumberInput(
       max={max}
       step={1}
       value={draft ?? String(value)}
-      aria-label={`Direct value (${valueText})`}
+      aria-label={valueText}
       onChange={(e) => {
         const raw = e.target.value;
         setDraft(raw);

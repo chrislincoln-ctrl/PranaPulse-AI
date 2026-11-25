@@ -1,5 +1,6 @@
 import { memo, useState, type ReactElement, type SyntheticEvent } from 'react';
 import type { SupabaseAuthController } from '../hooks/useSupabaseAuth.js';
+import type { LocaleDictionary } from '../i18n/translations.js';
 import {
   AuthEmailField,
   AuthModeSwitcher,
@@ -18,6 +19,7 @@ export interface AuthFormSectionProps {
   readonly onChangeMode: (nextMode: AuthMode) => void;
   readonly onSignedInSuccess: () => void;
   readonly onContinueAsGuest?: (() => void) | undefined;
+  readonly t: LocaleDictionary;
 }
 
 interface SubmitContext {
@@ -30,11 +32,11 @@ interface SubmitContext {
   readonly onSignedInSuccess: () => void;
 }
 
-function MissingConfigNotice(): ReactElement {
+function MissingConfigNotice({ t }: { readonly t: LocaleDictionary }): ReactElement {
   return (
     <div role="alert" className="rounded-lg border border-bad/40 bg-bad-soft p-3 text-xs text-bad">
-      Supabase keys are missing. Add <code>VITE_SUPABASE_URL</code> and{' '}
-      <code>VITE_SUPABASE_ANON_KEY</code> in <code>.env</code> and rebuild to enable sign-in.
+      {t.auth.missingConfigPrefix} <code>VITE_SUPABASE_URL</code> {t.auth.missingConfigAnd}{' '}
+      <code>VITE_SUPABASE_ANON_KEY</code> {t.auth.missingConfigSuffix}
     </div>
   );
 }
@@ -69,15 +71,21 @@ interface AuthFormBodyProps {
   readonly onPassword: (value: string) => void;
   readonly onTogglePassword: () => void;
   readonly onSubmit: (event: SyntheticEvent<HTMLFormElement>) => void;
+  readonly t: LocaleDictionary;
 }
 
 function AuthFormBody(p: AuthFormBodyProps): ReactElement {
   return (
     <form onSubmit={p.onSubmit} className="space-y-3.5">
       {p.mode === 'signup' && (
-        <AuthNameField fullName={p.fullName} disabled={p.disabled} onChange={p.onFullName} />
+        <AuthNameField
+          fullName={p.fullName}
+          disabled={p.disabled}
+          onChange={p.onFullName}
+          t={p.t}
+        />
       )}
-      <AuthEmailField email={p.email} disabled={p.disabled} onChange={p.onEmail} />
+      <AuthEmailField email={p.email} disabled={p.disabled} onChange={p.onEmail} t={p.t} />
       {p.mode !== 'reset' && (
         <AuthPasswordField
           mode={p.mode}
@@ -86,6 +94,7 @@ function AuthFormBody(p: AuthFormBodyProps): ReactElement {
           disabled={p.disabled}
           onChange={p.onPassword}
           onToggleVisibility={p.onTogglePassword}
+          t={p.t}
         />
       )}
       <button
@@ -95,7 +104,7 @@ function AuthFormBody(p: AuthFormBodyProps): ReactElement {
         className="btn-primary touch-target inline-flex w-full items-center justify-center gap-2 text-sm"
       >
         <AuthSubmitIcon mode={p.mode} busy={p.busy} />
-        <span>{getAuthSubmitLabel(p.mode, p.busy)}</span>
+        <span>{getAuthSubmitLabel(p.mode, p.busy, p.t)}</span>
       </button>
     </form>
   );
@@ -127,9 +136,11 @@ function GoogleLogoIcon(): ReactElement {
 function GoogleSignInOption({
   auth,
   mode,
+  t,
 }: {
   readonly auth: SupabaseAuthController;
   readonly mode: AuthMode;
+  readonly t: LocaleDictionary;
 }): ReactElement | null {
   if (mode === 'reset') {
     return null;
@@ -142,18 +153,17 @@ function GoogleSignInOption({
         onClick={() => {
           void auth.signInWithGoogle();
         }}
-        className="touch-target inline-flex w-full items-center justify-center gap-2.5 rounded-lg border border-rule bg-paper-2 px-4 py-2.5 text-sm font-semibold text-ink shadow-xs transition hover:bg-paper-3 hover:border-accent/40 active:scale-[0.99] disabled:opacity-50"
+        className="touch-target inline-flex w-full items-center justify-center gap-2.5 rounded-lg border border-rule bg-paper-2 px-4 py-2.5 text-sm font-semibold text-ink shadow-xs transition hover:border-accent/40 hover:bg-paper-3 active:scale-[0.99] disabled:opacity-50"
       >
         <GoogleLogoIcon />
-        <span>Sign in with Google</span>
+        <span>{t.auth.googleButton}</span>
       </button>
-
       <div className="relative flex items-center justify-center">
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-rule" />
         </div>
-        <span className="relative bg-paper-2 px-3 text-xs uppercase tracking-wider text-muted">
-          or
+        <span className="relative bg-paper-2 px-3 text-xs tracking-wider text-muted uppercase">
+          {t.auth.dividerOr}
         </span>
       </div>
     </div>
@@ -184,8 +194,10 @@ function useAuthCredentials() {
 
 function GuestFallbackFooter({
   onContinueAsGuest,
+  t,
 }: {
   readonly onContinueAsGuest?: (() => void) | undefined;
+  readonly t: LocaleDictionary;
 }): ReactElement {
   return (
     <>
@@ -195,13 +207,10 @@ function GuestFallbackFooter({
           onClick={onContinueAsGuest}
           className="btn-secondary touch-target inline-flex w-full items-center justify-center text-sm"
         >
-          Continue as Guest (Open Console)
+          {t.auth.continueGuestButton}
         </button>
       )}
-      <p className="text-xs leading-relaxed text-muted">
-        Guest telemetry stays available without an account. Sign in to sync your monitored city,
-        room CADR, and commute mask profile across devices.
-      </p>
+      <p className="text-xs leading-relaxed text-muted">{t.auth.guestFooterNote}</p>
     </>
   );
 }
@@ -215,6 +224,7 @@ export const AuthFormSection = memo(function AuthFormSection({
   onChangeMode,
   onSignedInSuccess,
   onContinueAsGuest,
+  t,
 }: AuthFormSectionProps): ReactElement {
   const creds = useAuthCredentials();
   const handleSubmit = (event: SyntheticEvent<HTMLFormElement>): void => {
@@ -230,9 +240,10 @@ export const AuthFormSection = memo(function AuthFormSection({
           auth.clearMessages();
           onChangeMode(nextMode);
         }}
+        t={t}
       />
-      {!auth.isConfigured && <MissingConfigNotice />}
-      <GoogleSignInOption auth={auth} mode={mode} />
+      {!auth.isConfigured && <MissingConfigNotice t={t} />}
+      <GoogleSignInOption auth={auth} mode={mode} t={t} />
       <AuthFormBody
         mode={mode}
         fullName={creds.fullName}
@@ -246,8 +257,9 @@ export const AuthFormSection = memo(function AuthFormSection({
         onPassword={creds.setPassword}
         onTogglePassword={creds.togglePassword}
         onSubmit={handleSubmit}
+        t={t}
       />
-      <GuestFallbackFooter onContinueAsGuest={onContinueAsGuest} />
+      <GuestFallbackFooter onContinueAsGuest={onContinueAsGuest} t={t} />
     </div>
   );
 });

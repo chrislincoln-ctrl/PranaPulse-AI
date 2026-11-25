@@ -1,43 +1,46 @@
 import { Eye, EyeOff, KeyRound, Loader2, Mail, UserPlus } from 'lucide-react';
 import type { ReactElement } from 'react';
+import type { LocaleDictionary } from '../i18n/translations.js';
 
 export type AuthMode = 'signin' | 'signup' | 'reset';
 
 const MIN_PASSWORD_LENGTH = 6;
 
-const AUTH_MODES: readonly { readonly id: AuthMode; readonly label: string }[] = [
-  { id: 'signin', label: 'Sign in' },
-  { id: 'signup', label: 'Create account' },
-  { id: 'reset', label: 'Reset' },
-];
-
-export function getAuthSubmitLabel(mode: AuthMode, busy: boolean): string {
+export function getAuthSubmitLabel(mode: AuthMode, busy: boolean, t: LocaleDictionary): string {
   if (busy) {
-    return 'Connecting to Supabase…';
+    return t.auth.submitConnecting;
   }
   if (mode === 'signup') {
-    return 'Create cloud account';
+    return t.auth.submitSignUp;
   }
   if (mode === 'reset') {
-    return 'Send password reset link';
+    return t.auth.submitReset;
   }
-  return 'Sign in to workspace';
+  return t.auth.submitSignIn;
 }
 
 export function AuthModeSwitcher({
   mode,
   onSelect,
+  t,
 }: {
   readonly mode: AuthMode;
   readonly onSelect: (nextMode: AuthMode) => void;
+  readonly t: LocaleDictionary;
 }): ReactElement {
+  const modes: readonly { readonly id: AuthMode; readonly label: string }[] = [
+    { id: 'signin', label: t.auth.modeSignIn },
+    { id: 'signup', label: t.auth.modeSignUp },
+    { id: 'reset', label: t.auth.modeReset },
+  ];
+
   return (
     <div
       role="tablist"
-      aria-label="Authentication mode"
+      aria-label={t.auth.modeAriaLabel}
       className="grid w-full grid-cols-3 gap-1 rounded-lg border border-rule-2/60 bg-paper-3/85 p-1"
     >
-      {AUTH_MODES.map((item) => {
+      {modes.map((item) => {
         const active = mode === item.id;
         return (
           <button
@@ -85,21 +88,23 @@ export function AuthNameField({
   fullName,
   disabled,
   onChange,
+  t,
 }: {
   readonly fullName: string;
   readonly disabled: boolean;
   readonly onChange: (value: string) => void;
+  readonly t: LocaleDictionary;
 }): ReactElement {
   return (
     <div className="space-y-1.5">
       <label htmlFor="auth-name-input" className="block text-xs font-medium text-ink-2">
-        Display name (optional)
+        {t.auth.nameLabel}
       </label>
       <input
         id="auth-name-input"
         type="text"
         autoComplete="name"
-        placeholder="e.g. Aarav Sharma"
+        placeholder={t.auth.namePlaceholder}
         value={fullName}
         disabled={disabled}
         onChange={(e) => {
@@ -115,22 +120,24 @@ export function AuthEmailField({
   email,
   disabled,
   onChange,
+  t,
 }: {
   readonly email: string;
   readonly disabled: boolean;
   readonly onChange: (value: string) => void;
+  readonly t: LocaleDictionary;
 }): ReactElement {
   return (
     <div className="space-y-1.5">
       <label htmlFor="auth-email-input" className="block text-xs font-medium text-ink-2">
-        Email address
+        {t.auth.emailLabel}
       </label>
       <input
         id="auth-email-input"
         type="email"
         required
         autoComplete="email"
-        placeholder="you@example.com"
+        placeholder={t.auth.emailPlaceholder}
         value={email}
         disabled={disabled}
         onChange={(e) => {
@@ -145,15 +152,17 @@ export function AuthEmailField({
 function PasswordVisibilityToggle({
   showPassword,
   onToggle,
+  t,
 }: {
   readonly showPassword: boolean;
   readonly onToggle: () => void;
+  readonly t: LocaleDictionary;
 }): ReactElement {
   return (
     <button
       type="button"
       onClick={onToggle}
-      aria-label={showPassword ? 'Hide password' : 'Show password'}
+      aria-label={showPassword ? t.auth.hidePasswordAria : t.auth.showPasswordAria}
       className="touch-target absolute right-0 inline-flex items-center justify-center rounded-md px-3 text-muted hover:text-ink"
     >
       {showPassword ? (
@@ -172,6 +181,7 @@ export function AuthPasswordField({
   disabled,
   onChange,
   onToggleVisibility,
+  t,
 }: {
   readonly mode: AuthMode;
   readonly password: string;
@@ -179,12 +189,14 @@ export function AuthPasswordField({
   readonly disabled: boolean;
   readonly onChange: (value: string) => void;
   readonly onToggleVisibility: () => void;
+  readonly t: LocaleDictionary;
 }): ReactElement {
-  const placeholder = mode === 'signup' ? 'At least 6 characters' : 'Enter your password';
+  const placeholder =
+    mode === 'signup' ? t.auth.passwordSignupPlaceholder : t.auth.passwordSigninPlaceholder;
   return (
     <div className="space-y-1.5">
       <label htmlFor="auth-password-input" className="block text-xs font-medium text-ink-2">
-        Password
+        {t.auth.passwordLabel}
       </label>
       <div className="relative flex items-center">
         <input
@@ -201,7 +213,7 @@ export function AuthPasswordField({
           }}
           className="field-control pr-12 text-sm"
         />
-        <PasswordVisibilityToggle showPassword={showPassword} onToggle={onToggleVisibility} />
+        <PasswordVisibilityToggle showPassword={showPassword} onToggle={onToggleVisibility} t={t} />
       </div>
     </div>
   );

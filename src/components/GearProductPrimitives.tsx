@@ -7,7 +7,8 @@ import {
   buildTata1mgUrl,
   type PurifierCatalogItem,
 } from '../config/gearCatalog.js';
-import type { LocaleDictionary } from '../i18n/translations.js';
+import { GEAR_CATALOG_COPY } from '../i18n/gearCatalogCopy.js';
+import { TRANSLATIONS, type LocaleDictionary } from '../i18n/translations.js';
 
 export interface CardShellProps {
   readonly name: string;
@@ -28,13 +29,13 @@ export function buildPurifierCadrNote(
   item: PurifierCatalogItem,
   chosenCadr: number,
   requiredCadr: number,
+  t: LocaleDictionary = TRANSLATIONS.en,
 ): string {
-  const delta = item.cadrM3Hr - chosenCadr;
-  const deltaText =
-    delta >= 0
-      ? `+${String(delta)} m3/h above your ${String(chosenCadr)} m3/h chosen CADR`
-      : `${String(Math.abs(delta))} m3/h below your ${String(chosenCadr)} m3/h chosen CADR`;
-  return `For your ${String(chosenCadr)} m3/h chosen CADR (room 4.8 ACH target: ${String(requiredCadr)} m3/h), you can go for this ${String(item.cadrM3Hr)} m3/h purifier (${deltaText}).`;
+  return GEAR_CATALOG_COPY[t.locale].formatPurifierCadrNote(
+    item.cadrM3Hr,
+    chosenCadr,
+    requiredCadr,
+  );
 }
 
 export function ShopLinkChip(props: {

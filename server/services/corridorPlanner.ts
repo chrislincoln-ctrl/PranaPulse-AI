@@ -7,6 +7,7 @@ import { resolveDirectionalCorridor } from '../../src/config/cityDirectionalWayp
 import { APP_META, VALIDATION_BOUNDS } from '../../src/config/constants.js';
 import { SLIDER_LIMITS } from '../../src/config/uiConstants.js';
 import type { CommuteModeId, CorridorNodeId } from '../../src/domain/types.js';
+import { UI_CHROME_COPY } from '../../src/i18n/authAndUiCopy.js';
 import { sanitizeUserText } from '../../src/utils/inputSanitizer.js';
 import type { SupportedLanguage } from '../../src/validators/schemas.js';
 import type { ServerEnv } from '../env.js';
@@ -101,10 +102,14 @@ function buildDirectionalOrPresetNodes(req: CorridorPlanRequest) {
     'home-sector': fromClean,
     'civic-hub': toClean,
   };
-  const modeSummary =
-    req.commuteMode === 'metro'
-      ? `Metro corridor from ${fromClean} to ${toClean} bypasses higher-PM2.5 arterial traffic at ${nodes['arterial-junction']} & ${nodes['ring-flyover']}. Verify stations via Google Maps.`
-      : `Cleanest surface road route from ${fromClean} to ${toClean} follows ${nodes['green-parkway']}, avoiding high-exhaust ${nodes['arterial-junction']} & ${nodes['ring-flyover']}.`;
+  const ui = UI_CHROME_COPY[req.language];
+  const tmpl = req.commuteMode === 'metro' ? ui.corridorMetroFallback : ui.corridorSurfaceFallback;
+  const modeSummary = tmpl
+    .replace('{from}', fromClean)
+    .replace('{to}', toClean)
+    .replace('{green}', nodes['green-parkway'])
+    .replace('{jct}', nodes['arterial-junction'])
+    .replace('{fly}', nodes['ring-flyover']);
   return {
     nodes,
     distanceKm: DEFAULT_DISTANCE_KM,
@@ -129,7 +134,7 @@ function buildFallbackResponse(req: CorridorPlanRequest, isValid: boolean): Corr
   });
   const routeSummary = isValid
     ? resolved.summary
-    : 'The entered origin or destination does not match a valid connected locality in this city. Please enter two genuine areas.';
+    : UI_CHROME_COPY[req.language].corridorInvalidFallback;
 
   return {
     isValid,

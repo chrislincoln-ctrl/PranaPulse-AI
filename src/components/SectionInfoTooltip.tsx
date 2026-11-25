@@ -2,51 +2,12 @@ import { Info } from 'lucide-react';
 import { memo, useCallback, useEffect, useId, useRef, useState, type ReactElement } from 'react';
 import { createPortal } from 'react-dom';
 import type { WorkbenchTabId } from '../config/uiConstants.js';
+import type { SectionGuideInfo } from '../i18n/authAndUiCopy.js';
+import { TRANSLATIONS, type LocaleDictionary } from '../i18n/translations.js';
 
-export interface SectionGuideInfo {
-  readonly badge: string;
-  readonly title: string;
-  readonly summary: string;
-}
+export type { SectionGuideInfo };
 
-export const SECTION_JUDGE_GUIDES: Readonly<Record<WorkbenchTabId, SectionGuideInfo>> = {
-  dashboard: {
-    badge: 'Section 1 · Telemetry',
-    title: 'Live Atmospheric & Smog Dashboard',
-    summary:
-      'Cross-checks live ground air monitors (OpenAQ v3 & WAQI), 24h boundary-layer inversion forecasts (Open-Meteo), and 500km NASA FIRMS fire plumes to show CPCB NAQI, US-EPA AQI, and safe window-airing hours for any GPS location.',
-  },
-  routine: {
-    badge: 'Section 2 · Household',
-    title: 'Family Routine & Personalized Care',
-    summary:
-      'Computes per-member inhaled PM2.5 dose (ug/day) for children, seniors, and commuters, builds individualized 4-step daily schedules, and syncs edits live with Telegram and 1-tap WhatsApp briefs.',
-  },
-  indoor: {
-    badge: 'Section 3 · Physics',
-    title: 'Indoor Mass-Balance & CADR Clearance',
-    summary:
-      'Models 24h indoor vs. outdoor PM2.5 infiltration from room area, window tightness, cooking fuel, and HEPA purifier CADR (4.8 ACH target) to compute exact 90% purge time and exposure reduction.',
-  },
-  commute: {
-    badge: 'Section 4 · Mobility',
-    title: 'Low-Exposure Commute & Corridor Router',
-    summary:
-      'Compares 7 transit modes on inhaled PM2.5 dose vs. CO2 emissions to find Pareto-optimal commutes, and plans lower-exposure origin-to-destination city routes with direct Google Maps links.',
-  },
-  gear: {
-    badge: 'Section 5 · Protection',
-    title: 'Masks, HEPA Purifiers & DIY Alternatives',
-    summary:
-      'Compares mask filtration efficiency (N95/FFP2, surgical, cloth), calculates exact HEPA CADR or DIY MERV-13 Corsi-Rosenthal box sizing for your room, and surfaces matched buying options.',
-  },
-  community: {
-    badge: 'Section 6 · Collective',
-    title: 'RWA Neighborhood Impact & Notice',
-    summary:
-      'Simulates daily CO2 and PM2.5 avoided when housing-society homes adopt shared transit and halt open leaf burning, and builds a ready-to-share multilingual WhatsApp RWA notice.',
-  },
-};
+export const SECTION_JUDGE_GUIDES = TRANSLATIONS.en.sectionGuides;
 
 const TOOLTIP_WIDTH_PX = 288;
 const VIEWPORT_MARGIN_PX = 12;
@@ -136,8 +97,10 @@ function useAnchorTooltip<T extends HTMLElement>() {
  */
 export const TabInfoIcon = memo(function TabInfoIcon({
   tabId,
+  t = TRANSLATIONS.en,
 }: {
   readonly tabId: WorkbenchTabId;
+  readonly t?: LocaleDictionary;
 }): ReactElement {
   const tipId = useId();
   const { anchorRef, coords, open, close } = useAnchorTooltip<HTMLSpanElement>();
@@ -152,7 +115,7 @@ export const TabInfoIcon = memo(function TabInfoIcon({
       >
         <Info className="h-3 w-3" />
       </span>
-      <TooltipCardPortal id={tipId} guide={SECTION_JUDGE_GUIDES[tabId]} coords={coords} />
+      <TooltipCardPortal id={tipId} guide={t.sectionGuides[tabId]} coords={coords} />
     </>
   );
 });
@@ -164,20 +127,23 @@ export const TabInfoIcon = memo(function TabInfoIcon({
 export const SectionInfoButton = memo(function SectionInfoButton({
   tabId,
   sectionLabel,
+  t = TRANSLATIONS.en,
 }: {
   readonly tabId: WorkbenchTabId;
   readonly sectionLabel: string;
+  readonly t?: LocaleDictionary;
 }): ReactElement {
   const tipId = useId();
   const { anchorRef, coords, open, close } = useAnchorTooltip<HTMLButtonElement>();
   const isOpen = coords !== null;
+  const ariaLabel = t.ui.sectionInfoAriaTemplate.replace('{section}', sectionLabel);
 
   return (
     <>
       <button
         ref={anchorRef}
         type="button"
-        aria-label={`What ${sectionLabel} does`}
+        aria-label={ariaLabel}
         aria-describedby={isOpen ? tipId : undefined}
         onMouseEnter={open}
         onMouseLeave={close}
@@ -194,7 +160,7 @@ export const SectionInfoButton = memo(function SectionInfoButton({
       >
         <Info className="h-4 w-4" aria-hidden="true" />
       </button>
-      <TooltipCardPortal id={tipId} guide={SECTION_JUDGE_GUIDES[tabId]} coords={coords} />
+      <TooltipCardPortal id={tipId} guide={t.sectionGuides[tabId]} coords={coords} />
     </>
   );
 });

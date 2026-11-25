@@ -4,7 +4,43 @@ import type {
   DynamicIndoorGuidance,
   DynamicPlantRecommendation,
 } from '../config/indoorGuidanceResolver.js';
+import type { IndoorClearanceSummary } from '../domain/types.js';
 import type { LocaleDictionary } from '../i18n/translations.js';
+
+export function buildIndoorMetricCells(
+  indoor: IndoorClearanceSummary,
+  guidance: DynamicIndoorGuidance,
+  t: LocaleDictionary,
+) {
+  const surcharge = guidance.envelopeCadrSurcharge + guidance.fuelCadrSurcharge;
+  const ach = String(guidance.infiltrationAch);
+  const sub =
+    surcharge > 0
+      ? t.ui.indoorBaseSurchargeTemplate
+          .replace('{base}', String(indoor.requiredCadr48Ach))
+          .replace('{surcharge}', String(surcharge))
+      : t.ui.indoorOptimalSealTemplate.replace('{ach}', ach);
+  return [
+    {
+      label: t.targetCadrLabel,
+      value: `${String(guidance.effectiveTargetCadr)} m3/h`,
+      sub,
+      tone: 'text-accent',
+    },
+    {
+      label: t.achievedAchLabel,
+      value: `${String(indoor.achievedAch)} ACH`,
+      sub: t.ui.indoorInfiltrationTemplate.replace('{ach}', ach),
+      tone: 'text-cool',
+    },
+    {
+      label: t.purgeTimeLabel,
+      value: `${String(indoor.purge90Minutes)} ${t.unitMin}`,
+      sub: t.ui.indoorCookingLoadTemplate.replace('{load}', String(guidance.cookingEmissionUgHr)),
+      tone: 'text-ink',
+    },
+  ];
+}
 
 export interface IndoorGuidancePanelsProps {
   readonly guidance: DynamicIndoorGuidance;
@@ -76,8 +112,9 @@ export function IndoorGuidancePanels({ guidance, t }: IndoorGuidancePanelsProps)
             <span>{t.crGuideTitle}</span>
           </div>
           <span className="measured rounded border border-rule bg-paper-2 px-2 py-0.5 text-xs font-semibold text-accent">
-            {String(guidance.crBoxesNeeded)}x DIY Box · Target{' '}
-            {String(guidance.effectiveTargetCadr)} m3/h
+            {t.ui.indoorDiyBadgeTemplate
+              .replace('{count}', String(guidance.crBoxesNeeded))
+              .replace('{cadr}', String(guidance.effectiveTargetCadr))}
           </span>
         </div>
         <p className="mt-1.5 text-sm text-ink-2">{guidance.diySpecSummary}</p>

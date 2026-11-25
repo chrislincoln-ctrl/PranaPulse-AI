@@ -93,7 +93,7 @@ function ShareActionButtons(p: {
         className="btn-secondary inline-flex items-center gap-1 px-2.5 py-1 text-xs text-ink-2"
       >
         <PreviewIcon className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
-        <span>WhatsApp Brief</span>
+        <span>{p.t.ui.whatsappBriefPreviewButton}</span>
       </button>
     </div>
   );

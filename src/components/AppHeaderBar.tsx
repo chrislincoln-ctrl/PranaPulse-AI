@@ -86,15 +86,17 @@ function LanguageSelectControl({
 
 function BrandLogoButton({
   onReturnLanding,
+  returnSuffix,
 }: {
   readonly onReturnLanding: () => void;
+  readonly returnSuffix: string;
 }): ReactElement {
   return (
     <button
       type="button"
       onClick={onReturnLanding}
       className="group flex shrink-0 cursor-pointer items-center gap-1.5 text-left transition-opacity hover:opacity-85 focus:outline-hidden sm:gap-3"
-      aria-label={`${APP_META.DISPLAY_NAME} - Return to landing page`}
+      aria-label={`${APP_META.DISPLAY_NAME} - ${returnSuffix}`}
     >
       <Wind
         className="h-5 w-5 shrink-0 text-cool transition-transform group-hover:scale-105 sm:h-6 sm:w-6"
@@ -119,6 +121,7 @@ export const AppHeaderBar = memo(function AppHeaderBar(props: AppHeaderBarProps)
           onReturnLanding={() => {
             props.onToggleViewMode('landing');
           }}
+          returnSuffix={props.t.ui.returnToLandingSuffix}
         />
         <div className="flex shrink-0 items-center gap-1 sm:gap-3">
           <span className="status-pill hidden text-ink-2 lg:inline-flex">
@@ -143,6 +146,7 @@ export const AppHeaderBar = memo(function AppHeaderBar(props: AppHeaderBarProps)
             user={props.authUser}
             isInitializing={props.authInitializing}
             onOpenModal={props.onOpenAuthModal}
+            t={props.t}
           />
         </div>
       </div>

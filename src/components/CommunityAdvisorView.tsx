@@ -33,11 +33,11 @@ function formatBulletinText(
   const ventAdvice = telemetry.inversion.openWindowsNow ? t.openWindowsYes : t.openWindowsNo;
   const cityLabel = t.cityNames[telemetry.city] ?? telemetry.city;
   return [
-    `${t.appTitle}: ${cityLabel} RWA Notice`,
+    `${t.appTitle}: ${cityLabel} ${t.ui.rwaNoticeSuffix}`,
     `CPCB NAQI: ${String(safeAqi)} (${t.cpcbCategories[telemetry.assessment.cpcbCategory]})`,
     ventAdvice,
     `${t.householdsLabel}: ${String(rwa.householdsParticipating)} | ${t.co2SavedDailyLabel}: ${String(rwa.dailyCo2SavedKg)} kg | ${t.pm25AvoidedDailyLabel}: ${String(rwa.dailyPm25AvoidedG)} g`,
-    `Lang: ${input.language.toUpperCase()}`,
+    `${t.ui.rwaLanguagePrefix}: ${t.languageNames[input.language]}`,
   ].join('\n');
 }
 

@@ -172,7 +172,7 @@ export const InversionChartSvg = memo(function InversionChartSvg({
       />
       <SrDataTable
         caption={t.chartTableCaption}
-        headers={['Hour', 'PM2.5 ug/m3', 'PBL m', 'Wind km/h']}
+        headers={[t.ui.srTableHour, 'PM2.5 ug/m3', 'PBL m', t.ui.srTableWindKmh]}
         rows={hourlySeries.map((pt) => [
           `${String(pt.hourOfDay).padStart(2, '0')}:00`,
           pt.pm25UgM3,

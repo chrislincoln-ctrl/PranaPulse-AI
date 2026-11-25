@@ -3,6 +3,7 @@
  * All three locales share the exact same strict TypeScript interface.
  */
 
+import type { WorkbenchTabId } from '../config/uiConstants.js';
 import type {
   BuildingTightness,
   CommuteModeId,
@@ -16,8 +17,18 @@ import type {
   MemberRoutineArchetype,
 } from '../domain/types.js';
 import type { SupportedLanguage } from '../validators/schemas.js';
+import {
+  AUTH_COPY,
+  SECTION_GUIDES_COPY,
+  UI_CHROME_COPY,
+  type AuthLocalePack,
+  type SectionGuideInfo,
+  type UiChromeLocalePack,
+} from './authAndUiCopy.js';
+import { LANDING_COPY, type LandingLocalePack } from './landingCopy.js';
 
 export interface LocaleDictionary {
+  readonly locale: SupportedLanguage;
   readonly skipLink: string;
   readonly appTitle: string;
   readonly themeLightLabel: string;
@@ -223,9 +234,14 @@ export interface LocaleDictionary {
   readonly companionChatGpsAttached: string;
   readonly companionChatUpdatedBadge: string;
   readonly companionChatChips: readonly string[];
+  readonly landing: LandingLocalePack;
+  readonly auth: AuthLocalePack;
+  readonly sectionGuides: Readonly<Record<WorkbenchTabId, SectionGuideInfo>>;
+  readonly ui: UiChromeLocalePack;
 }
 
 const en: LocaleDictionary = {
+  locale: 'en',
   skipLink: 'Skip to main content',
   appTitle: 'PranaPulse AI',
   themeLightLabel: 'Light mode',
@@ -534,9 +550,14 @@ const en: LocaleDictionary = {
     'My new timing is 08:00 to 15:30 via metro',
     'Mild asthma today, can I sit on the terrace this afternoon?',
   ],
+  landing: LANDING_COPY.en,
+  auth: AUTH_COPY.en,
+  sectionGuides: SECTION_GUIDES_COPY.en,
+  ui: UI_CHROME_COPY.en,
 };
 
 const hi: LocaleDictionary = {
+  locale: 'hi',
   skipLink: 'मुख्य सामग्री पर जाएं',
   appTitle: 'PranaPulse AI',
   themeLightLabel: 'लाइट मोड',
@@ -840,9 +861,14 @@ const hi: LocaleDictionary = {
     'मेरा नया समय सुबह 08:00 से शाम 15:30 मेट्रो से है',
     'आज हल्का अस्थमा है, क्या दोपहर बालकनी में बैठना सुरक्षित है?',
   ],
+  landing: LANDING_COPY.hi,
+  auth: AUTH_COPY.hi,
+  sectionGuides: SECTION_GUIDES_COPY.hi,
+  ui: UI_CHROME_COPY.hi,
 };
 
 const ta: LocaleDictionary = {
+  locale: 'ta',
   skipLink: 'முதன்மை உள்ளடக்கத்திற்குச் செல்லவும்',
   appTitle: 'PranaPulse AI',
   themeLightLabel: 'பகல் முறை',
@@ -1150,6 +1176,10 @@ const ta: LocaleDictionary = {
     'என் புதிய நேரம் 08:00 முதல் 15:30 மெட்ரோ மூலம்',
     'இன்று லேசான ஆஸ்துமா உள்ளது, மதியம் பால்கனியில் அமரலாமா?',
   ],
+  landing: LANDING_COPY.ta,
+  auth: AUTH_COPY.ta,
+  sectionGuides: SECTION_GUIDES_COPY.ta,
+  ui: UI_CHROME_COPY.ta,
 };
 
 export const TRANSLATIONS: Record<SupportedLanguage, LocaleDictionary> = {

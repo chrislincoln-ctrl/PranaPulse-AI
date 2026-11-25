@@ -1,6 +1,7 @@
 import { AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { memo, useEffect, useState, type ReactElement } from 'react';
 import type { SupabaseAuthController } from '../hooks/useSupabaseAuth.js';
+import { TRANSLATIONS, type LocaleDictionary } from '../i18n/translations.js';
 import type { PlanRequestPayload } from '../validators/schemas.js';
 import { AccountProfileSection } from './AccountProfileSection.js';
 import { AuthFormSection, type AuthMode } from './AuthFormSection.js';
@@ -13,19 +14,20 @@ export interface AuthModalProps {
   readonly onClose: () => void;
   readonly onSignedInSuccess?: () => void;
   readonly onContinueAsGuest?: () => void;
+  readonly t?: LocaleDictionary;
 }
 
-function getModalTitle(isSignedIn: boolean, mode: AuthMode): string {
+function getModalTitle(isSignedIn: boolean, mode: AuthMode, t: LocaleDictionary): string {
   if (isSignedIn) {
-    return 'Cloud account & sync';
+    return t.auth.titleSignedIn;
   }
   if (mode === 'signup') {
-    return 'Create your telemetry account';
+    return t.auth.titleSignUp;
   }
   if (mode === 'reset') {
-    return 'Reset account password';
+    return t.auth.titleReset;
   }
-  return 'Sign in to PranaPulse AI';
+  return t.auth.titleSignIn;
 }
 
 function FeedbackBanners({
@@ -65,9 +67,11 @@ function FeedbackBanners({
 function AuthModalHeader({
   title,
   onClose,
+  t,
 }: {
   readonly title: string;
   readonly onClose: () => void;
+  readonly t: LocaleDictionary;
 }): ReactElement {
   return (
     <div className="auth-modal-banner">
@@ -79,7 +83,7 @@ function AuthModalHeader({
               <span className="relative inline-flex h-2 w-2 rounded-full bg-ok" />
             </span>
             <span className="measured text-[10px] font-semibold tracking-[0.08em] text-ink uppercase sm:text-[11px] sm:tracking-[0.14em]">
-              Supabase Auth · Cloud Sync
+              {t.auth.modalBadge}
             </span>
           </div>
           <h2 id="auth-modal-title" className="text-xl font-bold tracking-tight text-ink">
@@ -90,7 +94,7 @@ function AuthModalHeader({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close sign-in dialog"
+          aria-label={t.auth.closeDialogAria}
           className="btn-secondary touch-target inline-flex items-center justify-center px-2.5"
         >
           <X className="h-4 w-4" aria-hidden="true" />
@@ -120,33 +124,33 @@ function useModalDismissEffect(isOpen: boolean, onClose: () => void): void {
   }, [isOpen, onClose]);
 }
 
-function AuthModalBody({
-  auth,
-  workspaceInput,
-  mode,
-  onChangeMode,
-  onSignedIn,
-  onGuest,
-}: {
+function AuthModalBody(p: {
   readonly auth: SupabaseAuthController;
   readonly workspaceInput: PlanRequestPayload;
   readonly mode: AuthMode;
   readonly onChangeMode: (next: AuthMode) => void;
   readonly onSignedIn: () => void;
   readonly onGuest?: (() => void) | undefined;
+  readonly t: LocaleDictionary;
 }): ReactElement {
   return (
     <div className="space-y-4 p-4 sm:p-6">
-      <FeedbackBanners errorMessage={auth.errorMessage} noticeMessage={auth.noticeMessage} />
-      {auth.user ? (
-        <AccountProfileSection user={auth.user} auth={auth} workspaceInput={workspaceInput} />
+      <FeedbackBanners errorMessage={p.auth.errorMessage} noticeMessage={p.auth.noticeMessage} />
+      {p.auth.user ? (
+        <AccountProfileSection
+          user={p.auth.user}
+          auth={p.auth}
+          workspaceInput={p.workspaceInput}
+          t={p.t}
+        />
       ) : (
         <AuthFormSection
-          auth={auth}
-          mode={mode}
-          onChangeMode={onChangeMode}
-          onSignedInSuccess={onSignedIn}
-          onContinueAsGuest={onGuest}
+          auth={p.auth}
+          mode={p.mode}
+          onChangeMode={p.onChangeMode}
+          onSignedInSuccess={p.onSignedIn}
+          onContinueAsGuest={p.onGuest}
+          t={p.t}
         />
       )}
     </div>
@@ -170,14 +174,8 @@ function wrapCloseAction(
  * Accessible Supabase Auth & Cloud Profile modal styled to match the PranaPulse AI
  * telemetry console in both Light and Dark modes.
  */
-export const AuthModal = memo(function AuthModal({
-  isOpen,
-  auth,
-  workspaceInput,
-  onClose,
-  onSignedInSuccess,
-  onContinueAsGuest,
-}: AuthModalProps): ReactElement | null {
+export const AuthModal = memo(function AuthModal(props: AuthModalProps): ReactElement | null {
+  const { isOpen, auth, workspaceInput, onClose, t = TRANSLATIONS.en } = props;
   const [mode, setMode] = useState<AuthMode>('signin');
   useModalDismissEffect(isOpen, onClose);
   if (!isOpen) {
@@ -185,7 +183,7 @@ export const AuthModal = memo(function AuthModal({
   }
   const handleSignedIn = (): void => {
     onClose();
-    onSignedInSuccess?.();
+    props.onSignedInSuccess?.();
   };
 
   return (
@@ -204,14 +202,19 @@ export const AuthModal = memo(function AuthModal({
         className="auth-dialog z-10"
       >
         <CornerReticles />
-        <AuthModalHeader title={getModalTitle(Boolean(auth.user), mode)} onClose={onClose} />
+        <AuthModalHeader
+          title={getModalTitle(Boolean(auth.user), mode, t)}
+          onClose={onClose}
+          t={t}
+        />
         <AuthModalBody
           auth={auth}
           workspaceInput={workspaceInput}
           mode={mode}
           onChangeMode={setMode}
           onSignedIn={handleSignedIn}
-          onGuest={wrapCloseAction(onClose, onContinueAsGuest)}
+          onGuest={wrapCloseAction(onClose, props.onContinueAsGuest)}
+          t={t}
         />
       </div>
     </div>

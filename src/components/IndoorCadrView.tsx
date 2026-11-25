@@ -19,7 +19,11 @@ import {
 import type { PlanRequestPayload } from '../validators/schemas.js';
 import { ChartGridAndTicks } from './ChartGridAndTicks.js';
 import { HousingEnvelopeSelects, RangeField } from './FormFields.js';
-import { IndoorGuidancePanels, WinterPlantsShowcase } from './IndoorGuidancePanels.js';
+import {
+  buildIndoorMetricCells,
+  IndoorGuidancePanels,
+  WinterPlantsShowcase,
+} from './IndoorGuidancePanels.js';
 import { RadialGaugeSvg } from './RadialGaugeSvg.js';
 import { SrDataTable } from './SrDataTable.js';
 
@@ -28,37 +32,6 @@ export interface IndoorCadrViewProps {
   readonly indoor: IndoorClearanceSummary;
   readonly onUpdateInput: (patch: Partial<PlanRequestPayload>) => void;
   readonly t: LocaleDictionary;
-}
-
-function buildIndoorMetricCells(
-  indoor: IndoorClearanceSummary,
-  guidance: DynamicIndoorGuidance,
-  t: LocaleDictionary,
-) {
-  const surcharge = guidance.envelopeCadrSurcharge + guidance.fuelCadrSurcharge;
-  return [
-    {
-      label: t.targetCadrLabel,
-      value: `${String(guidance.effectiveTargetCadr)} m3/h`,
-      sub:
-        surcharge > 0
-          ? `Base ${String(indoor.requiredCadr48Ach)} + ${String(surcharge)} seal/fuel`
-          : `Optimal seal & induction (${String(guidance.infiltrationAch)} ACH)`,
-      tone: 'text-accent',
-    },
-    {
-      label: t.achievedAchLabel,
-      value: `${String(indoor.achievedAch)} ACH`,
-      sub: `Infiltration: ${String(guidance.infiltrationAch)} ACH`,
-      tone: 'text-cool',
-    },
-    {
-      label: t.purgeTimeLabel,
-      value: `${String(indoor.purge90Minutes)} ${t.unitMin}`,
-      sub: `Cooking load: ${String(guidance.cookingEmissionUgHr)} ug/h`,
-      tone: 'text-ink',
-    },
-  ];
 }
 
 function IndoorMetricsGrid({
@@ -155,6 +128,12 @@ function IndoorTrajectorySvg({
   readonly indoor: IndoorClearanceSummary;
   readonly t: LocaleDictionary;
 }): ReactElement {
+  const headers = [
+    t.ui.srTableHour,
+    t.ui.srTableOutdoorPm25,
+    t.ui.srTableUnfilteredIndoor,
+    t.ui.srTableMitigatedIndoor,
+  ];
   return (
     <figure className="surface-hairline p-4">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -175,7 +154,7 @@ function IndoorTrajectorySvg({
       </svg>
       <SrDataTable
         caption={t.indoorChartTitle}
-        headers={['Hour', 'Outdoor PM2.5', 'Unfiltered Indoor PM2.5', 'Mitigated Indoor PM2.5']}
+        headers={headers}
         rows={indoor.hourly.map((pt) => [
           `${String(pt.hourIndex).padStart(2, '0')}:00`,
           pt.outdoorPm25,
@@ -187,11 +166,7 @@ function IndoorTrajectorySvg({
   );
 }
 
-function IndoorSlidersAndSelects({
-  input,
-  onUpdateInput,
-  t,
-}: {
+function IndoorSlidersAndSelects(p: {
   readonly input: PlanRequestPayload;
   readonly onUpdateInput: (patch: Partial<PlanRequestPayload>) => void;
   readonly t: LocaleDictionary;
@@ -200,29 +175,34 @@ function IndoorSlidersAndSelects({
     <div className="mt-4 space-y-4">
       <RangeField
         id="room-area-range"
-        label={t.roomAreaLabel}
-        valueText={`${String(input.areaM2)} m2`}
+        label={p.t.roomAreaLabel}
+        valueText={`${String(p.input.areaM2)} m2`}
         min={SLIDER_LIMITS.ROOM_AREA_MIN}
         max={SLIDER_LIMITS.ROOM_AREA_MAX}
         step={SLIDER_LIMITS.ROOM_AREA_STEP}
-        value={input.areaM2}
+        value={p.input.areaM2}
         onChangeValue={(areaM2) => {
-          onUpdateInput({ areaM2 });
+          p.onUpdateInput({ areaM2 });
         }}
       />
       <RangeField
         id="cadr-range"
-        label={t.cadrLabel}
-        valueText={`${String(input.cadrM3Hr)} m3/h`}
+        label={p.t.cadrLabel}
+        valueText={`${String(p.input.cadrM3Hr)} m3/h`}
         min={SLIDER_LIMITS.CADR_MIN}
         max={SLIDER_LIMITS.CADR_MAX}
         step={SLIDER_LIMITS.CADR_STEP}
-        value={input.cadrM3Hr}
+        value={p.input.cadrM3Hr}
         onChangeValue={(cadrM3Hr) => {
-          onUpdateInput({ cadrM3Hr });
+          p.onUpdateInput({ cadrM3Hr });
         }}
       />
-      <HousingEnvelopeSelects idPrefix="indoor" input={input} onUpdateInput={onUpdateInput} t={t} />
+      <HousingEnvelopeSelects
+        idPrefix="indoor"
+        input={p.input}
+        onUpdateInput={p.onUpdateInput}
+        t={p.t}
+      />
     </div>
   );
 }

@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { MASK_CATALOG, PURIFIER_CATALOG } from '../../src/config/gearCatalog.js';
+import { resolveDynamicIndoorGuidance } from '../../src/config/indoorGuidanceResolver.js';
 import { DEFAULT_WORKSPACE_INPUT } from '../../src/config/uiConstants.js';
 import {
   buildDeterministicChatChunks,
   buildDeterministicFallbackPlan,
 } from '../../src/domain/fallbackPlanBuilder.js';
 import { buildInitialWorkspaceBundle } from '../../src/domain/localBaseline.js';
+import { GEAR_CATALOG_COPY } from '../../src/i18n/gearCatalogCopy.js';
 import { TRANSLATIONS } from '../../src/i18n/translations.js';
 import type { SupportedLanguage } from '../../src/validators/schemas.js';
 
@@ -95,6 +98,35 @@ describe('Multilingual localization parity (EN / HI / TA)', () => {
       }).join('');
       expect(chat).not.toContain('Keep windows sealed for now');
       expect(chat).toContain('ug/m3');
+    }
+  });
+
+  it('localizes dynamic indoor guidance, winter plants, and full mask/purifier catalogs for HI and TA', () => {
+    const baseBundle = buildInitialWorkspaceBundle(DEFAULT_WORKSPACE_INPUT);
+
+    for (const lang of ['hi', 'ta'] as const) {
+      const t = TRANSLATIONS[lang];
+      const guidance = resolveDynamicIndoorGuidance(
+        { ...DEFAULT_WORKSPACE_INPUT, language: lang },
+        baseBundle.indoor,
+        t,
+      );
+      const serialized = JSON.stringify(guidance);
+      expect(serialized).not.toContain('Window seal');
+      expect(serialized).not.toContain('Matched to ');
+      expect(serialized).not.toContain('Envelope leakage alert');
+      expect(serialized).not.toContain('Supplementary Bedroom');
+      expect(serialized).not.toContain('—');
+
+      const gearPack = GEAR_CATALOG_COPY[lang];
+      for (const mask of MASK_CATALOG) {
+        expect(gearPack.masks[mask.id]?.bestFor.trim().length).toBeGreaterThan(0);
+        expect(gearPack.masks[mask.id]?.fitStyle.trim().length).toBeGreaterThan(0);
+      }
+      for (const purifier of PURIFIER_CATALOG) {
+        expect(gearPack.purifiers[purifier.id]?.bestFor.trim().length).toBeGreaterThan(0);
+        expect(gearPack.purifiers[purifier.id]?.filterGrade.trim().length).toBeGreaterThan(0);
+      }
     }
   });
 });
