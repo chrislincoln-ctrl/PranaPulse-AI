@@ -238,6 +238,7 @@ export async function planCityCorridor(
     city: req.city,
     fromArea: req.fromArea,
     toArea: req.toArea,
+    commuteMode: req.commuteMode,
   });
   if (directional?.matchedBoth || !env.GEMINI_API_KEY) {
     return buildFallbackResponse(req, true);

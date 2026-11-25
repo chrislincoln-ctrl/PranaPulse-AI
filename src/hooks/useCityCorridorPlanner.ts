@@ -33,10 +33,17 @@ async function fetchCorridorPlan(
   signal?: AbortSignal,
 ): Promise<CorridorPlanFeedback | null> {
   try {
+    const body: CorridorLookupInput = {
+      city: payload.city,
+      commuteMode: payload.commuteMode,
+      language: payload.language,
+      fromArea: payload.fromArea,
+      toArea: payload.toArea,
+    };
     const res = await fetch('/api/corridor-plan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body),
       ...(signal ? { signal } : {}),
     });
     return res.ok ? ((await res.json()) as CorridorPlanFeedback) : null;
@@ -188,7 +195,8 @@ export function useCityCorridorPlanner(params: {
   readonly onUpdateDistanceKm: (km: number) => void;
   readonly t: LocaleDictionary;
 }) {
-  const initial = resolveCityCorridorPreset(params.city, params.t.corridorNodes);
+  const { city, commuteMode, language, onUpdateDistanceKm, t } = params;
+  const initial = resolveCityCorridorPreset(city, t.corridorNodes);
   const [state, setState] = useState<CorridorPlannerState>({
     fromArea: initial.defaultFrom,
     toArea: initial.defaultTo,
@@ -197,8 +205,7 @@ export function useCityCorridorPlanner(params: {
     loading: false,
   });
   const abortBox = useRef<{ ctrl: AbortController | null }>({ ctrl: null });
-
-  useCorridorResetEffects(params.city, params.commuteMode, params.t, { abortBox, setState });
+  useCorridorResetEffects(city, commuteMode, t, { abortBox, setState });
 
   const bindArea = (field: 'fromArea' | 'toArea') => (val: string) => {
     abortBox.current.ctrl?.abort();
@@ -220,12 +227,8 @@ export function useCityCorridorPlanner(params: {
     setFromArea: bindArea('fromArea'),
     setToArea: bindArea('toArea'),
     runCorridorPlan: () => {
-      startCorridorPlan({
-        req: { ...params, fromArea: state.fromArea, toArea: state.toArea },
-        abortBox,
-        setState,
-        onUpdateDistanceKm: params.onUpdateDistanceKm,
-      });
+      const req = { city, commuteMode, language, fromArea: state.fromArea, toArea: state.toArea };
+      startCorridorPlan({ req, abortBox, setState, onUpdateDistanceKm });
     },
   };
 }
