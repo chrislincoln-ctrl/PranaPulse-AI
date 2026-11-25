@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import axe from 'axe-core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LandingPageView } from '../../src/components/LandingPageView.js';
@@ -83,7 +83,10 @@ describe('Landing Page showcase, WCAG 2.2 AA accessibility & outdoor duration de
     const lightAxe = await axe.run(container, { rules: { 'color-contrast': { enabled: false } } });
     expect(lightAxe.violations).toHaveLength(0);
 
-    document.documentElement.dataset.mode = 'dark';
+    await act(async () => {
+      document.documentElement.dataset.mode = 'dark';
+      await Promise.resolve();
+    });
     const darkAxe = await axe.run(container, { rules: { 'color-contrast': { enabled: false } } });
     expect(darkAxe.violations).toHaveLength(0);
   });

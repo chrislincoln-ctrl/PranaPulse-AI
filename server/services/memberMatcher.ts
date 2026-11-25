@@ -119,32 +119,30 @@ export function memberShortName(label: string): string {
   return head && head.length > 0 ? head : label;
 }
 
-const MEMBER_PATCH_KEYS: readonly (keyof FamilyMemberInput)[] = [
-  'label',
-  'role',
-  'dailyOutdoorHours',
-  'leaveHomeTime',
-  'returnHomeTime',
-  'commuteMode',
-  'mask',
-  'healthNotes',
-  'dailyHabitsNote',
-  'archetype',
-];
+function buildOptionalMemberPatch(patch: ProfileHabitPatch): Partial<FamilyMemberInput> {
+  return {
+    ...(patch.leaveHomeTime !== undefined ? { leaveHomeTime: patch.leaveHomeTime } : {}),
+    ...(patch.returnHomeTime !== undefined ? { returnHomeTime: patch.returnHomeTime } : {}),
+    ...(patch.commuteMode !== undefined ? { commuteMode: patch.commuteMode } : {}),
+    ...(patch.healthNotes !== undefined ? { healthNotes: patch.healthNotes } : {}),
+    ...(patch.dailyHabitsNote !== undefined ? { dailyHabitsNote: patch.dailyHabitsNote } : {}),
+    ...(patch.archetype !== undefined ? { archetype: patch.archetype } : {}),
+  };
+}
 
 /** Applies all defined member-level patch fields onto a FamilyMemberInput without clobbering existing fields. */
 export function applyMemberHabitPatch(
   member: FamilyMemberInput,
-  patch: Partial<Record<string, unknown>>,
+  patch: ProfileHabitPatch,
 ): FamilyMemberInput {
-  const next: Record<string, unknown> = { ...member };
-  for (const key of MEMBER_PATCH_KEYS) {
-    const val = patch[key];
-    if (val !== undefined) {
-      next[key] = val;
-    }
-  }
-  return next as unknown as FamilyMemberInput;
+  return {
+    ...member,
+    label: patch.label ?? member.label,
+    role: patch.role ?? member.role,
+    dailyOutdoorHours: patch.dailyOutdoorHours ?? member.dailyOutdoorHours,
+    mask: patch.mask ?? member.mask,
+    ...buildOptionalMemberPatch(patch),
+  };
 }
 
 function summarizeIdentityNotes(

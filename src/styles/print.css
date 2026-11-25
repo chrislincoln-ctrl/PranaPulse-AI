@@ -1,0 +1,126 @@
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  :root,
+  :root[data-mode='dark'] {
+    color-scheme: light !important;
+    --color-paper: #ffffff;
+    --color-paper-2: #ffffff;
+    --color-paper-3: #f3f4f6;
+    --color-ink: #0a0f1a;
+    --color-ink-2: #1f2937;
+    --color-muted: #374151;
+    --color-rule: #cbd5e1;
+    --color-rule-2: #64748b;
+    --color-accent: #9a3412;
+    --color-accent-ink: #ffffff;
+    --color-accent-soft: #ffedd5;
+    --color-focus: #9a3412;
+    --color-cool: #1d4ed8;
+    --color-cool-soft: #dbeafe;
+    --color-ok: #15803d;
+    --color-ok-soft: #dcfce7;
+    --color-bad: #b91c1c;
+    --color-bad-soft: #fee2e2;
+    --color-error: #b91c1c;
+    --color-success: #15803d;
+    --color-band-good: #15803d;
+    --color-band-satisfactory: #0f766e;
+    --color-band-moderate: #1d4ed8;
+    --color-band-poor: #b45309;
+    --color-band-very-poor: #b91c1c;
+    --color-band-severe: #7e22ce;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #0a0f1a !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .hero-light-leak,
+  :root[data-mode='dark'] .hero-light-leak {
+    background: none !important;
+    background-image: none !important;
+    -webkit-background-clip: border-box !important;
+    background-clip: border-box !important;
+    color: #0a0f1a !important;
+    animation: none !important;
+  }
+
+  .hero-masthead::before,
+  .hero-masthead::after,
+  .hud-pulse-ring,
+  .segmented-rail,
+  .segmented-rail-wrap,
+  .section-stepper,
+  .console-smog-fallback,
+  .console-smog-plume,
+  .console-smog-vignette {
+    display: none !important;
+  }
+
+  header {
+    position: static !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    border-bottom: 1.5px solid #cbd5e1 !important;
+  }
+
+  footer {
+    background: #ffffff !important;
+    padding-bottom: 8px !important;
+    backdrop-filter: none !important;
+  }
+
+  .panels,
+  .surface-hairline,
+  .surface-recessed {
+    background: #ffffff !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .btn-primary {
+    background: #9a3412 !important;
+    border-color: #9a3412 !important;
+    color: #ffffff !important;
+  }
+
+  .btn-secondary,
+  .field-control,
+  .segmented-tab {
+    background: #ffffff !important;
+    color: #0a0f1a !important;
+    border-color: #64748b !important;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #4b5563 !important;
+    opacity: 1 !important;
+  }
+
+  .hero-corridor {
+    padding-block: 12px 16px !important;
+  }
+
+  main {
+    padding-bottom: 12px !important;
+  }
+
+  .hero-masthead,
+  .panels,
+  .panel,
+  .surface-hairline,
+  .surface-recessed,
+  figure {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

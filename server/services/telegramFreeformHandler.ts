@@ -216,7 +216,7 @@ export async function handleTelegramFreeformMessage(params: {
   const activeCity = ctrl.aiCityUpdate ?? workspace.payload;
   const checkinMember = ctrl.addMemberName
     ? ctrl.targetMember
-    : applyMemberHabitPatch(ctrl.targetMember, ctrl.prePatch as Record<string, unknown>);
+    : applyMemberHabitPatch(ctrl.targetMember, ctrl.prePatch);
   const result = await handleCompanionCheckin(
     {
       member: checkinMember,

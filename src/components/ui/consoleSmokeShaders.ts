@@ -1,3 +1,10 @@
+import {
+  createFullscreenSmokeProgram,
+  disposeFullscreenSmokeProgram,
+  FULLSCREEN_QUAD_VERTS,
+  type GlFullscreenCore,
+} from './webglSmokeCore.js';
+
 export const CONSOLE_SMOKE_VERTEX = `attribute vec2 a_pos; void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }`;
 
 export const CONSOLE_SMOKE_FRAGMENT = `
@@ -65,13 +72,7 @@ export interface ConsoleSmokePalette {
   readonly maxAlpha: number;
 }
 
-export interface GlSmokePipeline {
-  readonly gl: WebGLRenderingContext;
-  readonly program: WebGLProgram;
-  readonly vs: WebGLShader;
-  readonly fs: WebGLShader;
-  readonly buffer: WebGLBuffer | null;
-  readonly aPos: number;
+export interface GlSmokePipeline extends GlFullscreenCore {
   readonly uniforms: {
     readonly res: WebGLUniformLocation | null;
     readonly viewport: WebGLUniformLocation | null;
@@ -98,8 +99,6 @@ const LIGHT_ALPHA_SEVERE = 0.66;
 const WARM_LOW = 0.24;
 const WARM_MED = 0.52;
 const WARM_HIGH = 0.72;
-const QUAD_VERTS = 6;
-const QUAD_POSITIONS = new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]);
 
 function hexToRgb(hex: string): readonly [number, number, number] {
   const r = Number.parseInt(hex.slice(0, HEX_G_START), HEX_BASE) / RGB_DIV;
@@ -138,36 +137,6 @@ export function resolveConsoleSmokePalette(aqi: number, isDark: boolean): Consol
   return aqi >= AQI_MODERATE ? PALETTE_DARK_MOD : PALETTE_DARK_GOOD;
 }
 
-function compileShader(gl: WebGLRenderingContext, type: number, src: string): WebGLShader | null {
-  const shader = gl.createShader(type);
-  if (!shader) {
-    return null;
-  }
-  gl.shaderSource(shader, src);
-  gl.compileShader(shader);
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    gl.deleteShader(shader);
-    return null;
-  }
-  return shader;
-}
-
-function createGlContext(canvas: HTMLCanvasElement): WebGLRenderingContext | null {
-  try {
-    const gl = canvas.getContext('webgl', {
-      alpha: true,
-      premultipliedAlpha: true,
-      antialias: false,
-      depth: false,
-      stencil: false,
-      powerPreference: 'low-power',
-    });
-    return gl && !gl.isContextLost() ? gl : null;
-  } catch {
-    return null;
-  }
-}
-
 function buildUniformMap(gl: WebGLRenderingContext, program: WebGLProgram) {
   return {
     res: gl.getUniformLocation(program, 'u_res'),
@@ -182,51 +151,16 @@ function buildUniformMap(gl: WebGLRenderingContext, program: WebGLProgram) {
 
 /** Compiles and links the fullscreen console smog WebGL pipeline, or returns null on fallback. */
 export function initConsoleSmokePipeline(canvas: HTMLCanvasElement): GlSmokePipeline | null {
-  const gl = createGlContext(canvas);
-  if (!gl) {
+  const core = createFullscreenSmokeProgram(canvas, CONSOLE_SMOKE_VERTEX, CONSOLE_SMOKE_FRAGMENT);
+  if (!core) {
     return null;
   }
-  const vs = compileShader(gl, gl.VERTEX_SHADER, CONSOLE_SMOKE_VERTEX);
-  const fs = compileShader(gl, gl.FRAGMENT_SHADER, CONSOLE_SMOKE_FRAGMENT);
-  const program = vs && fs ? gl.createProgram() : null;
-  if (!vs || !fs || !program) {
-    return null;
-  }
-  gl.attachShader(program, vs);
-  gl.attachShader(program, fs);
-  gl.linkProgram(program);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    gl.deleteProgram(program);
-    gl.deleteShader(vs);
-    gl.deleteShader(fs);
-    return null;
-  }
-  const buffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  gl.bufferData(gl.ARRAY_BUFFER, QUAD_POSITIONS, gl.STATIC_DRAW);
-  const aPos = gl.getAttribLocation(program, 'a_pos');
-  gl.useProgram(program);
-  gl.enableVertexAttribArray(aPos);
-  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
-  gl.clearColor(0, 0, 0, 0);
-  return { gl, program, vs, fs, buffer, aPos, uniforms: buildUniformMap(gl, program) };
+  return { ...core, uniforms: buildUniformMap(core.gl, core.program) };
 }
 
 /** Releases all GPU resources associated with a console smog WebGL pipeline. */
 export function disposeConsoleSmokePipeline(pipe: GlSmokePipeline): void {
-  const { gl, aPos, buffer, program, vs, fs } = pipe;
-  if (gl.isContextLost()) {
-    return;
-  }
-  gl.disableVertexAttribArray(aPos);
-  gl.bindBuffer(gl.ARRAY_BUFFER, null);
-  if (buffer) {
-    gl.deleteBuffer(buffer);
-  }
-  gl.useProgram(null);
-  gl.deleteProgram(program);
-  gl.deleteShader(vs);
-  gl.deleteShader(fs);
+  disposeFullscreenSmokeProgram(pipe);
 }
 
 /** Renders one billowing smog frame onto the fullscreen canvas. */
@@ -251,5 +185,5 @@ export function drawConsoleSmokeFrame(params: {
   gl.uniform3f(uniforms.color, pal.baseRgb[0], pal.baseRgb[1], pal.baseRgb[2]);
   gl.uniform3f(uniforms.warmTint, pal.warmRgb[0], pal.warmRgb[1], pal.warmRgb[2]);
   gl.uniform1f(uniforms.warmMix, pal.warmMix);
-  gl.drawArrays(gl.TRIANGLES, 0, QUAD_VERTS);
+  gl.drawArrays(gl.TRIANGLES, 0, FULLSCREEN_QUAD_VERTS);
 }

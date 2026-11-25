@@ -152,8 +152,12 @@ describe('inversionModel and indoorMassBalance engines', () => {
       openWindowHours: [],
       hourlyOutdoorPm25: outdoor,
     });
-    expect(unsealedWindows.hourly[8]!.indoorMitigatedPm25).toBeGreaterThan(
-      sealedWindows.hourly[8]!.indoorMitigatedPm25,
+    const unsealedHour = unsealedWindows.hourly[8];
+    const sealedHour = sealedWindows.hourly[8];
+    expect(unsealedHour).toBeDefined();
+    expect(sealedHour).toBeDefined();
+    expect(unsealedHour?.indoorMitigatedPm25 ?? 0).toBeGreaterThan(
+      sealedHour?.indoorMitigatedPm25 ?? Number.POSITIVE_INFINITY,
     );
 
     const zeroOutdoor = simulateIndoor24h({

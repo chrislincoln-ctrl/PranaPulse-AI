@@ -73,7 +73,7 @@ function mergeMemberWithPatch(
   member: FamilyMemberInput,
   patch: ProfileHabitPatch,
 ): FamilyMemberInput {
-  return applyMemberHabitPatch(member, patch as Record<string, unknown>);
+  return applyMemberHabitPatch(member, patch);
 }
 
 async function resolveMentionedPlace(

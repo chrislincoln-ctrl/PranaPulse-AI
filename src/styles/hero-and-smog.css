@@ -1,0 +1,347 @@
+@layer components {
+  .touch-target {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .hero-corridor {
+    padding-block: var(--space-xs) var(--space-lg);
+  }
+
+  .hero-headline {
+    font-size: clamp(1.85rem, 3.8vw + 0.65rem, 3.6rem);
+    font-weight: 700;
+    letter-spacing: var(--tracking-display);
+    line-height: 1.04;
+    max-width: 18ch;
+  }
+
+  .hero-masthead {
+    position: relative;
+    overflow: hidden;
+    padding: var(--space-md) var(--space-md) calc(var(--space-md) + 2px);
+    border-radius: calc(var(--radius-card) + 2px);
+    border: var(--rule-hair) solid var(--color-rule);
+    background: linear-gradient(
+      145deg,
+      color-mix(in oklab, var(--color-paper-2) 94%, var(--color-accent-soft)),
+      var(--color-paper-2) 52%,
+      color-mix(in oklab, var(--color-paper-3) 82%, var(--color-cool-soft))
+    );
+  }
+
+  .hero-masthead::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(
+      color-mix(in oklab, var(--color-ink) 16%, transparent) 1px,
+      transparent 1px
+    );
+    background-size: 18px 18px;
+    mask-image: radial-gradient(ellipse 88% 82% at 24% 18%, #000 30%, transparent 100%);
+    opacity: 0.72;
+  }
+
+  .hero-masthead::after {
+    content: '';
+    position: absolute;
+    inset: -35% -15% auto -15%;
+    height: 180px;
+    pointer-events: none;
+    background: radial-gradient(
+      ellipse at 18% 20%,
+      color-mix(in oklab, var(--color-accent) 18%, transparent),
+      color-mix(in oklab, var(--color-cool) 11%, transparent) 46%,
+      transparent 75%
+    );
+  }
+
+  .hero-corner {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    pointer-events: none;
+    z-index: 2;
+    border-color: color-mix(in oklab, var(--color-accent) 55%, var(--color-rule-2));
+    border-style: solid;
+    border-width: 0;
+  }
+
+  .hero-corner-tl {
+    top: 8px;
+    left: 8px;
+    border-top-width: 1.5px;
+    border-left-width: 1.5px;
+  }
+
+  .hero-corner-tr {
+    top: 8px;
+    right: 8px;
+    border-top-width: 1.5px;
+    border-right-width: 1.5px;
+  }
+
+  .hero-corner-bl {
+    bottom: 8px;
+    left: 8px;
+    border-bottom-width: 1.5px;
+    border-left-width: 1.5px;
+  }
+
+  .hero-corner-br {
+    bottom: 8px;
+    right: 8px;
+    border-bottom-width: 1.5px;
+    border-right-width: 1.5px;
+  }
+
+  .hero-hud-badge {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: var(--rule-hair) solid color-mix(in oklab, var(--color-accent) 34%, var(--color-rule-2));
+    background: color-mix(in oklab, var(--color-paper-3) 86%, var(--color-accent-soft));
+  }
+
+  .hud-pulse-ring {
+    position: absolute;
+    inset: -3px;
+    border-radius: 999px;
+    opacity: 0.65;
+    animation: hud-ping 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+
+  .hero-light-leak {
+    display: inline-block;
+    background-image: linear-gradient(
+      112deg,
+      var(--color-ink) 0%,
+      var(--color-accent) 36%,
+      var(--color-cool) 68%,
+      var(--color-ink) 100%
+    );
+    background-size: 230% 100%;
+    background-position: 12% 50%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: hero-light-leak-sweep 9s ease-in-out infinite;
+  }
+
+  :root[data-mode='dark'] .hero-light-leak {
+    background-image: linear-gradient(
+      112deg,
+      oklch(96% 0.01 85) 0%,
+      var(--color-accent) 38%,
+      var(--color-cool) 72%,
+      oklch(96% 0.01 85) 100%
+    );
+  }
+
+  .hero-coord-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 9px;
+    border-radius: var(--radius-pill);
+    border: var(--rule-hair) solid var(--color-rule-2);
+    background: color-mix(in oklab, var(--color-paper-3) 90%, transparent);
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--color-ink);
+  }
+
+  .hero-cap-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: var(--rule-hair) solid var(--color-rule);
+    background: color-mix(in oklab, var(--color-paper-2) 84%, transparent);
+    font-size: 0.7rem;
+    color: var(--color-ink-2);
+  }
+
+  @keyframes hud-ping {
+    0% {
+      transform: scale(0.9);
+      opacity: 0.75;
+    }
+    75%,
+    100% {
+      transform: scale(2.15);
+      opacity: 0;
+    }
+  }
+
+  @keyframes hero-light-leak-sweep {
+    0%,
+    100% {
+      background-position: 10% 50%;
+    }
+    50% {
+      background-position: 92% 50%;
+    }
+  }
+
+  .console-smog-vignette {
+    background:
+      radial-gradient(ellipse 72% 60% at 50% 35%, transparent 45%, oklch(10% 0.01 250 / 0.36) 100%),
+      linear-gradient(
+        180deg,
+        oklch(12% 0.01 250 / 0.14) 0%,
+        transparent 25%,
+        transparent 78%,
+        oklch(10% 0.01 250 / 0.32) 100%
+      );
+  }
+
+  :root:not([data-mode='dark']) .console-smog-vignette {
+    background:
+      radial-gradient(ellipse 74% 62% at 50% 38%, transparent 44%, oklch(35% 0.03 250 / 0.18) 100%),
+      linear-gradient(
+        180deg,
+        oklch(32% 0.03 250 / 0.12) 0%,
+        transparent 28%,
+        transparent 72%,
+        oklch(38% 0.04 55 / 0.16) 100%
+      );
+  }
+
+  .console-smog-plume {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(48px);
+    will-change: transform;
+  }
+
+  .console-smog-plume-left {
+    left: -10%;
+    top: -6%;
+    width: max(46vw, 310px);
+    height: 76vh;
+    background: radial-gradient(
+      ellipse at 35% 45%,
+      color-mix(in oklab, var(--color-ink) 26%, transparent) 0%,
+      color-mix(in oklab, var(--color-accent) 18%, transparent) 48%,
+      transparent 76%
+    );
+    animation: smokeFallbackDriftA 20s ease-in-out infinite;
+  }
+
+  .console-smog-plume-right {
+    right: -10%;
+    top: 6%;
+    width: max(48vw, 320px);
+    height: 78vh;
+    background: radial-gradient(
+      ellipse at 65% 50%,
+      color-mix(in oklab, var(--color-cool) 22%, transparent) 0%,
+      color-mix(in oklab, var(--color-ink) 24%, transparent) 44%,
+      transparent 78%
+    );
+    animation: smokeFallbackDriftB 24s ease-in-out infinite;
+  }
+
+  .console-smog-plume-center {
+    left: 16%;
+    bottom: -14%;
+    width: max(56vw, 350px);
+    height: 58vh;
+    background: radial-gradient(
+      ellipse at 50% 60%,
+      color-mix(in oklab, var(--color-accent) 22%, transparent) 0%,
+      color-mix(in oklab, var(--color-ink) 22%, transparent) 46%,
+      transparent 76%
+    );
+    animation: smokeFallbackDriftA 26s ease-in-out -6s infinite;
+  }
+
+  :root:not([data-mode='dark']) .console-smog-plume-left {
+    background: radial-gradient(
+      ellipse at 35% 45%,
+      color-mix(in oklab, var(--color-ink) 36%, transparent) 0%,
+      color-mix(in oklab, var(--color-accent) 26%, transparent) 48%,
+      transparent 76%
+    );
+  }
+
+  :root:not([data-mode='dark']) .console-smog-plume-right {
+    background: radial-gradient(
+      ellipse at 65% 50%,
+      color-mix(in oklab, var(--color-cool) 30%, transparent) 0%,
+      color-mix(in oklab, var(--color-ink) 34%, transparent) 44%,
+      transparent 78%
+    );
+  }
+
+  :root:not([data-mode='dark']) .console-smog-plume-center {
+    background: radial-gradient(
+      ellipse at 50% 60%,
+      color-mix(in oklab, var(--color-accent) 30%, transparent) 0%,
+      color-mix(in oklab, var(--color-ink) 32%, transparent) 46%,
+      transparent 76%
+    );
+  }
+
+  :root:not([data-mode='dark']) .hero-masthead {
+    background: linear-gradient(
+      145deg,
+      color-mix(in oklab, var(--color-paper-2) 82%, var(--color-accent-soft)),
+      color-mix(in oklab, var(--color-paper-2) 68%, transparent) 52%,
+      color-mix(in oklab, var(--color-paper-3) 76%, var(--color-cool-soft))
+    );
+    backdrop-filter: blur(6px) saturate(1.08);
+  }
+
+  :root:not([data-mode='dark']) .panels,
+  :root:not([data-mode='dark']) .surface-hairline {
+    background: color-mix(in oklab, var(--color-paper-2) 72%, transparent);
+    backdrop-filter: blur(6px) saturate(1.08);
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, var(--color-ink) 8%, transparent),
+      0 12px 28px -18px oklch(22% 0.02 250 / 0.24);
+  }
+
+  :root:not([data-mode='dark']) .surface-recessed {
+    background: color-mix(in oklab, var(--color-paper-3) 74%, transparent);
+  }
+
+  .habit-trigger-card {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid color-mix(in oklab, var(--color-accent) 46%, var(--color-rule-2));
+    background: linear-gradient(
+      105deg,
+      color-mix(in oklab, var(--color-accent-soft) 52%, var(--color-paper-2)) 0%,
+      color-mix(in oklab, var(--color-paper-2) 94%, transparent) 58%,
+      color-mix(in oklab, var(--color-paper-3) 90%, var(--color-cool-soft)) 100%
+    );
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, var(--color-accent) 20%, transparent),
+      0 6px 18px -10px color-mix(in oklab, var(--color-accent) 45%, transparent);
+    cursor: pointer;
+    transition:
+      border-color var(--dur-short) var(--ease-out),
+      transform var(--dur-micro) var(--ease-out),
+      box-shadow var(--dur-short) var(--ease-out);
+  }
+
+  .habit-trigger-card:hover {
+    border-color: var(--color-accent);
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, var(--color-accent) 32%, transparent),
+      0 10px 24px -10px color-mix(in oklab, var(--color-accent) 55%, transparent);
+  }
+
+  .habit-trigger-card:active {
+    transform: translateY(0);
+  }
+}

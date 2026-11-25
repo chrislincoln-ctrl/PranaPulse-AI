@@ -76,9 +76,7 @@ export function applyRosterMutation(params: {
     return handleRemoveMember(baseMembers, targetId, removeMember);
   }
   const members = hasHabitPatch(memberPatch)
-    ? baseMembers.map((m) =>
-        m.id === targetId ? applyMemberHabitPatch(m, memberPatch as Record<string, unknown>) : m,
-      )
+    ? baseMembers.map((m) => (m.id === targetId ? applyMemberHabitPatch(m, memberPatch) : m))
     : baseMembers;
   return { members, activeId: targetId, changed: false };
 }

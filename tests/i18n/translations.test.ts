@@ -7,7 +7,12 @@ import {
   buildDeterministicFallbackPlan,
 } from '../../src/domain/fallbackPlanBuilder.js';
 import { buildInitialWorkspaceBundle } from '../../src/domain/localBaseline.js';
-import { GEAR_CATALOG_COPY } from '../../src/i18n/gearCatalogCopy.js';
+import {
+  GEAR_CATALOG_COPY,
+  resolveLocalizedMask,
+  resolveLocalizedPurifier,
+} from '../../src/i18n/gearCatalogCopy.js';
+import { MEMBER_SCHEDULE_STRINGS } from '../../src/i18n/memberScheduleCopy.js';
 import { TRANSLATIONS } from '../../src/i18n/translations.js';
 import type { SupportedLanguage } from '../../src/validators/schemas.js';
 
@@ -120,12 +125,65 @@ describe('Multilingual localization parity (EN / HI / TA)', () => {
 
       const gearPack = GEAR_CATALOG_COPY[lang];
       for (const mask of MASK_CATALOG) {
-        expect(gearPack.masks[mask.id]?.bestFor.trim().length).toBeGreaterThan(0);
-        expect(gearPack.masks[mask.id]?.fitStyle.trim().length).toBeGreaterThan(0);
+        const locMask = resolveLocalizedMask(mask, lang);
+        expect(locMask.bestFor.trim().length).toBeGreaterThan(0);
+        expect(locMask.fitStyle.trim().length).toBeGreaterThan(0);
       }
       for (const purifier of PURIFIER_CATALOG) {
-        expect(gearPack.purifiers[purifier.id]?.bestFor.trim().length).toBeGreaterThan(0);
-        expect(gearPack.purifiers[purifier.id]?.filterGrade.trim().length).toBeGreaterThan(0);
+        const locPurifier = resolveLocalizedPurifier(purifier, lang);
+        expect(locPurifier.bestFor.trim().length).toBeGreaterThan(0);
+        expect(locPurifier.filterGrade.trim().length).toBeGreaterThan(0);
+      }
+      expect(gearPack.formatMaskFiltration('N95', 95)).toContain('95%');
+      expect(gearPack.formatMaskNote('N95', 95)).toContain('95%');
+      expect(gearPack.formatMaskBannerLead('N95').before1.length).toBeGreaterThan(0);
+      expect(gearPack.formatPurifierCadrMeta(380, 32)).toContain('380');
+      expect(gearPack.formatPurifierHeaderStat(380, 310)).toContain('380');
+      expect(gearPack.formatPurifierCadrNote(400, 300, 280)).toContain('+100');
+      expect(gearPack.formatPurifierCadrNote(200, 300, 280)).toContain('100');
+      expect(
+        gearPack.formatPurifierIntro({
+          chosenCadr: 300,
+          areaM2: 24,
+          reqCadr: 280,
+          topName: 'Coway',
+          topCadr: 350,
+        }),
+      ).toContain('Coway');
+    }
+
+    const archetypes = [
+      'school-student',
+      'office-commuter',
+      'senior-homebound',
+      'outdoor-active',
+      'home-caregiver',
+    ] as const;
+    for (const lang of locales) {
+      const pack = MEMBER_SCHEDULE_STRINGS[lang];
+      const gearPack = GEAR_CATALOG_COPY[lang];
+      expect(gearPack.formatPurifierCadrNote(250, 300, 280)).toContain('50');
+      for (const archetype of archetypes) {
+        const steps = pack.buildSteps({
+          archetype,
+          leave: '08:00',
+          ret: '18:00',
+          cleanWindow: '13:00-15:00',
+          commuteLabel: 'Metro',
+          maskLabel: 'N95',
+          fuelLabel: 'LPG',
+          pblMeters: 310,
+          effectiveAqi: 245,
+          indoorCadr: 350,
+          indoorMitigatedPm25: 28,
+          indoorReductionPct: 72,
+          purgeMinutes: 25,
+          corridorSavedPct: 38,
+          isHighRisk: true,
+          healthNotes: 'mild asthma',
+          dailyHabitsNote: 'evening walk',
+        });
+        expect(steps).toHaveLength(4);
       }
     }
   });

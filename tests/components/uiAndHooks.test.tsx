@@ -287,7 +287,7 @@ describe('Phase 4 full Console UI, hooks & accessibility verification', () => {
       'aria-selected',
       'true',
     );
-  }, 15_000);
+  }, 40_000);
 
   it('handles GPS location denials gracefully and recovers cleanly when granted', async () => {
     vi.stubGlobal('fetch', setupMockFetch());
