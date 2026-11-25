@@ -8,6 +8,7 @@ interface CacheEntry<T> {
 }
 
 const HEADER_SECONDS_DIVISOR = 1_000;
+const MAX_RATE_BUCKETS = 2_000;
 
 /**
  * Computes a deterministic SHA-256 hex digest from serializable request/telemetry inputs.
@@ -102,6 +103,7 @@ export class SlidingWindowRateLimiter {
     }
 
     bucket.timestamps.push(now);
+    this.pruneBucketsIfNeeded(clientIp, cutoff);
     this.buckets.set(clientIp, bucket);
     res.setHeader('X-RateLimit-Remaining', String(this.maxRequests - bucket.timestamps.length));
     next();
@@ -109,6 +111,23 @@ export class SlidingWindowRateLimiter {
 
   public clear(): void {
     this.buckets.clear();
+  }
+
+  private pruneBucketsIfNeeded(currentIp: string, cutoff: number): void {
+    if (this.buckets.size < MAX_RATE_BUCKETS || this.buckets.has(currentIp)) {
+      return;
+    }
+    for (const [ip, entry] of this.buckets) {
+      if ((entry.timestamps.at(-1) ?? 0) <= cutoff) {
+        this.buckets.delete(ip);
+      }
+    }
+    if (this.buckets.size >= MAX_RATE_BUCKETS) {
+      const oldest = this.buckets.keys().next().value;
+      if (oldest !== undefined) {
+        this.buckets.delete(oldest);
+      }
+    }
   }
 
   private extractClientIp(req: Request): string {

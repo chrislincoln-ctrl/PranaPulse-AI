@@ -67,13 +67,19 @@ function resolveLocationUpdate(params: {
   readonly aiCityUpdate: LocationUpdate;
   readonly result: CheckinResult;
 }): LocationUpdate {
+  if (params.gpsLat !== undefined) {
+    return {
+      city: params.result.resolvedCity,
+      lat: params.result.resolvedLat,
+      lon: params.result.resolvedLon,
+    };
+  }
   if (params.aiCityUpdate) {
     return params.aiCityUpdate;
   }
   const shouldPersist =
-    params.gpsLat !== undefined ||
-    (shouldPersistLocationMention(params.promptText) &&
-      params.result.resolvedCity !== params.currentCity);
+    shouldPersistLocationMention(params.promptText) &&
+    params.result.resolvedCity !== params.currentCity;
   return shouldPersist
     ? {
         city: params.result.resolvedCity,

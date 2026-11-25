@@ -4,6 +4,7 @@ import {
   UPSTREAM_ENDPOINTS,
   VALIDATION_BOUNDS,
 } from '../../src/config/constants.js';
+import { sanitizeUserText } from '../../src/utils/inputSanitizer.js';
 import { fetchJsonWithTimeout } from './cacheAndLimiter.js';
 
 interface NominatimAddress {
@@ -95,7 +96,8 @@ function isCoarseAccuracy(accuracyMeters?: number): boolean {
 
 function formatBoundedLabel(locality: string, city: string, coarse: boolean): string | null {
   const label = coarse && city ? city : joinLocalityAndCity(locality, city);
-  return label ? label.slice(0, VALIDATION_BOUNDS.MAX_CITY_QUERY_LEN) : null;
+  const cleaned = label ? sanitizeUserText(label, VALIDATION_BOUNDS.MAX_CITY_QUERY_LEN) : '';
+  return cleaned.length > 0 ? cleaned : null;
 }
 
 function formatNominatimLocality(

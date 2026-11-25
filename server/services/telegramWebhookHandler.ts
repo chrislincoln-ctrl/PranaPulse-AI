@@ -1,4 +1,6 @@
+import { quantizeCoord } from '../../src/validators/schemas.js';
 import type { ServerEnv } from '../env.js';
+import { BoundedTtlCache } from './cacheAndLimiter.js';
 import {
   ensureWorkspaceForTelegramChatId,
   redeemWorkspaceLinkCode,
@@ -21,6 +23,11 @@ import { handleTelegramFreeformMessage } from './telegramFreeformHandler.js';
 export { buildLiveScheduleBrief } from './telegramCardBuilders.js';
 
 const START_COMMAND_RE = /^\/start(?:\s+([A-Za-z0-9_-]+))?/i;
+const VALID_CHAT_ID_RE = /^-?\d{1,20}$/;
+const UPDATE_DEDUP_TTL_MS = 300_000;
+const MAX_LAT = 90;
+const MAX_LON = 180;
+const processedUpdateIds = new BoundedTtlCache<true>(UPDATE_DEDUP_TTL_MS);
 
 async function handleStartCommand(
   chatId: string,
@@ -33,13 +40,32 @@ async function handleStartCommand(
   return buildWhoAreYouCard(linked, 'Connected to PranaPulse AI! Who is chatting right now?');
 }
 
-function readRawChatId(update: TelegramWebhookUpdate): number | string | undefined {
-  const msg = update.callback_query ? update.callback_query.message : update.message;
-  return msg?.chat?.id;
+function readPrivateChatId(update: TelegramWebhookUpdate): string | null {
+  const chat = (update.callback_query?.message ?? update.message)?.chat;
+  if (!chat || (chat.type !== undefined && chat.type !== 'private')) {
+    return null;
+  }
+  const str = String(chat.id).trim();
+  return VALID_CHAT_ID_RE.test(str) ? str : null;
 }
 
 function readUpdateText(update: TelegramWebhookUpdate): string {
-  return (update.callback_query?.data ?? update.message?.text ?? '').trim();
+  const raw = update.callback_query ? update.callback_query.data : update.message?.text;
+  return typeof raw === 'string' ? raw.trim() : '';
+}
+
+function isValidCoord(value: unknown, maxAbs: number): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= maxAbs;
+}
+
+function readQuantizedGps(
+  update: TelegramWebhookUpdate,
+): { readonly gpsLat: number; readonly gpsLon: number } | null {
+  const loc = update.message?.location;
+  if (!loc || !isValidCoord(loc.latitude, MAX_LAT) || !isValidCoord(loc.longitude, MAX_LON)) {
+    return null;
+  }
+  return { gpsLat: quantizeCoord(loc.latitude), gpsLon: quantizeCoord(loc.longitude) };
 }
 
 interface TelegramUpdateContext {
@@ -51,18 +77,32 @@ interface TelegramUpdateContext {
 }
 
 function extractUpdateContext(update: TelegramWebhookUpdate): TelegramUpdateContext | null {
-  const rawChatId = readRawChatId(update);
-  if (rawChatId === undefined) {
+  const chatId = readPrivateChatId(update);
+  if (!chatId) {
     return null;
   }
-  const loc = update.message?.location;
-  const callbackId = update.callback_query?.id;
+  const gps = readQuantizedGps(update);
+  const rawCallbackId = update.callback_query?.id;
+  const callbackId = typeof rawCallbackId === 'string' && rawCallbackId ? rawCallbackId : undefined;
   return {
-    chatId: String(rawChatId),
+    chatId,
     ...(callbackId ? { callbackId } : {}),
     text: readUpdateText(update),
-    ...(loc ? { gpsLat: loc.latitude, gpsLon: loc.longitude } : {}),
+    ...(gps ?? {}),
   };
+}
+
+function isDuplicateUpdate(update: TelegramWebhookUpdate): boolean {
+  const id = update.update_id;
+  if (typeof id !== 'number' || !Number.isInteger(id)) {
+    return false;
+  }
+  const key = String(id);
+  if (processedUpdateIds.get(key)) {
+    return true;
+  }
+  processedUpdateIds.set(key, true);
+  return false;
 }
 
 async function sendInstantFeedback(
@@ -115,11 +155,24 @@ async function dispatchReply(
   await sendTelegramMessage(token, chatId, reply.text, reply.buttons);
 }
 
+async function cleanupProgressOnError(
+  env: ServerEnv,
+  chatId: string,
+  progressMsgId: number | null,
+): Promise<void> {
+  if (progressMsgId !== null) {
+    await deleteTelegramMessage(env.TELEGRAM_BOT_TOKEN, chatId, progressMsgId);
+  }
+}
+
 /** Processes a single Telegram webhook update (start linking, GPS pin, button callback, command, or chat). */
 export async function processTelegramUpdate(
   update: TelegramWebhookUpdate,
   env: ServerEnv,
 ): Promise<{ readonly handled: string; readonly replyText?: string }> {
+  if (isDuplicateUpdate(update)) {
+    return { handled: 'duplicate' };
+  }
   const ctx = extractUpdateContext(update);
   if (!ctx) {
     return { handled: 'ignored' };
@@ -142,17 +195,22 @@ export async function processTelegramUpdate(
     sendInstantFeedback(ctx, env),
     ensureWorkspaceForTelegramChatId(ctx.chatId, env),
   ]);
-  const routed =
-    ctx.gpsLat === undefined ? await routeTelegramCommand(ctx.text, workspace, env) : null;
-  const reply =
-    routed ??
-    (await handleTelegramFreeformMessage({
-      workspace,
-      text: ctx.text,
-      gpsLat: ctx.gpsLat,
-      gpsLon: ctx.gpsLon,
-      env,
-    }));
-  await dispatchReply(ctx.chatId, reply, env, progressMsgId);
-  return { handled: routed ? 'command' : 'message', replyText: reply.text };
+  try {
+    const routed =
+      ctx.gpsLat === undefined ? await routeTelegramCommand(ctx.text, workspace, env) : null;
+    const reply =
+      routed ??
+      (await handleTelegramFreeformMessage({
+        workspace,
+        text: ctx.text,
+        gpsLat: ctx.gpsLat,
+        gpsLon: ctx.gpsLon,
+        env,
+      }));
+    await dispatchReply(ctx.chatId, reply, env, progressMsgId);
+    return { handled: routed ? 'command' : 'message', replyText: reply.text };
+  } catch (err) {
+    await cleanupProgressOnError(env, ctx.chatId, progressMsgId);
+    throw err;
+  }
 }

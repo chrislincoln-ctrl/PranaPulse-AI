@@ -19,26 +19,18 @@ import {
 import { hasHabitPatch } from '../services/habitExtractor.js';
 import {
   createWorkspaceTelegramLink,
-  getActiveMember,
   getWorkspaceByKey,
-  listOptedInWorkspaces,
-  markWorkspaceBriefSent,
   syncWorkspaceFromWeb,
   type WebWorkspaceSyncInput,
 } from '../services/householdWorkspaceStore.js';
-import { prefixActiveUser } from '../services/telegramCardBuilders.js';
 import {
   buildTelegramDeepLink,
-  buildTelegramMenuForMember,
-  sendTelegramMessage,
   verifyBearerSecret,
   verifyTelegramWebhookSecret,
   type TelegramWebhookUpdate,
 } from '../services/telegramClient.js';
-import {
-  buildLiveScheduleBrief,
-  processTelegramUpdate,
-} from '../services/telegramWebhookHandler.js';
+import { runDailyBriefFanout } from '../services/telegramDailyBrief.js';
+import { processTelegramUpdate } from '../services/telegramWebhookHandler.js';
 
 function normalizeTelegramLinkInput(parsed: TelegramLinkRequest): WebWorkspaceSyncInput {
   if ('payload' in parsed) {
@@ -170,37 +162,6 @@ async function handleWorkspaceSyncPost(req: Request, res: Response, env: ServerE
   });
 }
 
-async function runDailyBriefFanout(
-  env: ServerEnv,
-): Promise<{ readonly sentCount: number; readonly skippedCount: number }> {
-  const workspaces = await listOptedInWorkspaces(env);
-  let sentCount = 0;
-  let skippedCount = 0;
-  for (const ws of workspaces) {
-    if (!ws.telegramChatId) {
-      skippedCount += 1;
-      continue;
-    }
-    const active = getActiveMember(ws);
-    const brief = prefixActiveUser(ws, await buildLiveScheduleBrief(ws, env));
-    const ok = env.TELEGRAM_BOT_TOKEN
-      ? await sendTelegramMessage(
-          env.TELEGRAM_BOT_TOKEN,
-          ws.telegramChatId,
-          brief,
-          buildTelegramMenuForMember(active.label),
-        )
-      : true;
-    if (ok) {
-      await markWorkspaceBriefSent(ws, env);
-      sentCount += 1;
-    } else {
-      skippedCount += 1;
-    }
-  }
-  return { sentCount, skippedCount };
-}
-
 function registerTelegramRoutes(
   router: Router,
   env: ServerEnv,
@@ -220,7 +181,11 @@ function registerTelegramRoutes(
         typeof req.body === 'object' && req.body !== null ? req.body : {}
       ) as TelegramWebhookUpdate;
       const outcome = await processTelegramUpdate(update, env);
-      res.status(HTTP_STATUS.OK).json({ ok: true, ...outcome });
+      const body =
+        env.NODE_ENV === 'production'
+          ? { ok: true, handled: outcome.handled }
+          : { ok: true, ...outcome };
+      res.status(HTTP_STATUS.OK).json(body);
     },
   );
 
@@ -228,6 +193,7 @@ function registerTelegramRoutes(
     '/telegram/daily-brief',
     cronLimiter.middleware,
     async (req: Request, res: Response) => {
+      res.setHeader('Cache-Control', 'no-store');
       if (!verifyBearerSecret(req.header('authorization'), env.CRON_SECRET)) {
         res.status(HTTP_STATUS.UNAUTHORIZED).json({ error: 'Unauthorized daily brief trigger.' });
         return;

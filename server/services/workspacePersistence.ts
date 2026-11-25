@@ -2,6 +2,13 @@ import type { ServerEnv } from '../env.js';
 import { createAdminSupabaseClient, type DbMemberRow } from './companionDbMapper.js';
 import { fetchLatestProfileRow } from './profileRowQuery.js';
 import {
+  cacheWorkspace,
+  clearMemoryChatConflict,
+  findMemoryWorkspaceByChat,
+  findMemoryWorkspaceByCode,
+  memoryWorkspaces,
+} from './workspaceMemoryCache.js';
+import {
   listOptedInWorkspacesFromStorage,
   probeStorageBucketReady,
   readWorkspaceFromStorageByChat,
@@ -17,6 +24,14 @@ import {
   type SyncedWorkspaceRecord,
 } from './workspaceSyncCodec.js';
 
+export {
+  cacheWorkspace,
+  clearMemoryChatConflict,
+  findMemoryWorkspaceByChat,
+  findMemoryWorkspaceByCode,
+  memoryWorkspaces,
+};
+
 export type CompanionStorageBackend = 'postgres' | 'supabase-storage' | 'memory';
 
 export interface CompanionDbHealth {
@@ -27,8 +42,8 @@ export interface CompanionDbHealth {
 const PROFILES_TABLE = 'family_member_profiles';
 const DB_PROBE_TTL_MS = 60_000;
 
-export const memoryWorkspaces = new Map<string, SyncedWorkspaceRecord>();
 let dbProbeCache: { readonly health: CompanionDbHealth; readonly checkedAt: number } | null = null;
+let inFlightHealthProbe: Promise<CompanionDbHealth> | null = null;
 let pgMissingUntil = 0;
 
 function isMissingTableError(
@@ -41,33 +56,9 @@ function isMissingTableError(
   return (
     err.code === '42P01' ||
     err.code === 'PGRST205' ||
-    msg.includes('does not exist') ||
-    msg.includes('could not find the table')
+    msg.includes('could not find the table') ||
+    (msg.includes('relation') && msg.includes('does not exist'))
   );
-}
-
-export function cacheWorkspace(ws: SyncedWorkspaceRecord): SyncedWorkspaceRecord {
-  memoryWorkspaces.set(ws.workspaceKey, ws);
-  return ws;
-}
-
-export function findMemoryWorkspaceByChat(chatId: string): SyncedWorkspaceRecord | null {
-  return [...memoryWorkspaces.values()].find((w) => w.telegramChatId === chatId) ?? null;
-}
-
-export function findMemoryWorkspaceByCode(code: string): SyncedWorkspaceRecord | null {
-  const lower = code.toLowerCase();
-  return (
-    [...memoryWorkspaces.values()].find((w) => w.telegramLinkCode?.toLowerCase() === lower) ?? null
-  );
-}
-
-export function clearMemoryChatConflict(chatId: string, keepKey: string): void {
-  for (const prev of memoryWorkspaces.values()) {
-    if (prev.telegramChatId === chatId && prev.workspaceKey !== keepKey) {
-      memoryWorkspaces.set(prev.workspaceKey, { ...prev, telegramChatId: null });
-    }
-  }
 }
 
 async function queryPostgresWorkspace(
@@ -174,7 +165,7 @@ export async function persistWorkspaceRecord(
   if (pgSaved) {
     return pgSaved;
   }
-  await writeWorkspaceToStorage(ws, env);
+  await writeWorkspaceToStorage(ws, env, clearChatConflict);
   return ws;
 }
 
@@ -236,13 +227,7 @@ function cacheProbe(health: CompanionDbHealth): CompanionDbHealth {
   return health;
 }
 
-export async function checkCompanionDbHealth(env: ServerEnv): Promise<CompanionDbHealth> {
-  if (!createAdminSupabaseClient(env)) {
-    return { ready: false, backend: 'memory' };
-  }
-  if (dbProbeCache && Date.now() - dbProbeCache.checkedAt < DB_PROBE_TTL_MS) {
-    return dbProbeCache.health;
-  }
+async function runCompanionDbProbe(env: ServerEnv): Promise<CompanionDbHealth> {
   try {
     const { error } = await fetchLatestProfileRow(
       'id',
@@ -262,12 +247,26 @@ export async function checkCompanionDbHealth(env: ServerEnv): Promise<CompanionD
   return cacheProbe({ ready: ok, backend: ok ? 'supabase-storage' : 'memory' });
 }
 
+export async function checkCompanionDbHealth(env: ServerEnv): Promise<CompanionDbHealth> {
+  if (!createAdminSupabaseClient(env)) {
+    return { ready: false, backend: 'memory' };
+  }
+  if (dbProbeCache && Date.now() - dbProbeCache.checkedAt < DB_PROBE_TTL_MS) {
+    return dbProbeCache.health;
+  }
+  inFlightHealthProbe ??= runCompanionDbProbe(env).finally(() => {
+    inFlightHealthProbe = null;
+  });
+  return await inFlightHealthProbe;
+}
+
 export const checkCompanionDbReady = async (env: ServerEnv): Promise<boolean> =>
   (await checkCompanionDbHealth(env)).ready;
 
 export function clearHouseholdWorkspaceStore(): void {
   memoryWorkspaces.clear();
   dbProbeCache = null;
+  inFlightHealthProbe = null;
   pgMissingUntil = 0;
   resetStorageFallbackCache();
 }

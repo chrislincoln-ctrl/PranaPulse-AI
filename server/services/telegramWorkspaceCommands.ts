@@ -44,6 +44,21 @@ const FUEL_ALIASES: Readonly<Record<string, CookingFuelOption>> = {
   'solid-biomass': 'solid-biomass',
 };
 
+function safeLookup<T>(map: Readonly<Record<string, T>>, key: string): T | undefined {
+  return Object.hasOwn(map, key) ? map[key] : undefined;
+}
+
+function nextMemberId(members: readonly FamilyMemberInput[]): string {
+  let maxId = 0;
+  for (const m of members) {
+    const match = /^m(\d+)$/.exec(m.id);
+    if (match?.[1]) {
+      maxId = Math.max(maxId, Number.parseInt(match[1], VALIDATION_BOUNDS.DECIMAL_BASE));
+    }
+  }
+  return `m${String(maxId + 1)}`;
+}
+
 function clampNumber(val: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Math.round(val)));
 }
@@ -53,7 +68,7 @@ export async function handleMaskUpdate(
   ws: SyncedWorkspaceRecord,
   env: ServerEnv,
 ): Promise<TelegramReplyPayload> {
-  const mask = MASK_ALIASES[rawMask.trim().toLowerCase()];
+  const mask = safeLookup(MASK_ALIASES, rawMask.trim().toLowerCase());
   if (!mask) {
     return await buildGearCard(ws, env);
   }
@@ -152,7 +167,7 @@ export async function handleFuelCommand(
   ws: SyncedWorkspaceRecord,
   env: ServerEnv,
 ): Promise<TelegramReplyPayload> {
-  const fuel = FUEL_ALIASES[rest.trim().toLowerCase()];
+  const fuel = safeLookup(FUEL_ALIASES, rest.trim().toLowerCase());
   return fuel
     ? await applyIndoorPatch({ cookingFuel: fuel }, ws, env)
     : await buildWindowIndoorCard(ws, env);
@@ -182,10 +197,10 @@ export async function handleAddMemberCommand(
     };
   }
   const newMember: FamilyMemberInput = {
-    id: `m${String(ws.payload.members.length + 1)}`,
+    id: nextMemberId(ws.payload.members),
     label,
-    role: ROLE_ALIASES[(rawRole ?? '').toLowerCase()] ?? 'caregiver',
-    mask: MASK_ALIASES[(rawMask ?? '').toLowerCase()] ?? 'n95-ffp2',
+    role: safeLookup(ROLE_ALIASES, (rawRole ?? '').toLowerCase()) ?? 'caregiver',
+    mask: safeLookup(MASK_ALIASES, (rawMask ?? '').toLowerCase()) ?? 'n95-ffp2',
     dailyOutdoorHours: 1,
   };
   const updated = await updateWorkspaceFromTelegram(

@@ -19,6 +19,7 @@ export interface SiteControlPatch {
 const HALF_HOUR_STEP = 2;
 const MAX_LABEL_LEN = 40;
 const MAX_CUSTOM_ROLE_LEN = 36;
+const MAX_CONTROL_INPUT_LEN = 500;
 
 const ROLE_RULES: readonly {
   readonly re: RegExp;
@@ -65,7 +66,7 @@ const HOURS_BEFORE_OUTSIDE_RE =
   /\b(\d+(?:\.\d+)?)\s*(?:hrs?|hours?)(?:\s*(?:approx\.?|approximately|about|around|a\s+day|per\s+day|daily))*\s*(?:outside|outdoors)\b/i;
 const OUTDOOR_WORD_RE = /\b(?:outdoor|outdoors|outside)\b/i;
 const ROOM_AREA_RE =
-  /(?:room|bedroom|living\s+room|hall|flat|house)?\s*(?:area|size)?\s*(?:is|to|of|:)?\s*(\d+(?:\.\d+)?)\s*(?:sqm|sq\.?\s*m|m2|m²|square\s+meters?)\b|\broom\s+(?:area|size)\s*(?:is|to|of|:)?\s*(\d+(?:\.\d+)?)\b/i;
+  /\b(\d+(?:\.\d+)?)\s*(?:sqm|sq\.?\s*m|m2|m²|square\s+meters?)\b|\broom\s+(?:area|size)(?:\s+(?:is|to|of)|:)?\s+(\d+(?:\.\d+)?)\b/i;
 const CADR_RE = /(?:purifier\s+)?cadr\s*(?:is|to|of|:)?\s*(\d+)|\b(\d+)\s*(?:m3\/h|m3\/hr|cmh)\b/i;
 const NO_PURIFIER_RE = /\bno\s+(?:air\s+)?purifier\b/i;
 const DISTANCE_RE =
@@ -157,13 +158,17 @@ function extractIndoorPatch(lower: string): Partial<PlanRequestPayload> {
   };
 }
 
+function parseLanguageChange(lower: string): SupportedLanguage | undefined {
+  const langKey = LANG_RE.exec(lower)?.[1]?.toLowerCase() ?? '';
+  return Object.hasOwn(LANG_MAP, langKey) ? LANG_MAP[langKey] : undefined;
+}
+
 function extractCommunityPatch(lower: string): Partial<PlanRequestPayload> {
   const km = parseMatchedFloat(DISTANCE_RE.exec(lower));
   const homes = parseMatchedFloat(RWA_HOMES_RE.exec(lower));
   const shift = parseMatchedFloat(TRANSIT_SHIFT_RE.exec(lower));
   const haltLeafBurning = extractLeafBurningFlag(lower);
-  const langMatch = LANG_RE.exec(lower);
-  const language = langMatch?.[1] ? LANG_MAP[langMatch[1].toLowerCase()] : undefined;
+  const language = parseLanguageChange(lower);
   return {
     ...(km !== null
       ? { commuteDistanceKm: clampInt(km, 1, VALIDATION_BOUNDS.MAX_COMMUTE_KM) }
@@ -226,8 +231,9 @@ function extractMemberPatch(message: string): {
 
 /** Extracts full-site member & household configuration changes from natural Telegram chat. */
 export function extractSiteControlPatch(message: string): SiteControlPatch {
-  const lower = message.toLowerCase();
-  const { memberPatch, customRoleCandidate } = extractMemberPatch(message);
+  const safeMessage = sanitizeUserText(message, MAX_CONTROL_INPUT_LEN);
+  const lower = safeMessage.toLowerCase();
+  const { memberPatch, customRoleCandidate } = extractMemberPatch(safeMessage);
   const householdPatch: Partial<PlanRequestPayload> = {
     ...extractIndoorPatch(lower),
     ...extractCommunityPatch(lower),

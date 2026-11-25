@@ -8,8 +8,14 @@ const WS_PREFIX = 'ws';
 const CHAT_PREFIX = 'chat';
 const CODE_PREFIX = 'code';
 const MAX_LIST_ITEMS = 100;
+const MAX_LIST_PAGES = 10;
+const SAFE_SEGMENT_RE = /^[a-zA-Z0-9_-]{1,80}$/;
 
 let bucketEnsured = false;
+
+function isSafeSegment(value: string): boolean {
+  return SAFE_SEGMENT_RE.test(value);
+}
 
 function isBucketCreatedOrExisting(err: { readonly message: string } | null): boolean {
   if (!err) {
@@ -26,13 +32,19 @@ async function ensureSyncBucket(db: SupabaseClient): Promise<boolean> {
   try {
     const existing = await db.storage.getBucket(SYNC_BUCKET);
     if (!existing.error) {
+      if (existing.data.public) {
+        return false;
+      }
       bucketEnsured = true;
       return true;
     }
     const created = await db.storage.createBucket(SYNC_BUCKET, { public: false });
     if (isBucketCreatedOrExisting(created.error)) {
-      bucketEnsured = true;
-      return true;
+      const verified = await db.storage.getBucket(SYNC_BUCKET);
+      if (verified.error || !verified.data.public) {
+        bucketEnsured = true;
+        return true;
+      }
     }
     return false;
   } catch {
@@ -71,26 +83,59 @@ async function downloadJsonObject<T>(db: SupabaseClient, objectPath: string): Pr
   }
 }
 
+async function clearPreviousStorageChatOwner(
+  db: SupabaseClient,
+  chatId: string,
+  keepWorkspaceKey: string,
+): Promise<void> {
+  if (!isSafeSegment(chatId)) {
+    return;
+  }
+  const prevPtr = await downloadJsonObject<{ readonly workspaceKey?: string }>(
+    db,
+    `${CHAT_PREFIX}/${chatId}.json`,
+  );
+  const oldKey = prevPtr?.workspaceKey;
+  if (!oldKey || oldKey === keepWorkspaceKey || !isSafeSegment(oldKey)) {
+    return;
+  }
+  const oldWs = await downloadJsonObject<SyncedWorkspaceRecord>(db, `${WS_PREFIX}/${oldKey}.json`);
+  if (oldWs?.telegramChatId === chatId) {
+    await uploadJsonObject(db, `${WS_PREFIX}/${oldKey}.json`, {
+      ...oldWs,
+      telegramChatId: null,
+      telegramOptIn: false,
+    });
+  }
+}
+
+async function writePointerObject(
+  db: SupabaseClient,
+  prefix: string,
+  segment: string | null | undefined,
+  workspaceKey: string,
+): Promise<void> {
+  if (segment && isSafeSegment(segment)) {
+    await uploadJsonObject(db, `${prefix}/${segment}.json`, { workspaceKey });
+  }
+}
+
 /** Persists a workspace record and its Telegram chat/link-code pointers to private Supabase Storage. */
 export async function writeWorkspaceToStorage(
   ws: SyncedWorkspaceRecord,
   env: ServerEnv,
+  clearChatConflict = false,
 ): Promise<boolean> {
   const db = createAdminSupabaseClient(env);
-  if (!db || !(await ensureSyncBucket(db))) {
+  if (!db || !isSafeSegment(ws.workspaceKey) || !(await ensureSyncBucket(db))) {
     return false;
   }
+  if (clearChatConflict && ws.telegramChatId) {
+    await clearPreviousStorageChatOwner(db, ws.telegramChatId, ws.workspaceKey);
+  }
   const ok = await uploadJsonObject(db, `${WS_PREFIX}/${ws.workspaceKey}.json`, ws);
-  if (ws.telegramChatId) {
-    await uploadJsonObject(db, `${CHAT_PREFIX}/${ws.telegramChatId}.json`, {
-      workspaceKey: ws.workspaceKey,
-    });
-  }
-  if (ws.telegramLinkCode) {
-    await uploadJsonObject(db, `${CODE_PREFIX}/${ws.telegramLinkCode.toLowerCase()}.json`, {
-      workspaceKey: ws.workspaceKey,
-    });
-  }
+  await writePointerObject(db, CHAT_PREFIX, ws.telegramChatId, ws.workspaceKey);
+  await writePointerObject(db, CODE_PREFIX, ws.telegramLinkCode?.toLowerCase(), ws.workspaceKey);
   return ok;
 }
 
@@ -100,22 +145,26 @@ export async function readWorkspaceFromStorageByKey(
   env: ServerEnv,
 ): Promise<SyncedWorkspaceRecord | null> {
   const db = createAdminSupabaseClient(env);
-  if (!db || !(await ensureSyncBucket(db))) {
+  if (!db || !isSafeSegment(workspaceKey) || !(await ensureSyncBucket(db))) {
     return null;
   }
   return await downloadJsonObject<SyncedWorkspaceRecord>(db, `${WS_PREFIX}/${workspaceKey}.json`);
 }
 
 async function readWorkspaceViaPointer(
-  pointerPath: string,
+  prefix: string,
+  segment: string,
   env: ServerEnv,
 ): Promise<SyncedWorkspaceRecord | null> {
   const db = createAdminSupabaseClient(env);
-  if (!db || !(await ensureSyncBucket(db))) {
+  if (!db || !isSafeSegment(segment) || !(await ensureSyncBucket(db))) {
     return null;
   }
-  const ptr = await downloadJsonObject<{ readonly workspaceKey?: string }>(db, pointerPath);
-  if (!ptr?.workspaceKey) {
+  const ptr = await downloadJsonObject<{ readonly workspaceKey?: string }>(
+    db,
+    `${prefix}/${segment}.json`,
+  );
+  if (!ptr?.workspaceKey || !isSafeSegment(ptr.workspaceKey)) {
     return null;
   }
   return await downloadJsonObject<SyncedWorkspaceRecord>(
@@ -129,7 +178,7 @@ export async function readWorkspaceFromStorageByChat(
   chatId: string,
   env: ServerEnv,
 ): Promise<SyncedWorkspaceRecord | null> {
-  return await readWorkspaceViaPointer(`${CHAT_PREFIX}/${chatId}.json`, env);
+  return await readWorkspaceViaPointer(CHAT_PREFIX, chatId, env);
 }
 
 /** Resolves a synced workspace by Telegram `/start` link code via Supabase Storage pointer. */
@@ -137,7 +186,29 @@ export async function readWorkspaceFromStorageByCode(
   code: string,
   env: ServerEnv,
 ): Promise<SyncedWorkspaceRecord | null> {
-  return await readWorkspaceViaPointer(`${CODE_PREFIX}/${code.toLowerCase()}.json`, env);
+  return await readWorkspaceViaPointer(CODE_PREFIX, code.toLowerCase(), env);
+}
+
+async function listAllWorkspaceFiles(db: SupabaseClient): Promise<readonly string[]> {
+  const names: string[] = [];
+  for (let page = 0; page < MAX_LIST_PAGES; page += 1) {
+    const listed = await db.storage.from(SYNC_BUCKET).list(WS_PREFIX, {
+      limit: MAX_LIST_ITEMS,
+      offset: page * MAX_LIST_ITEMS,
+    });
+    if (listed.error || !Array.isArray(listed.data)) {
+      break;
+    }
+    for (const item of listed.data) {
+      if (item.name.endsWith('.json')) {
+        names.push(item.name);
+      }
+    }
+    if (listed.data.length < MAX_LIST_ITEMS) {
+      break;
+    }
+  }
+  return names;
 }
 
 /** Lists all opted-in Telegram workspaces stored in the private Supabase Storage sync bucket. */
@@ -149,14 +220,9 @@ export async function listOptedInWorkspacesFromStorage(
     return [];
   }
   try {
-    const listed = await db.storage.from(SYNC_BUCKET).list(WS_PREFIX, { limit: MAX_LIST_ITEMS });
-    if (listed.error || !Array.isArray(listed.data)) {
-      return [];
-    }
+    const files = await listAllWorkspaceFiles(db);
     const items = await Promise.all(
-      listed.data
-        .filter((f) => f.name.endsWith('.json'))
-        .map((f) => downloadJsonObject<SyncedWorkspaceRecord>(db, `${WS_PREFIX}/${f.name}`)),
+      files.map((name) => downloadJsonObject<SyncedWorkspaceRecord>(db, `${WS_PREFIX}/${name}`)),
     );
     return items.filter(
       (ws): ws is SyncedWorkspaceRecord =>

@@ -7,6 +7,7 @@ import { APP_META, HTTP_STATUS, SECURITY_LIMITS } from '../src/config/constants.
 import { loadServerEnv, type ServerEnv } from './env.js';
 import { createAirQualityRouter, type RateLimiterPair } from './routes/airQualityRoutes.js';
 import { createCompanionRouter } from './routes/companionRoutes.js';
+import { SlidingWindowRateLimiter } from './services/cacheAndLimiter.js';
 import { checkCompanionDbHealth } from './services/householdWorkspaceStore.js';
 
 interface AppErrorLike {
@@ -45,6 +46,7 @@ function buildHelmetMiddleware(env: ServerEnv): ReturnType<typeof helmet> {
         fontSrc: ["'self'", 'data:'],
         connectSrc,
         frameAncestors: ["'none'"],
+        objectSrc: ["'none'"],
         baseUri: ["'self'"],
         formAction: ["'self'"],
       },
@@ -56,7 +58,8 @@ function buildHelmetMiddleware(env: ServerEnv): ReturnType<typeof helmet> {
 }
 
 function registerHealthRoute(app: Express, env: ServerEnv): void {
-  app.get('/api/health', async (_req: Request, res: Response) => {
+  const healthLimiter = new SlidingWindowRateLimiter(SECURITY_LIMITS.TELEMETRY_RATE_LIMIT_PER_MIN);
+  app.get('/api/health', healthLimiter.middleware, async (_req: Request, res: Response) => {
     const dbHealth = await checkCompanionDbHealth(env);
     res.status(HTTP_STATUS.OK).json({
       status: 'ok',

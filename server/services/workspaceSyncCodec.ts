@@ -61,11 +61,13 @@ const FALLBACK_MEMBER: FamilyMemberInput = {
 
 /** Normalizes a workspace sync key into a compact, URL- and Telegram-safe alphanumeric identifier. */
 export function sanitizeWorkspaceKey(raw: string | undefined, fallback: string): string {
-  const cleaned = (raw ?? '')
-    .replace(/[^a-zA-Z0-9]/g, '')
-    .toLowerCase()
-    .slice(0, MAX_WS_KEY_LEN);
-  return cleaned.length >= MIN_WS_KEY_LEN ? cleaned : fallback;
+  const cleanPart = (val: string | undefined) =>
+    (val ?? '')
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .toLowerCase()
+      .slice(0, MAX_WS_KEY_LEN);
+  const cleaned = cleanPart(raw);
+  return cleaned.length >= MIN_WS_KEY_LEN ? cleaned : cleanPart(fallback);
 }
 
 /** Derives a deterministic RFC 4122 UUID from a workspace key so upserts stay idempotent across cold starts. */

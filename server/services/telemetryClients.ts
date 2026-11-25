@@ -255,9 +255,9 @@ export async function getUrbanTelemetryBundle(params: {
   }
 
   const streams = await fetchAllTelemetryStreams(lat, lon, params.env);
-  const bundle = assembleTelemetryBundle(lat, lon, params.cityLabel, streams);
-  telemetryCache.set(cacheKey, bundle);
-  return bundle;
+  const neutralBundle = assembleTelemetryBundle(lat, lon, undefined, streams);
+  telemetryCache.set(cacheKey, neutralBundle);
+  return params.cityLabel ? { ...neutralBundle, city: params.cityLabel } : neutralBundle;
 }
 
 /** Clears internal telemetry and geocoding caches for deterministic test isolation. */

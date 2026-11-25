@@ -11,6 +11,7 @@ const optionalTrimmedString = z
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  HOST: optionalTrimmedString.transform((value) => value ?? '127.0.0.1'),
   PORT: z.preprocess(
     (value) => (typeof value === 'string' && value.trim().length === 0 ? undefined : value),
     z.coerce

@@ -23,7 +23,7 @@ export interface TelegramLocation {
 
 export interface TelegramMessage {
   readonly message_id?: number;
-  readonly chat?: { readonly id: number | string };
+  readonly chat?: { readonly id: number | string; readonly type?: string };
   readonly from?: { readonly first_name?: string; readonly username?: string };
   readonly text?: string;
   readonly location?: TelegramLocation;

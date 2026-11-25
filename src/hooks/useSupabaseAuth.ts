@@ -119,6 +119,21 @@ function useAuthTaskRunner(
   );
 }
 
+const LOCAL_CLEANUP_KEYS: readonly string[] = [
+  'pranapulse_workspace_key',
+  'pranapulse_verified_custom_options_v1',
+];
+
+function clearAccountLocalStorage(): void {
+  try {
+    for (const key of LOCAL_CLEANUP_KEYS) {
+      window.localStorage.removeItem(key);
+    }
+  } catch {
+    // Ignore storage access errors in private browsing modes.
+  }
+}
+
 function useAuthActions(
   runAuthTask: AuthTaskRunner,
   setSyncStatus: React.Dispatch<React.SetStateAction<CloudSyncStatus>>,
@@ -146,7 +161,8 @@ function useAuthActions(
 
   const signOut = useCallback(async (): Promise<void> => {
     await runAuthTask(async (client) => {
-      const { error } = await client.auth.signOut();
+      const { error } = await client.auth.signOut({ scope: 'local' });
+      clearAccountLocalStorage();
       return error ? { ok: false, error: error.message } : { ok: true, notice: 'Signed out.' };
     });
   }, [runAuthTask]);

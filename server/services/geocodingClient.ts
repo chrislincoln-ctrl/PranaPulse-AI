@@ -4,6 +4,7 @@ import {
   UPSTREAM_ENDPOINTS,
   VALIDATION_BOUNDS,
 } from '../../src/config/constants.js';
+import { sanitizeUserText } from '../../src/utils/inputSanitizer.js';
 import { quantizeCoord } from '../../src/validators/schemas.js';
 import { BoundedTtlCache, fetchJsonWithTimeout } from './cacheAndLimiter.js';
 
@@ -45,11 +46,22 @@ export async function searchUrbanLocations(rawQuery: string): Promise<readonly G
     const url = `${UPSTREAM_ENDPOINTS.OPEN_METEO_GEOCODING}?name=${encodeURIComponent(key)}&count=${String(VALIDATION_BOUNDS.GEOCODE_FETCH_COUNT)}&language=en&format=json`;
     const data = await fetchJsonWithTimeout<OpenMeteoGeocodeResponse>(url);
     const parsed: GeocodedLocation[] = (data.results ?? [])
-      .filter((item) => typeof item.name === 'string' && typeof item.latitude === 'number')
+      .filter(
+        (item) =>
+          typeof item.name === 'string' &&
+          typeof item.latitude === 'number' &&
+          typeof item.longitude === 'number',
+      )
       .map((item) => ({
-        name: item.name ?? 'Unknown',
-        region: item.admin1 ?? item.country_code ?? '',
-        countryCode: item.country_code ?? '',
+        name: sanitizeUserText(item.name ?? '', VALIDATION_BOUNDS.MAX_CITY_QUERY_LEN) || 'Unknown',
+        region: sanitizeUserText(
+          item.admin1 ?? item.country_code ?? '',
+          VALIDATION_BOUNDS.MAX_CITY_QUERY_LEN,
+        ),
+        countryCode: sanitizeUserText(
+          item.country_code ?? '',
+          VALIDATION_BOUNDS.MAX_CITY_QUERY_LEN,
+        ),
         lat: quantizeCoord(item.latitude ?? 0),
         lon: quantizeCoord(item.longitude ?? 0),
       }))

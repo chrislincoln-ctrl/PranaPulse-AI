@@ -6,8 +6,8 @@ process.env.NODE_ENV ??= 'production';
 const env = loadServerEnv();
 const app = createApp(env);
 
-const server = app.listen(env.PORT, () => {
-  console.warn(`PranaPulse AI listening on http://127.0.0.1:${String(env.PORT)}`);
+const server = app.listen(env.PORT, env.HOST, () => {
+  console.warn(`PranaPulse AI listening on http://${env.HOST}:${String(env.PORT)}`);
 });
 
 function handleShutdown(): void {
