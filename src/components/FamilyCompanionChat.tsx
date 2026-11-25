@@ -60,7 +60,7 @@ function CompanionFloatingDrawer(p: {
     <section
       id="family-companion-drawer"
       aria-labelledby="companion-chat-title"
-      className="fixed inset-x-3 bottom-32 z-[90] max-h-[calc(100dvh-9.5rem)] overflow-y-auto rounded-xl border border-rule-2 bg-paper-2 p-4 shadow-2xl sm:inset-x-auto sm:right-6 sm:bottom-40 sm:w-[440px]"
+      className="fixed inset-x-3 bottom-32 z-[90] max-h-[calc(100dvh-9.5rem)] overflow-y-auto rounded-xl border border-rule-2 bg-paper-2 p-4 shadow-2xl sm:inset-x-auto sm:right-6 sm:bottom-40 sm:w-[440px] print:hidden"
     >
       <CompanionDrawerHeader
         heading={p.t.companionChatHeading}
@@ -112,7 +112,7 @@ interface FloatingActionDockProps {
 function FloatingActionDock(p: FloatingActionDockProps): ReactElement {
   const LauncherIcon = p.isOpen ? X : MessageCircle;
   return (
-    <div className="fixed right-4 bottom-4 z-[90] flex flex-col items-end gap-2.5 sm:right-6 sm:bottom-6">
+    <div className="fixed right-4 bottom-4 z-[90] flex flex-col items-end gap-2.5 sm:right-6 sm:bottom-6 print:hidden">
       <FloatingTelegramButton
         input={p.input}
         workspaceKey={p.workspaceKey}

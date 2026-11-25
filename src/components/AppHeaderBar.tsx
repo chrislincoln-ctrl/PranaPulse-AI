@@ -123,7 +123,7 @@ export const AppHeaderBar = memo(function AppHeaderBar(props: AppHeaderBarProps)
           }}
           returnSuffix={props.t.ui.returnToLandingSuffix}
         />
-        <div className="flex shrink-0 items-center gap-1 sm:gap-3">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-3 print:hidden">
           <span className="status-pill hidden text-ink-2 lg:inline-flex">
             <ShieldCheck className="h-4 w-4 text-ok" aria-hidden="true" />
             <span>

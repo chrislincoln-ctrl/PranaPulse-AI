@@ -30,17 +30,21 @@ export const ActiveSectionStrip = memo(function ActiveSectionStrip({
   const categoryLabel = t.cpcbCategories[telemetry.assessment.cpcbCategory];
 
   return (
-    <div className="surface-hairline mb-5 flex flex-wrap items-center justify-between gap-2.5 px-4 py-3 sm:px-5">
+    <div
+      className={`surface-hairline mb-5 flex flex-wrap items-center justify-between gap-2.5 px-4 py-3 sm:px-5 ${activeTab === 'community' ? 'print:hidden' : ''}`}
+    >
       <div className="flex items-center gap-2.5">
         <span aria-hidden="true" className="h-6 w-1 rounded-full bg-accent" />
         <h1 className="text-xl font-bold tracking-tight text-ink sm:text-2xl">
           {getWorkbenchTabLabel(activeTab, t)}
         </h1>
-        <SectionInfoButton
-          tabId={activeTab}
-          sectionLabel={getWorkbenchTabLabel(activeTab, t)}
-          t={t}
-        />
+        <span className="print:hidden">
+          <SectionInfoButton
+            tabId={activeTab}
+            sectionLabel={getWorkbenchTabLabel(activeTab, t)}
+            t={t}
+          />
+        </span>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <span className="status-pill text-ink-2">
@@ -55,7 +59,7 @@ export const ActiveSectionStrip = memo(function ActiveSectionStrip({
         <button
           type="button"
           onClick={onOpenDashboard}
-          className="btn-secondary touch-target inline-flex items-center gap-1.5 px-3 text-xs"
+          className="btn-secondary touch-target inline-flex items-center gap-1.5 px-3 text-xs print:hidden"
         >
           <MapPin className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
           <span>{t.switchCityButton}</span>

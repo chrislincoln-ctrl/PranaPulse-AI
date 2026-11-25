@@ -12,7 +12,7 @@ import type { LocaleDictionary } from '../i18n/translations.js';
 import type { PlanRequestPayload } from '../validators/schemas.js';
 import { RangeField } from './FormFields.js';
 import { RadialGaugeSvg } from './RadialGaugeSvg.js';
-import { RwaBulletinCard } from './RwaBulletinCard.js';
+import { RwaBulletinCard, RwaPrintableNoticeSheet } from './RwaBulletinCard.js';
 
 export interface CommunityAdvisorViewProps {
   readonly input: PlanRequestPayload;
@@ -158,52 +158,70 @@ function RwaMetricsStrip({
   );
 }
 
+function buildPrintSheetProps(
+  p: Pick<CommunityAdvisorViewProps, 'input' | 'telemetry' | 'rwa' | 't'>,
+  bulletinPreview: string,
+) {
+  const { input, telemetry, rwa, t } = p;
+  return {
+    cityLabel: t.cityNames[telemetry.city] ?? telemetry.city,
+    safeAqi: telemetry.stationCrossCheck.effectiveSafetyAqi,
+    categoryLabel: t.cpcbCategories[telemetry.assessment.cpcbCategory],
+    ventAdvice: telemetry.inversion.openWindowsNow ? t.openWindowsYes : t.openWindowsNo,
+    rwa,
+    transitShiftPct: Math.round(input.transitShiftShare * PRECISION_DISPLAY.PERCENT_MULTIPLIER),
+    haltLeafBurning: input.haltLeafBurning,
+    bulletinPreview,
+    t,
+  };
+}
+
 /**
  * Neighborhood RWA collective impact simulator and clipboard/WhatsApp/print bulletin generator.
  */
-export const CommunityAdvisorView = memo(function CommunityAdvisorView({
-  input,
-  telemetry,
-  rwa,
-  onUpdateInput,
-  t,
-}: CommunityAdvisorViewProps): ReactElement {
+export const CommunityAdvisorView = memo(function CommunityAdvisorView(
+  props: CommunityAdvisorViewProps,
+): ReactElement {
+  const { input, telemetry, rwa, onUpdateInput, t } = props;
   const [copied, setCopied] = useState(false);
   const bulletinText = formatBulletinText(input, telemetry, rwa, t);
 
   return (
-    <div className="grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-12">
-      <section
-        aria-labelledby="rwa-heading"
-        className="surface-hairline min-w-0 p-4 sm:p-6 lg:col-span-6"
-      >
-        <div className="flex items-center gap-2.5">
-          <span
-            aria-hidden="true"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cool/40 bg-cool-soft text-cool"
-          >
-            <Building2 className="h-4 w-4" />
-          </span>
-          <h2 id="rwa-heading" className="text-ink">
-            {t.rwaSectionHeading}
-          </h2>
-        </div>
-        <RwaControlsBlock input={input} onUpdateInput={onUpdateInput} t={t} />
-        <RwaMetricsStrip rwa={rwa} transitShiftShare={input.transitShiftShare} t={t} />
-      </section>
-      <RwaBulletinCard
-        bulletinPreview={bulletinText}
-        copied={copied}
-        onCopy={() => {
-          void navigator.clipboard.writeText(bulletinText).then(() => {
-            setCopied(true);
-            setTimeout(() => {
-              setCopied(false);
-            }, UI_TIMINGS.COPY_RESET_MS);
-          });
-        }}
-        t={t}
-      />
-    </div>
+    <>
+      <RwaPrintableNoticeSheet {...buildPrintSheetProps(props, bulletinText)} />
+      <div className="grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-12 print:hidden">
+        <section
+          aria-labelledby="rwa-heading"
+          className="surface-hairline min-w-0 p-4 sm:p-6 lg:col-span-6"
+        >
+          <div className="flex items-center gap-2.5">
+            <span
+              aria-hidden="true"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cool/40 bg-cool-soft text-cool"
+            >
+              <Building2 className="h-4 w-4" />
+            </span>
+            <h2 id="rwa-heading" className="text-ink">
+              {t.rwaSectionHeading}
+            </h2>
+          </div>
+          <RwaControlsBlock input={input} onUpdateInput={onUpdateInput} t={t} />
+          <RwaMetricsStrip rwa={rwa} transitShiftShare={input.transitShiftShare} t={t} />
+        </section>
+        <RwaBulletinCard
+          bulletinPreview={bulletinText}
+          copied={copied}
+          onCopy={() => {
+            void navigator.clipboard.writeText(bulletinText).then(() => {
+              setCopied(true);
+              setTimeout(() => {
+                setCopied(false);
+              }, UI_TIMINGS.COPY_RESET_MS);
+            });
+          }}
+          t={t}
+        />
+      </div>
+    </>
   );
 });

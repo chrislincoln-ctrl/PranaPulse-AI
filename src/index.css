@@ -1040,6 +1040,10 @@
 }
 
 @media print {
+  @page {
+    margin: 12mm;
+  }
+
   :root,
   :root[data-mode='dark'] {
     color-scheme: light !important;
@@ -1093,8 +1097,34 @@
   .hero-masthead::after,
   .hud-pulse-ring,
   .segmented-rail,
-  .section-stepper {
+  .segmented-rail-wrap,
+  .section-stepper,
+  .console-smog-fallback,
+  .console-smog-plume,
+  .console-smog-vignette {
     display: none !important;
+  }
+
+  header {
+    position: static !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    border-bottom: 1.5px solid #cbd5e1 !important;
+  }
+
+  footer {
+    background: #ffffff !important;
+    padding-bottom: 8px !important;
+    backdrop-filter: none !important;
+  }
+
+  .panels,
+  .surface-hairline,
+  .surface-recessed {
+    background: #ffffff !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
   }
 
   .btn-primary {

@@ -141,7 +141,7 @@ function SmogCssFallbackLayer(): ReactElement {
   return (
     <div
       aria-hidden="true"
-      className="console-smog-fallback pointer-events-none fixed inset-0 z-0 overflow-hidden"
+      className="console-smog-fallback pointer-events-none fixed inset-0 z-0 overflow-hidden print:hidden"
     >
       <div className="console-smog-plume console-smog-plume-left" />
       <div className="console-smog-plume console-smog-plume-right" />
@@ -161,7 +161,7 @@ export function AmbientSmogLayers({
   return (
     <div
       aria-hidden="true"
-      className={`pointer-events-none fixed inset-0 ${zClass} overflow-hidden`}
+      className={`pointer-events-none fixed inset-0 ${zClass} overflow-hidden print:hidden`}
     >
       <div className="console-smog-plume console-smog-plume-left" />
       <div className="console-smog-plume console-smog-plume-right" />
