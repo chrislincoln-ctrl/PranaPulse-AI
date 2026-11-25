@@ -161,7 +161,7 @@ describe('Telegram instant feedback UX & persistent quick-reply keyboard', () =>
     });
     const { linkCode } = linkRes.body as { linkCode: string };
 
-    // 1. /start sends remove_keyboard: true (no bottom Reply Keyboard) and edits in-place into member picker
+    // 1. /start sends an editable plain progress bubble (no bottom Reply Keyboard) and edits in-place into member picker
     const startRes = await invokeExpress(app, {
       method: 'POST',
       url: '/api/telegram/webhook',
@@ -173,7 +173,7 @@ describe('Telegram instant feedback UX & persistent quick-reply keyboard', () =>
       true,
     );
     const startProgress = calls.find((c) => c.method === 'sendMessage');
-    expect(startProgress?.body.reply_markup).toEqual({ remove_keyboard: true });
+    expect(startProgress?.body.reply_markup).toBeUndefined();
     expect(
       calls.some((c) =>
         Boolean((c.body.reply_markup as { keyboard?: unknown } | undefined)?.keyboard),
@@ -182,7 +182,7 @@ describe('Telegram instant feedback UX & persistent quick-reply keyboard', () =>
     expect(calls.at(-1)?.method).toBe('editMessageText');
     expect(JSON.stringify(calls.at(-1)?.body.reply_markup)).toContain('member:m3');
 
-    // 2. Inline callback ("cmd:air") triggers toast + typing + instant progress bubble (remove_keyboard) -> edited in-place
+    // 2. Inline callback ("cmd:air") triggers toast + typing + editable progress bubble -> edited in-place
     calls.length = 0;
     const cbRes = await invokeExpress(app, {
       method: 'POST',
@@ -207,7 +207,7 @@ describe('Telegram instant feedback UX & persistent quick-reply keyboard', () =>
 
     const progressSend = calls.find((c) => c.method === 'sendMessage');
     expect(progressSend?.body.text).toContain('You selected: Live Air');
-    expect(progressSend?.body.reply_markup).toEqual({ remove_keyboard: true });
+    expect(progressSend?.body.reply_markup).toBeUndefined();
     expect(calls.filter((c) => c.method === 'sendMessage')).toHaveLength(1);
 
     const editCall = calls.at(-1);
@@ -290,5 +290,98 @@ describe('Telegram instant feedback UX & persistent quick-reply keyboard', () =>
     expect(sendMessages).toHaveLength(2);
     expect(sendMessages[0]?.body.text).toContain('You selected: Live Air');
     expect(sendMessages[1]?.body.text).toContain('Live Air & Dashboard');
+  });
+
+  it('extracts leave/return times and derived outdoor hours in one shot when adding a new family member', async () => {
+    mockTelegramAndTelemetry();
+    const env = loadServerEnv({
+      NODE_ENV: 'test',
+      TELEGRAM_BOT_TOKEN: 'ux-bot-token',
+      TELEGRAM_WEBHOOK_SECRET: 'add-timing-secret',
+    });
+    const app = createApp(env);
+    const headers = { 'x-telegram-bot-api-secret-token': 'add-timing-secret' };
+
+    const linkRes = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/companion/telegram-link',
+      body: {
+        workspaceKey: 'waddtime01',
+        payload: {
+          ...DEFAULT_WORKSPACE_INPUT,
+          city: 'Shimultala, Kolkata',
+          lat: 22.57,
+          lon: 88.36,
+        },
+        activeMemberId: 'm3',
+      },
+    });
+    const { linkCode } = linkRes.body as { linkCode: string };
+    await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers,
+      body: { message: { chat: { id: 4499 }, text: `/start ${linkCode}` } },
+    });
+
+    // Exact multi-sentence prompt from user screenshot (> 150 chars, "leaves home at around 10 am and returns home at 12 pm")
+    const addChris = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers,
+      body: {
+        message: {
+          chat: { id: 4499 },
+          text: "I want to add a new family member called Chris. His vulnerability profile is that he's a college student. He wears an N95 mask. He leaves home at around 10 am and returns home at 12 pm",
+        },
+      },
+    });
+    expect(addChris.status).toBe(200);
+    const chrisReply = (addChris.body as { replyText: string }).replyText;
+    expect(chrisReply).toContain('Added member: Chris');
+    expect(chrisReply).toContain('Leave 10:00');
+    expect(chrisReply).toContain('Return 12:00');
+    expect(chrisReply).toContain('Outdoor 2 hrs/day');
+
+    // Second new member with no am/pm ("leaves home at 8 and returns back at 4" -> 08:00 to 16:00, 8 hrs)
+    const addMaya = await invokeExpress(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers,
+      body: {
+        message: {
+          chat: { id: 4499 },
+          text: "Add a new member named Maya, she's a school student, surgical mask, leaves home at 8 and returns back at 4",
+        },
+      },
+    });
+    expect(addMaya.status).toBe(200);
+    const mayaReply = (addMaya.body as { replyText: string }).replyText;
+    expect(mayaReply).toContain('Added member: Maya');
+    expect(mayaReply).toContain('Leave 08:00');
+    expect(mayaReply).toContain('Return 16:00');
+    expect(mayaReply).toContain('Outdoor 8 hrs/day');
+
+    const syncRes = await invokeExpress(app, {
+      method: 'GET',
+      url: '/api/companion/workspace-sync?workspaceKey=waddtime01',
+    });
+    const members = (syncRes.body as { payload: typeof DEFAULT_WORKSPACE_INPUT }).payload.members;
+    const chris = members.find((m) => m.label === 'Chris');
+    expect(chris).toMatchObject({
+      role: 'commuter',
+      mask: 'n95-ffp2',
+      leaveHomeTime: '10:00',
+      returnHomeTime: '12:00',
+      dailyOutdoorHours: 2,
+    });
+    const maya = members.find((m) => m.label === 'Maya');
+    expect(maya).toMatchObject({
+      role: 'child',
+      mask: 'surgical',
+      leaveHomeTime: '08:00',
+      returnHomeTime: '16:00',
+      dailyOutdoorHours: 8,
+    });
   });
 });

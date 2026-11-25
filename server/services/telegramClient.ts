@@ -155,21 +155,20 @@ export async function sendTelegramMessage(
   );
 }
 
-/** Sends a temporary progress message (clearing any stale bottom Reply Keyboard) and returns its `message_id`. */
+/** Sends an editable plain progress message (no reply markup so `editMessageText` always succeeds) and returns its `message_id`. */
 export async function sendTelegramMessageWithId(
   token: string | undefined,
   chatId: string | number,
   text: string,
-  removeReplyKeyboard = true,
 ): Promise<number | null> {
   if (!token) {
     return null;
   }
-  const payload = buildTextMessagePayload(chatId, text);
-  if (removeReplyKeyboard) {
-    payload.reply_markup = { remove_keyboard: true };
-  }
-  const res = await postTelegramApiJson(token, 'sendMessage', payload);
+  const res = await postTelegramApiJson(
+    token,
+    'sendMessage',
+    buildTextMessagePayload(chatId, text),
+  );
   return res.ok ? res.messageId : null;
 }
 

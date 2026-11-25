@@ -6,6 +6,7 @@ import type { ProfileHabitPatch } from './companionDbMapper.js';
 const NOON_HOUR = 12;
 const HOURS_IN_DAY = 24;
 const MAX_MINUTES = 59;
+const MAX_EXTRACT_INPUT = 600;
 const MAX_EXTRACTED_NOTE = 150;
 const MIN_LOCATION_LEN = 3;
 const MAX_LOCATION_LEN = 48;
@@ -21,10 +22,10 @@ const TIME_RANGE_RE =
   /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*(?:to|-)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i;
 
 const LEAVE_TIME_RE =
-  /\b(?:leave|leaving|depart|departing|head out|heading out|go out|going out|step out|stepping out|start|starting|school|office|walk)(?:\s+(?:the\s+)?(?:home|house|for\s+(?:school|office|work|college)))?\s+(?:at|around|by|from)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i;
+  /\b(?:leav(?:e|es|ing)|depart(?:s|ing)?|head(?:s|ing)?\s+out|go(?:es|ing)?\s+out|step(?:s|ping)?\s+out|start(?:s|ing)?|school|office|walk)(?:\s+(?:the\s+)?(?:home|house|for\s+(?:school|office|work|college|university|campus)))?\s+(?:(?:at|by|from)\s+(?:around|about|approx\.?|roughly)|around|about|approx\.?|roughly|at|by|from)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i;
 
 const RETURN_TIME_RE =
-  /\b(?:return|returning|come back|coming back|get back|getting back|reach|reaching|arrive|arriving|back|finish|finishing|pickup)(?:\s+(?:to\s+)?(?:home|house))?\s+(?:at|around|by|till|until)\s+(?:(?:\d{1,2}(?::\d{2})?\s*(?:am|pm)\s*)*)(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i;
+  /\b(?:return(?:s|ing)?(?:\s+back)?|com(?:e|es|ing)\s+back|get(?:s|ting)?\s+back|reach(?:es|ing)?|arriv(?:e|es|ing)|back|finish(?:es|ing)?|pickup)(?:\s+(?:to\s+)?(?:home|house))?\s+(?:(?:at|by|till|until)\s+(?:around|about|approx\.?|roughly)|around|about|approx\.?|roughly|at|by|till|until)\s+(?:\d{1,2}(?::\d{2})?\s*(?:am|pm)\s*){0,2}(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i;
 
 const HEALTH_CUE_RE =
   /\b(asthma|wheez\w*|inhaler|cough\w*|breathless\w*|copd|bronchitis|allergy|sinus|chest tight\w*)\b/i;
@@ -58,7 +59,8 @@ function parseValidMinute(minRaw: string | undefined): number | null {
   return Number.isFinite(minute) && minute >= 0 && minute <= MAX_MINUTES ? minute : null;
 }
 
-function normalizeClockTime(
+/** Normalizes 12-hour or 24-hour clock components into strict `"HH:MM"` format. */
+export function normalizeClockTime(
   hourRaw: string | undefined,
   minRaw: string | undefined,
   meridiemRaw: string | undefined,
@@ -186,6 +188,26 @@ function parseMatchClock(match: RegExpExecArray | null): string | undefined {
   return match ? normalizeClockTime(match[1], match[2], match[MERIDIEM_GROUP_IDX]) : undefined;
 }
 
+function inferReturnClock(
+  leave: string | undefined,
+  retMatch: RegExpExecArray | null,
+): string | undefined {
+  if (!retMatch) {
+    return undefined;
+  }
+  const explicitMeridiem = retMatch[MERIDIEM_GROUP_IDX];
+  const parsed = normalizeClockTime(retMatch[1], retMatch[2], explicitMeridiem);
+  if (!parsed || explicitMeridiem || !leave) {
+    return parsed;
+  }
+  const leaveHr = Number.parseInt(leave.slice(0, 2), VALIDATION_BOUNDS.DECIMAL_BASE);
+  const retHr = Number.parseInt(parsed.slice(0, 2), VALIDATION_BOUNDS.DECIMAL_BASE);
+  if (retHr > 0 && retHr < NOON_HOUR && retHr < leaveHr) {
+    return `${String(retHr + NOON_HOUR).padStart(2, '0')}${parsed.slice(2)}`;
+  }
+  return parsed;
+}
+
 function extractTimeBounds(message: string): {
   readonly leaveHomeTime?: string;
   readonly returnHomeTime?: string;
@@ -193,7 +215,8 @@ function extractTimeBounds(message: string): {
   const leaveMatch = LEAVE_TIME_RE.exec(message);
   const retMatch = RETURN_TIME_RE.exec(message);
   if (leaveMatch || retMatch) {
-    return packTimeBounds(parseMatchClock(leaveMatch), parseMatchClock(retMatch));
+    const leave = parseMatchClock(leaveMatch);
+    return packTimeBounds(leave, inferReturnClock(leave, retMatch));
   }
   const range = TIME_RANGE_RE.exec(message);
   if (!range) {
@@ -204,23 +227,24 @@ function extractTimeBounds(message: string): {
 }
 
 function buildHabitNote(
-  cleanMsg: string,
+  noteSnippet: string,
   times: { readonly leaveHomeTime?: string; readonly returnHomeTime?: string },
 ): string | undefined {
   const hasCue =
-    HABIT_CUE_RE.test(cleanMsg) || Boolean(times.leaveHomeTime ?? times.returnHomeTime);
-  return hasCue ? cleanMsg : undefined;
+    HABIT_CUE_RE.test(noteSnippet) || Boolean(times.leaveHomeTime ?? times.returnHomeTime);
+  return hasCue ? noteSnippet : undefined;
 }
 
 /** Extracts schedule times, commute modes, masks, health cues, and routine updates from natural text. */
 export function extractHabitUpdates(message: string): ProfileHabitPatch {
-  const cleanMsg = sanitizeUserText(message, MAX_EXTRACTED_NOTE);
-  const lower = cleanMsg.toLowerCase();
-  const times = extractTimeBounds(cleanMsg);
+  const fullClean = sanitizeUserText(message, MAX_EXTRACT_INPUT);
+  const noteSnippet = fullClean.slice(0, MAX_EXTRACTED_NOTE).trim();
+  const lower = fullClean.toLowerCase();
+  const times = extractTimeBounds(fullClean);
   const commuteMode = detectCommuteMode(lower);
   const mask = detectMaskPreference(lower);
-  const healthNotes = HEALTH_CUE_RE.test(cleanMsg) ? cleanMsg : undefined;
-  const dailyHabitsNote = buildHabitNote(cleanMsg, times);
+  const healthNotes = HEALTH_CUE_RE.test(fullClean) ? noteSnippet : undefined;
+  const dailyHabitsNote = buildHabitNote(noteSnippet, times);
 
   return {
     ...times,

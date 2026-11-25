@@ -11,6 +11,7 @@ import type {
 import { sanitizeUserText } from '../../src/utils/inputSanitizer.js';
 import type { PlanRequestPayload, SupportedLanguage } from '../../src/validators/schemas.js';
 import type { ProfileHabitPatch } from './companionDbMapper.js';
+import { normalizeClockTime } from './habitExtractor.js';
 import type { SyncedWorkspaceRecord } from './householdWorkspaceStore.js';
 
 export interface AiParsedSiteControls {
@@ -25,7 +26,8 @@ export interface AiParsedSiteControls {
 const HALF_HOUR_STEP = 2;
 const MAX_LABEL_LEN = 40;
 const MAX_NOTE_LEN = 140;
-const CLOCK_24H_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const MERIDIEM_GROUP_IDX = 3;
+const FLEX_CLOCK_RE = /^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i;
 
 const ROLES = new Set<FamilyRole>(['child', 'senior-respiratory', 'commuter', 'caregiver']);
 const ARCHETYPES = new Set<MemberRoutineArchetype>([
@@ -109,8 +111,8 @@ function pickClockTime(val: unknown): string | undefined {
   if (typeof val !== 'string') {
     return undefined;
   }
-  const clean = val.trim();
-  return CLOCK_24H_RE.test(clean) ? clean : undefined;
+  const m = FLEX_CLOCK_RE.exec(val.trim());
+  return m ? normalizeClockTime(m[1], m[2], m[MERIDIEM_GROUP_IDX]) : undefined;
 }
 
 function pickTransitShare(val: unknown): number | undefined {
