@@ -1,6 +1,20 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
+async function waitForThemeTransitions(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          resolve();
+        });
+      });
+    });
+    const transitions = document.getAnimations().filter((anim) => anim instanceof CSSTransition);
+    await Promise.all(transitions.map((anim) => anim.finished.catch(() => undefined)));
+  });
+}
+
 async function enterWorkbenchAsGuest(page: Page): Promise<void> {
   const launchBtn = page.getByRole('button', { name: /Launch Live Console/i });
   await expect(launchBtn).toBeVisible();
@@ -53,6 +67,7 @@ test.describe('PranaPulse AI live E2E, WCAG 2.2 AA & Hallmark viewport verificat
 
     await page.getByRole('button', { name: /Light mode/i }).click();
     await expect(page.locator('html')).toHaveAttribute('data-mode', 'light');
+    await waitForThemeTransitions(page);
     const lightAxe = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
       .analyze();
@@ -60,6 +75,7 @@ test.describe('PranaPulse AI live E2E, WCAG 2.2 AA & Hallmark viewport verificat
 
     await page.getByRole('button', { name: /Dark mode/i }).click();
     await expect(page.locator('html')).toHaveAttribute('data-mode', 'dark');
+    await waitForThemeTransitions(page);
 
     await page.getByRole('tab', { name: /Indoor & CADR/i }).click();
     await expect(page.getByText(/Corsi-Rosenthal DIY box specs/i)).toBeVisible();
